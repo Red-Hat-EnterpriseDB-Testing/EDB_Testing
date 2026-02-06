@@ -2,10 +2,12 @@
 Testing and Validation for EnterpriseDB with AAP
 
 ## Overview
-This repository contains testing and validation resources for EnterpriseDB Postgres for Kubernetes operator running on a MicroShift cluster.
+This repository contains testing and validation resources for EnterpriseDB Postgres for Kubernetes operator running on OpenShift/MicroShift clusters, with Ansible Automation Platform providing centralized management across multiple datacenters.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete multi-datacenter architecture diagram and detailed component descriptions.
 
 ## Installation Status
-✅ **EnterpriseDB Postgres for Kubernetes Operator v1.28.0** - Installed and Running
+✅ **EnterpriseDB Postgres for OpenShift Operator v1.28.0** - Installed and Running
 
 See [INSTALL_SUMMARY.md](INSTALL_SUMMARY.md) for detailed installation information.
 
@@ -49,12 +51,24 @@ The operator runs with the default `restricted-v2` Security Context Constraint (
 See [SECURE_INSTALL.md](SECURE_INSTALL.md) for detailed security configuration and [security-comparison.md](security-comparison.md) for the security improvements over using custom SCCs.
 
 ## Files
+
+### Documentation
+- `ARCHITECTURE.md` - Multi-datacenter architecture diagram and design
 - `INSTALL_SUMMARY.md` - Complete installation documentation
 - `SECURE_INSTALL.md` - Security configuration and best practices
 - `security-comparison.md` - Security comparison between approaches
 - `GETTING_STARTED.md` - Step-by-step guide for creating PostgreSQL clusters
+
+### Configuration Files
 - `example-postgres-cluster.yaml` - Sample PostgreSQL cluster configuration
-- `README.md` - This file
+
+### Ansible Automation
+- `ansible-examples/` - Directory containing AAP playbooks
+  - `inventory.yml` - Multi-datacenter inventory
+  - `deploy-postgres-cluster.yml` - Deploy PostgreSQL clusters
+  - `execute-sql-query.yml` - Execute SQL across datacenters
+  - `check-cluster-health.yml` - Health monitoring playbook
+  - `README.md` - Ansible examples documentation
 
 ## Architecture Overview
 
@@ -62,7 +76,7 @@ The following diagram illustrates the high-availability PostgreSQL setup with ED
 
 ```mermaid
 graph TD
-Client[Application / Internet] -->|TCP 5444| NLB[AWS Network Load Balancer]
+Client[Application / Internet] -->|TCP 5444| NLB[Network Load Balancer]
 
     subgraph " "
         direction TB
