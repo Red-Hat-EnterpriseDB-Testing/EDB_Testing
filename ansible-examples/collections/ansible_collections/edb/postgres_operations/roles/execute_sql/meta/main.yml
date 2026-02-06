@@ -1,0 +1,39 @@
+---
+galaxy_info:
+  role_name: execute_sql
+  author: EDB Engineering Team
+  description: Execute SQL queries on EnterpriseDB Postgres clusters
+  company: EnterpriseDB
+  
+  license: Apache-2.0
+  
+  min_ansible_version: "2.14"
+  
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Fedora
+      versions:
+        - 38
+        - 39
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+
+  galaxy_tags:
+    - postgresql
+    - database
+    - sql
+    - query
+    - kubernetes
+    - openshift
+    - edb
+
+dependencies: []
+
+collections:
+  - kubernetes.core
+  - community.postgresql

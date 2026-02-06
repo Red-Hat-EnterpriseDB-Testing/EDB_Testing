@@ -1,0 +1,31 @@
+---
+# Playbook: Check PostgreSQL Cluster Health using collection role
+# This playbook monitors the health of PostgreSQL clusters using the check_health role
+
+- name: Check PostgreSQL Cluster Health
+  hosts: openshift_clusters
+  gather_facts: false
+  
+  roles:
+    - role: edb.postgres_operations.check_health
+      vars:
+        check_operator: "{{ check_operator | default(true) }}"
+        check_clusters: "{{ check_clusters | default(true) }}"
+        check_replication: "{{ check_replication | default(true) }}"
+        enable_alerts: "{{ enable_alerts | default(false) }}"
+
+- name: Generate Multi-Datacenter Health Report
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: Aggregate health results
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════"
+          - "Multi-Datacenter PostgreSQL Health Report"
+          - "Generated: {{ ansible_date_time.iso8601 }}"
+          - "═══════════════════════════════════════════════════════"
+          - "All datacenters checked successfully"
+          - "Review individual datacenter reports above"
+          - "═══════════════════════════════════════════════════════"

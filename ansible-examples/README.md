@@ -1,13 +1,83 @@
 # Ansible Automation Examples for EDB Postgres
 
-This directory contains example Ansible playbooks for managing EnterpriseDB Postgres for Kubernetes clusters across multiple OpenShift datacenters using Ansible Automation Platform (AAP).
+This directory contains Ansible automation for managing EnterpriseDB Postgres for Kubernetes clusters across multiple OpenShift datacenters using Ansible Automation Platform (AAP).
 
-## Files
+## 🎯 Quick Start - Use the Collection!
+
+**We now provide a complete Ansible collection with roles and playbooks!**
+
+👉 **Start here**: [collections/README.md](collections/README.md)
+
+The `edb.postgres_operations` collection provides:
+- ✅ Three comprehensive roles (deploy_cluster, execute_sql, check_health)
+- ✅ Reusable, modular design with defaults
+- ✅ Ready-to-use playbooks
+- ✅ Complete documentation and examples
+- ✅ AAP integration support
+
+### Quick Collection Setup
+
+```bash
+cd collections
+ansible-galaxy collection install ./ansible_collections/edb/postgres_operations
+ansible-playbook ansible_collections/edb/postgres_operations/playbooks/check-health.yml
+```
+
+See [collections/README.md](collections/README.md) for complete documentation.
+
+---
+
+## 📁 Directory Structure
+
+```
+ansible-examples/
+├── collections/                           # ⭐ NEW: Ansible collection (RECOMMENDED)
+│   ├── README.md                         # Collection quick start guide
+│   ├── ansible.cfg                       # Collection configuration
+│   ├── inventory.yml                     # Multi-datacenter inventory
+│   ├── requirements.yml                  # Required collections
+│   ├── examples/                         # Example playbooks
+│   │   ├── deploy-production-cluster.yml
+│   │   ├── run-database-migration.yml
+│   │   ├── scheduled-health-monitoring.yml
+│   │   └── vars/
+│   │       ├── production.yml
+│   │       └── development.yml
+│   └── ansible_collections/
+│       └── edb/
+│           └── postgres_operations/      # Main collection
+│               ├── galaxy.yml
+│               ├── README.md
+│               ├── CHANGELOG.md
+│               ├── roles/
+│               │   ├── deploy_cluster/
+│               │   ├── execute_sql/
+│               │   └── check_health/
+│               └── playbooks/
+│                   ├── deploy-cluster.yml
+│                   ├── execute-sql.yml
+│                   ├── check-health.yml
+│                   └── site.yml
+│
+├── README.md                             # This file
+├── inventory.yml                         # Legacy inventory
+├── deploy-postgres-cluster.yml           # Legacy playbook
+├── execute-sql-query.yml                 # Legacy playbook
+└── check-cluster-health.yml              # Legacy playbook
+```
+
+---
+
+## Legacy Playbooks
+
+The following standalone playbooks are kept for reference but are superseded by the collection:
 
 - **`inventory.yml`** - Ansible inventory defining OpenShift clusters and PostgreSQL databases
-- **`deploy-postgres-cluster.yml`** - Deploy a new PostgreSQL cluster
-- **`execute-sql-query.yml`** - Execute SQL queries across multiple databases
-- **`check-cluster-health.yml`** - Monitor cluster health across datacenters
+- **`deploy-postgres-cluster.yml`** - Deploy a new PostgreSQL cluster (legacy)
+- **`execute-sql-query.yml`** - Execute SQL queries across multiple databases (legacy)
+- **`check-cluster-health.yml`** - Monitor cluster health across datacenters (legacy)
+
+**Note**: These playbooks work but lack the modularity and reusability of the collection. Consider migrating to the collection for new projects.
 
 ## Prerequisites
 
@@ -39,9 +109,52 @@ Store sensitive credentials in AAP credential store or Ansible Vault:
 - PostgreSQL superuser passwords
 - S3 access keys (for backups)
 
-## Usage Examples
+## Collection Usage (Recommended)
 
 ### Deploy PostgreSQL Cluster
+
+```bash
+cd collections
+ansible-playbook ansible_collections/edb/postgres_operations/playbooks/deploy-cluster.yml \
+  -e "cluster_name=prod-db" \
+  -e "namespace=production" \
+  -e "instances=5"
+```
+
+### Execute SQL Query
+
+```bash
+cd collections
+ansible-playbook ansible_collections/edb/postgres_operations/playbooks/execute-sql.yml \
+  -e "sql_query='SELECT version();'"
+```
+
+### Check Cluster Health
+
+```bash
+cd collections
+ansible-playbook ansible_collections/edb/postgres_operations/playbooks/check-health.yml
+```
+
+### Using Roles in Your Playbooks
+
+```yaml
+---
+- name: Custom PostgreSQL Operations
+  hosts: openshift_clusters
+  roles:
+    - role: edb.postgres_operations.deploy_cluster
+      vars:
+        cluster_name: my-cluster
+        namespace: production
+        instances: 3
+```
+
+---
+
+## Legacy Usage Examples
+
+### Deploy PostgreSQL Cluster (Legacy)
 
 Deploy a 3-instance cluster in production namespace:
 
@@ -55,16 +168,7 @@ ansible-playbook deploy-postgres-cluster.yml \
   -e "storage_size=100Gi"
 ```
 
-Deploy to both datacenters:
-
-```bash
-ansible-playbook deploy-postgres-cluster.yml \
-  -i inventory.yml \
-  -e "cluster_name=prod-db" \
-  -e "namespace=production"
-```
-
-### Execute SQL Query
+### Execute SQL Query (Legacy)
 
 Run query on all databases:
 
@@ -74,38 +178,13 @@ ansible-playbook execute-sql-query.yml \
   -e "sql_query='SELECT COUNT(*) FROM users;'"
 ```
 
-Run query only on production databases:
+### Check Cluster Health (Legacy)
 
-```bash
-ansible-playbook execute-sql-query.yml \
-  -i inventory.yml \
-  -l production_databases \
-  -e "sql_query='SELECT version();'"
-```
-
-Execute SQL script from file:
-
-```bash
-ansible-playbook execute-sql-query.yml \
-  -i inventory.yml \
-  -e "sql_file=./migrations/001_create_tables.sql"
-```
-
-### Check Cluster Health
-
-Check health of all clusters in both datacenters:
+Check health of all clusters:
 
 ```bash
 ansible-playbook check-cluster-health.yml \
   -i inventory.yml
-```
-
-Check specific datacenter:
-
-```bash
-ansible-playbook check-cluster-health.yml \
-  -i inventory.yml \
-  -l datacenter1
 ```
 
 ## Inventory Structure
@@ -377,8 +456,49 @@ When creating new playbooks:
 5. Use tags for selective execution
 6. Include rollback procedures
 
+## Migration Guide
+
+### From Legacy Playbooks to Collection
+
+The collection offers significant advantages:
+
+| Feature | Legacy Playbooks | Collection |
+|---------|------------------|------------|
+| Reusability | Copy/paste playbooks | Import roles |
+| Defaults | Hardcoded in playbooks | Centralized in roles |
+| Documentation | Single README | Per-role READMEs |
+| Modularity | Monolithic playbooks | Composable roles |
+| Distribution | Manual copy | Galaxy install |
+| Updates | Manual sync | `ansible-galaxy collection install --upgrade` |
+
+### Quick Migration Example
+
+**Before (Legacy):**
+```bash
+ansible-playbook deploy-postgres-cluster.yml -i inventory.yml -e "cluster_name=prod"
+```
+
+**After (Collection):**
+```yaml
+# your-playbook.yml
+- hosts: openshift_clusters
+  roles:
+    - role: edb.postgres_operations.deploy_cluster
+      vars:
+        cluster_name: prod
+```
+
+```bash
+ansible-playbook your-playbook.yml
+```
+
 ## Resources
 
+- **Collection Documentation**: [collections/README.md](collections/README.md)
+- **Collection Roles**: 
+  - [deploy_cluster](collections/ansible_collections/edb/postgres_operations/roles/deploy_cluster/README.md)
+  - [execute_sql](collections/ansible_collections/edb/postgres_operations/roles/execute_sql/README.md)
+  - [check_health](collections/ansible_collections/edb/postgres_operations/roles/check_health/README.md)
 - [Ansible Automation Platform Documentation](https://docs.ansible.com/automation.html)
 - [Kubernetes Collection](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/)
 - [EDB Postgres for Kubernetes](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)

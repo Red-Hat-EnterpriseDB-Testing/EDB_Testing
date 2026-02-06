@@ -1,0 +1,162 @@
+---
+# Main tasks for execute_sql role
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - cluster_name is defined
+      - namespace is defined
+      - kubeconfig_path is defined
+      - pg_host is defined
+      - pg_database is defined
+    fail_msg: "Required variables are missing. Check cluster_name, namespace, kubeconfig_path, pg_host, and pg_database."
+
+- name: Filter hosts based on run_on parameter
+  ansible.builtin.set_fact:
+    should_run: true
+  when: >
+    (run_on == 'all') or
+    (run_on == 'primary' and is_primary | default(false)) or
+    (run_on == 'production' and 'production_databases' in group_names) or
+    (run_on == 'staging' and 'staging_databases' in group_names) or
+    (run_on == 'development' and 'development_databases' in group_names)
+
+- name: Skip if host doesn't match filter
+  ansible.builtin.meta: end_host
+  when: should_run is not defined
+
+- name: Read SQL from file if provided
+  ansible.builtin.set_fact:
+    sql_to_execute: "{{ lookup('file', sql_file) }}"
+  when: sql_file is defined and sql_file != None and sql_file != ""
+
+- name: Use provided SQL query
+  ansible.builtin.set_fact:
+    sql_to_execute: "{{ sql_query }}"
+  when: sql_file is not defined or sql_file == None or sql_file == ""
+
+- name: Build query list
+  ansible.builtin.set_fact:
+    query_list: "{{ sql_queries if sql_queries | length > 0 else [sql_to_execute] }}"
+
+- name: Get database password from secret
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Secret
+    namespace: "{{ namespace }}"
+    name: "{{ cluster_name }}-superuser"
+  register: db_secret
+  delegate_to: localhost
+  no_log: "{{ not log_sensitive }}"
+
+- name: Set database password
+  ansible.builtin.set_fact:
+    db_password: "{{ db_secret.resources[0].data.password | b64decode }}"
+  no_log: "{{ not log_sensitive }}"
+
+- name: Record start time
+  ansible.builtin.set_fact:
+    sql_execution_start: "{{ ansible_date_time.epoch }}"
+  when: measure_execution_time | bool
+
+- name: Execute SQL queries
+  block:
+    - name: Execute SQL query
+      community.postgresql.postgresql_query:
+        login_host: "{{ pg_host }}"
+        login_port: "{{ pg_port | default(5432) }}"
+        login_user: "{{ pg_user | default('postgres') }}"
+        login_password: "{{ db_password }}"
+        db: "{{ pg_database }}"
+        query: "{{ item }}"
+        autocommit: "{{ autocommit }}"
+        connect_timeout: "{{ pg_connect_timeout }}"
+      register: query_results
+      loop: "{{ query_list }}"
+      delegate_to: localhost
+      when: not transaction_mode
+      no_log: "{{ not log_sensitive }}"
+
+    - name: Execute SQL queries in transaction
+      community.postgresql.postgresql_query:
+        login_host: "{{ pg_host }}"
+        login_port: "{{ pg_port | default(5432) }}"
+        login_user: "{{ pg_user | default('postgres') }}"
+        login_password: "{{ db_password }}"
+        db: "{{ pg_database }}"
+        query: "{{ query_list | join('; ') }}"
+        autocommit: false
+        connect_timeout: "{{ pg_connect_timeout }}"
+      register: transaction_results
+      delegate_to: localhost
+      when: transaction_mode
+      no_log: "{{ not log_sensitive }}"
+
+  rescue:
+    - name: Handle query execution failure
+      ansible.builtin.debug:
+        msg:
+          - "Query execution failed on {{ cluster_name }}.{{ namespace }}@{{ datacenter }}"
+          - "Error: {{ query_results.msg | default('Unknown error') }}"
+      when: fail_on_error | bool
+
+    - name: Fail if error handling is strict
+      ansible.builtin.fail:
+        msg: "SQL query execution failed. Enable continue_on_error to proceed."
+      when: fail_on_error | bool and not continue_on_error | bool
+
+- name: Record end time
+  ansible.builtin.set_fact:
+    sql_execution_end: "{{ ansible_date_time.epoch }}"
+  when: measure_execution_time | bool
+
+- name: Calculate execution time
+  ansible.builtin.set_fact:
+    sql_execution_time: "{{ sql_execution_end | int - sql_execution_start | int }}"
+  when: measure_execution_time | bool
+
+- name: Process query results
+  ansible.builtin.set_fact:
+    processed_results:
+      database: "{{ pg_host }} ({{ datacenter }})"
+      cluster: "{{ cluster_name }}"
+      namespace: "{{ namespace }}"
+      queries_executed: "{{ query_list | length }}"
+      execution_time: "{{ sql_execution_time | default('N/A') }}s"
+      results: "{{ query_results.results | default([]) if not transaction_mode else [transaction_results] }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+
+- name: Display query results
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════"
+      - "SQL Query Execution Results"
+      - "═══════════════════════════════════════════════════════"
+      - "Database: {{ processed_results.database }}"
+      - "Cluster: {{ processed_results.cluster }}"
+      - "Namespace: {{ processed_results.namespace }}"
+      - "Datacenter: {{ datacenter }}"
+      - "Queries Executed: {{ processed_results.queries_executed }}"
+      - "Execution Time: {{ processed_results.execution_time }}"
+      - "───────────────────────────────────────────────────────"
+      - "Results: {{ processed_results.results[:display_row_limit] }}"
+      - "═══════════════════════════════════════════════════════"
+  when: display_results | bool
+
+- name: Save results to file
+  ansible.builtin.copy:
+    content: "{{ processed_results | to_nice_json if results_format == 'json' else processed_results | to_nice_yaml }}"
+    dest: "{{ results_output_dir }}/{{ cluster_name }}-{{ datacenter }}-{{ ansible_date_time.epoch }}.{{ results_format }}"
+  delegate_to: localhost
+  when: save_results | bool
+
+- name: Log query execution to AAP
+  ansible.builtin.debug:
+    msg:
+      - "Query execution logged:"
+      - "  Timestamp: {{ ansible_date_time.iso8601 }}"
+      - "  Target: {{ cluster_name }}.{{ namespace }}@{{ datacenter }}"
+      - "  Queries: {{ processed_results.queries_executed }}"
+      - "  Execution Time: {{ processed_results.execution_time }}"
+      - "  Status: {{ 'Success' if query_results is success or transaction_results is success else 'Failed' }}"
+  when: log_to_aap | bool
