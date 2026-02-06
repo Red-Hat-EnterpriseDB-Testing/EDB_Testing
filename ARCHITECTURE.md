@@ -8,184 +8,65 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 
 ```mermaid
 graph TB
-    GLB["Global Load Balancer<br/>aap.example.com<br/>Active-Passive HA<br/>Priority: DC1 (Active)"]
-
-    subgraph DC1["Datacenter 1 - Active Primary"]
-        subgraph OCP1["OpenShift Cluster 1<br/>ocp1.example.com"]
-            subgraph NS1_AAP["Namespace: ansible-automation-platform"]
-                AAP1_Controller["AAP Controller (DC1)<br/>Replicas: 3<br/>Route: aap-dc1.apps.ocp1.example.com"]
-                AAP1_Hub["Automation Hub (DC1)<br/>Replicas: 2"]
-                AAP1_DB["AAP PostgreSQL DB (DC1)<br/>Primary + 2 Replicas"]
-                AAP1_Controller --- AAP1_Hub
-                AAP1_Controller --- AAP1_DB
-            end
-            
-            subgraph NS1_OPS["Namespace: postgresql-operator-system"]
-                EDB_OP1["EDB Postgres Operator v1.28.0<br/>SCC: restricted-v2<br/>UID: 1000190000"]
-            end
-            
-            subgraph NS1_APP1["Namespace: production"]
-                PG_CLUSTER1["PostgreSQL Cluster: prod-db<br/>Instances: 3 (1 Primary + 2 Replicas)"]
-                PG_PRIMARY1["pod: prod-db-1<br/>Role: Primary<br/>PostgreSQL 16.8"]
-                PG_REPLICA1A["pod: prod-db-2<br/>Role: Replica"]
-                PG_REPLICA1B["pod: prod-db-3<br/>Role: Replica"]
-                PG_SVC1_RW["Service: prod-db-rw<br/>(Read-Write)"]
-                PG_SVC1_RO["Service: prod-db-ro<br/>(Read-Only)"]
-                
-                PG_CLUSTER1 --> PG_PRIMARY1
-                PG_CLUSTER1 --> PG_REPLICA1A
-                PG_CLUSTER1 --> PG_REPLICA1B
-                PG_SVC1_RW --> PG_PRIMARY1
-                PG_SVC1_RO --> PG_REPLICA1A
-                PG_SVC1_RO --> PG_REPLICA1B
-            end
-            
-            subgraph NS1_APP2["Namespace: staging"]
-                PG_CLUSTER2["PostgreSQL Cluster: stage-db<br/>Instances: 2"]
-                PG_STAGE1["pod: stage-db-1<br/>Role: Primary"]
-                PG_STAGE2["pod: stage-db-2<br/>Role: Replica"]
-                PG_CLUSTER2 --> PG_STAGE1
-                PG_CLUSTER2 --> PG_STAGE2
-            end
-            
-            EDB_OP1 -.manages.-> PG_CLUSTER1
-            EDB_OP1 -.manages.-> PG_CLUSTER2
-            EDB_OP1 -.manages.-> AAP1_DB
-        end
+    Users["End Users<br/>aap.example.com"]
+    
+    subgraph DC1["Datacenter 1 (Primary)"]
+        AAP1["AAP Controller<br/>3 replicas"]
+        OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
+        EDB_OP1["EDB Postgres Operator"]
+        PG_PROD1["Production DB<br/>3 instances"]
+        PG_STAGE1["Staging DB<br/>2 instances"]
+        S3_DC1["S3 Storage<br/>Backups"]
+        MON1["Prometheus"]
         
-        OCP1_API["OpenShift API<br/>api.ocp1.example.com:6443"]
-        OCP1_ROUTE["OpenShift Router<br/>*.apps.ocp1.example.com"]
-        
-        OCP1_API -.control plane.-> NS1_OPS
-        OCP1_ROUTE -.ingress.-> NS1_APP1
-        OCP1_ROUTE -.ingress.-> NS1_AAP
+        AAP1 -.manages.-> OCP1
+        OCP1 --> EDB_OP1
+        EDB_OP1 -.manages.-> PG_PROD1
+        EDB_OP1 -.manages.-> PG_STAGE1
+        PG_PROD1 -.backup.-> S3_DC1
+        PG_PROD1 -.metrics.-> MON1
+        AAP1 -.metrics.-> MON1
     end
-
-    subgraph DC2["Datacenter 2 - Passive Standby"]
-        subgraph OCP2["OpenShift Cluster 2<br/>ocp2.example.com"]
-            subgraph NS2_AAP["Namespace: ansible-automation-platform"]
-                AAP2_Controller["AAP Controller (DC2)<br/>Replicas: 3<br/>Route: aap-dc2.apps.ocp2.example.com"]
-                AAP2_Hub["Automation Hub (DC2)<br/>Replicas: 2"]
-                AAP2_DB["AAP PostgreSQL DB (DC2)<br/>Primary + 2 Replicas"]
-                AAP2_Controller --- AAP2_Hub
-                AAP2_Controller --- AAP2_DB
-            end
-            
-            subgraph NS2_OPS["Namespace: postgresql-operator-system"]
-                EDB_OP2["EDB Postgres Operator v1.28.0<br/>SCC: restricted-v2<br/>UID: 1000290000"]
-            end
-            
-            subgraph NS2_APP1["Namespace: production"]
-                PG_CLUSTER3["PostgreSQL Cluster: prod-db<br/>Instances: 3 (1 Primary + 2 Replicas)"]
-                PG_PRIMARY2["pod: prod-db-1<br/>Role: Primary<br/>PostgreSQL 16.8"]
-                PG_REPLICA2A["pod: prod-db-2<br/>Role: Replica"]
-                PG_REPLICA2B["pod: prod-db-3<br/>Role: Replica"]
-                PG_SVC2_RW["Service: prod-db-rw<br/>(Read-Write)"]
-                PG_SVC2_RO["Service: prod-db-ro<br/>(Read-Only)"]
-                
-                PG_CLUSTER3 --> PG_PRIMARY2
-                PG_CLUSTER3 --> PG_REPLICA2A
-                PG_CLUSTER3 --> PG_REPLICA2B
-                PG_SVC2_RW --> PG_PRIMARY2
-                PG_SVC2_RO --> PG_REPLICA2A
-                PG_SVC2_RO --> PG_REPLICA2B
-            end
-            
-            subgraph NS2_APP2["Namespace: development"]
-                PG_CLUSTER4["PostgreSQL Cluster: dev-db<br/>Instances: 1"]
-                PG_DEV1["pod: dev-db-1<br/>Role: Primary"]
-                PG_CLUSTER4 --> PG_DEV1
-            end
-            
-            EDB_OP2 -.manages.-> PG_CLUSTER3
-            EDB_OP2 -.manages.-> PG_CLUSTER4
-            EDB_OP2 -.manages.-> AAP2_DB
-        end
+    
+    subgraph DC2["Datacenter 2 (Standby)"]
+        AAP2["AAP Controller<br/>3 replicas"]
+        OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
+        EDB_OP2["EDB Postgres Operator"]
+        PG_PROD2["Production DB<br/>3 instances"]
+        PG_DEV2["Development DB<br/>1 instance"]
+        S3_DC2["S3 Storage<br/>Backups"]
+        MON2["Prometheus"]
         
-        OCP2_API["OpenShift API<br/>api.ocp2.example.com:6443"]
-        OCP2_ROUTE["OpenShift Router<br/>*.apps.ocp2.example.com"]
-        
-        OCP2_API -.control plane.-> NS2_OPS
-        OCP2_ROUTE -.ingress.-> NS2_APP1
-        OCP2_ROUTE -.ingress.-> NS2_AAP
+        AAP2 -.manages.-> OCP2
+        OCP2 --> EDB_OP2
+        EDB_OP2 -.manages.-> PG_PROD2
+        EDB_OP2 -.manages.-> PG_DEV2
+        PG_PROD2 -.backup.-> S3_DC2
+        PG_PROD2 -.metrics.-> MON2
+        AAP2 -.metrics.-> MON2
     end
-
-    %% Global Load Balancer Connections (Active-Passive)
-    GLB ==HTTPS Traffic (Active)==> AAP1_Controller
-    GLB -.Failover Only (Passive).-> AAP2_Controller
-
-    %% AAP to OpenShift API Connections
-    AAP1_Controller -.kubectl/oc.-> OCP1_API
-    AAP1_Controller -.kubectl/oc.-> OCP2_API
-    AAP2_Controller -.kubectl/oc.-> OCP1_API
-    AAP2_Controller -.kubectl/oc.-> OCP2_API
     
-    %% AAP to PostgreSQL Connections
-    AAP1_Controller ==PostgreSQL Connection==> PG_SVC1_RW
-    AAP1_Controller ==PostgreSQL Connection==> PG_SVC1_RO
-    AAP1_Controller ==PostgreSQL Connection==> PG_SVC2_RW
-    AAP1_Controller ==PostgreSQL Connection==> PG_SVC2_RO
+    %% User traffic
+    Users ==HTTPS==> AAP1
+    Users -.Failover.-> AAP2
     
-    AAP2_Controller ==PostgreSQL Connection==> PG_SVC1_RW
-    AAP2_Controller ==PostgreSQL Connection==> PG_SVC1_RO
-    AAP2_Controller ==PostgreSQL Connection==> PG_SVC2_RW
-    AAP2_Controller ==PostgreSQL Connection==> PG_SVC2_RO
+    %% Cross-datacenter connections
+    AAP1 <-.Manages Both.-> OCP2
+    AAP2 <-.Manages Both.-> OCP1
+    AAP1 -.Database Replication.-> AAP2
+    PG_PROD1 <-.Logical Replication.-> PG_PROD2
     
-    %% AAP Playbook Management
-    AAP1_Controller -.Ansible Playbooks.-> PG_CLUSTER1
-    AAP1_Controller -.Ansible Playbooks.-> PG_CLUSTER2
-    AAP1_Controller -.Ansible Playbooks.-> PG_CLUSTER3
-    AAP1_Controller -.Ansible Playbooks.-> PG_CLUSTER4
-    
-    AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER1
-    AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER2
-    AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER3
-    AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER4
-
-    %% AAP Database Replication (Active to Passive)
-    AAP1_DB -.Database Replication<br/>(Active → Passive).-> AAP2_DB
-
-    %% PostgreSQL Replication between datacenters
-    PG_PRIMARY1 <-.Logical Replication<br/>(Publications/Subscriptions).-> PG_PRIMARY2
-
-    %% Backup Storage
-    S3_DC1["S3 Storage<br/>Datacenter 1<br/>Backups & WAL Archive"]
-    S3_DC2["S3 Storage<br/>Datacenter 2<br/>Backups & WAL Archive"]
-    
-    PG_CLUSTER1 -.Backup.-> S3_DC1
-    PG_CLUSTER3 -.Backup.-> S3_DC2
-    AAP1_DB -.Backup.-> S3_DC1
-    AAP2_DB -.Backup.-> S3_DC2
-
-    %% Monitoring
-    PROM_DC1["Prometheus<br/>Datacenter 1"]
-    PROM_DC2["Prometheus<br/>Datacenter 2"]
-    
-    PG_CLUSTER1 -.metrics.-> PROM_DC1
-    PG_CLUSTER2 -.metrics.-> PROM_DC1
-    AAP1_Controller -.metrics.-> PROM_DC1
-    AAP1_DB -.metrics.-> PROM_DC1
-    
-    PG_CLUSTER3 -.metrics.-> PROM_DC2
-    PG_CLUSTER4 -.metrics.-> PROM_DC2
-    AAP2_Controller -.metrics.-> PROM_DC2
-    AAP2_DB -.metrics.-> PROM_DC2
-
-    classDef lbStyle fill:#ff0066,stroke:#333,stroke-width:3px,color:#fff
     classDef aapStyle fill:#ee0000,stroke:#333,stroke-width:2px,color:#fff
-    classDef operatorStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
-    classDef primaryStyle fill:#00aa00,stroke:#333,stroke-width:2px,color:#fff
-    classDef replicaStyle fill:#66cc66,stroke:#333,stroke-width:1px,color:#000
+    classDef ocpStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
+    classDef dbStyle fill:#00aa00,stroke:#333,stroke-width:2px,color:#fff
     classDef storageStyle fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     classDef monitorStyle fill:#9966ff,stroke:#333,stroke-width:2px,color:#fff
     
-    class GLB lbStyle
-    class AAP1_Controller,AAP1_Hub,AAP1_DB,AAP2_Controller,AAP2_Hub,AAP2_DB aapStyle
-    class EDB_OP1,EDB_OP2 operatorStyle
-    class PG_PRIMARY1,PG_PRIMARY2,PG_STAGE1,PG_DEV1 primaryStyle
-    class PG_REPLICA1A,PG_REPLICA1B,PG_REPLICA2A,PG_REPLICA2B,PG_STAGE2 replicaStyle
+    class AAP1,AAP2 aapStyle
+    class OCP1,OCP2,EDB_OP1,EDB_OP2 ocpStyle
+    class PG_PROD1,PG_STAGE1,PG_PROD2,PG_DEV2 dbStyle
     class S3_DC1,S3_DC2 storageStyle
-    class PROM_DC1,PROM_DC2 monitorStyle
+    class MON1,MON2 monitorStyle
 ```
 
 ## Traffic Flow Overview
