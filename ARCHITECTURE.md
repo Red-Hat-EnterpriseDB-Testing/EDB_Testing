@@ -8,9 +8,9 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 
 ```mermaid
 graph TB
-    GLB["Global Load Balancer<br/>aap.example.com<br/>Active-Passive HA"]
+    GLB["Global Load Balancer<br/>aap.example.com<br/>Active-Passive HA<br/>Priority: DC1 (Active)"]
 
-    subgraph DC1["Datacenter 1 - Primary"]
+    subgraph DC1["Datacenter 1 - Active Primary"]
         subgraph OCP1["OpenShift Cluster 1<br/>ocp1.example.com"]
             subgraph NS1_AAP["Namespace: ansible-automation-platform"]
                 AAP1_Controller["AAP Controller (DC1)<br/>Replicas: 3<br/>Route: aap-dc1.apps.ocp1.example.com"]
@@ -61,7 +61,7 @@ graph TB
         OCP1_ROUTE -.ingress.-> NS1_AAP
     end
 
-    subgraph DC2["Datacenter 2 - DR Site"]
+    subgraph DC2["Datacenter 2 - Passive Standby"]
         subgraph OCP2["OpenShift Cluster 2<br/>ocp2.example.com"]
             subgraph NS2_AAP["Namespace: ansible-automation-platform"]
                 AAP2_Controller["AAP Controller (DC2)<br/>Replicas: 3<br/>Route: aap-dc2.apps.ocp2.example.com"]
@@ -110,9 +110,9 @@ graph TB
         OCP2_ROUTE -.ingress.-> NS2_AAP
     end
 
-    %% Global Load Balancer Connections
-    GLB ==HTTPS Traffic==> AAP1_Controller
-    GLB ==HTTPS Traffic==> AAP2_Controller
+    %% Global Load Balancer Connections (Active-Passive)
+    GLB ==HTTPS Traffic (Active)==> AAP1_Controller
+    GLB -.Failover Only (Passive).-> AAP2_Controller
 
     %% AAP to OpenShift API Connections
     AAP1_Controller -.kubectl/oc.-> OCP1_API
@@ -142,8 +142,8 @@ graph TB
     AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER3
     AAP2_Controller -.Ansible Playbooks.-> PG_CLUSTER4
 
-    %% AAP Database Replication
-    AAP1_DB <-.Database Replication<br/>(Shared State).-> AAP2_DB
+    %% AAP Database Replication (Active to Passive)
+    AAP1_DB -.Database Replication<br/>(Active → Passive).-> AAP2_DB
 
     %% PostgreSQL Replication between datacenters
     PG_PRIMARY1 <-.Logical Replication<br/>(Publications/Subscriptions).-> PG_PRIMARY2
@@ -201,14 +201,15 @@ graph TB
           │     Global Load Balancer (GLB)           │
           │     aap.example.com                      │
           │     • Health Checks                      │
-          │     • Geographic Routing                 │
-          │     • Auto Failover                      │
+          │     • Priority Routing (DC1 Primary)     │
+          │     • Auto Failover to DC2               │
           └──────────┬─────────────────────┬─────────┘
-                     │                     │
+                     │ Active              │ Passive
+                     │ (100% Traffic)      │ (Standby)
         ┌────────────▼────────┐   ┌────────▼────────────┐
         │   Datacenter 1      │   │   Datacenter 2      │
         │   AAP Instance      │   │   AAP Instance      │
-        │   (Active)          │   │   (Active)          │
+        │   🟢 ACTIVE         │   │   🔵 PASSIVE        │
         └────────────┬────────┘   └────────┬────────────┘
                      │                     │
         ┌────────────▼────────┐   ┌────────▼────────────┐
@@ -256,10 +257,11 @@ Legend:
 The global load balancer provides a single entry point for AAP access:
 
 - **DNS**: `aap.example.com`
-- **Type**: Active-Active (both datacenters serving traffic)
+- **Type**: Active-Passive (DC1 primary, DC2 standby)
 - **Health Checks**: Monitors AAP Controller availability in both datacenters
-- **Failover**: Automatic failover if one datacenter becomes unavailable
-- **Routing**: Geographic or round-robin routing to nearest/healthiest AAP instance
+- **Failover**: Automatic failover to DC2 if DC1 becomes unavailable
+- **Routing**: Priority-based routing (100% traffic to DC1 when healthy)
+- **Failback**: Automatic or manual failback to DC1 when it recovers
 - **Protocols**: HTTPS (port 443), WebSocket support for real-time job updates
 
 ### Ansible Automation Platform (AAP)
@@ -282,19 +284,22 @@ AAP is deployed on **both OpenShift clusters** for high availability and geograp
 
 #### AAP Database Replication
 
-The AAP databases in both datacenters are synchronized to maintain shared state:
-- **Method**: PostgreSQL logical replication
-- **Direction**: Bi-directional (both can accept writes)
+The AAP databases are replicated from active to passive datacenter:
+- **Method**: PostgreSQL logical replication (Active → Passive)
+- **Direction**: DC1 (Active) → DC2 (Passive)
+- **Mode**: Asynchronous replication with minimal lag
 - **Shared Data**: Job templates, inventory, credentials, execution history
-- **Conflict Resolution**: Last-write-wins with timestamp-based conflict resolution
+- **Failover**: DC2 database promoted to read-write during failover
+- **Failback**: Data synchronized back to DC1 when it recovers
 
 #### AAP High Availability Benefits
 
 1. **Geographic Redundancy**: AAP instances in multiple datacenters
-2. **Load Distribution**: Traffic balanced across both locations
-3. **Disaster Recovery**: Automatic failover if one datacenter is unavailable
-4. **Reduced Latency**: Users connect to nearest AAP instance
-5. **Zero Downtime Updates**: Rolling updates across datacenters
+2. **Automatic Failover**: Seamless failover to DC2 if DC1 fails
+3. **Disaster Recovery**: Full DR capability with passive site
+4. **Consistent State**: Replication ensures DC2 is ready to take over
+5. **Simplified Operations**: No split-brain scenarios (active-passive model)
+6. **Cost Efficiency**: DC2 can be right-sized for standby operations
 
 #### AAP Responsibilities
 
@@ -365,19 +370,23 @@ The AAP databases in both datacenters are synchronized to maintain shared state:
 Users and automation clients connect to AAP through the global load balancer:
 - **URL**: `https://aap.example.com`
 - **Protocol**: HTTPS/443 with WebSocket support
-- **Load Balancing**: Active-Active across both datacenters
+- **Load Balancing**: Active-Passive (priority-based)
+- **Active Target**: DC1 AAP (100% traffic when healthy)
+- **Passive Target**: DC2 AAP (standby, only receives traffic during failover)
 - **Health Checks**: Layer 7 health checks to AAP Controller endpoints
-- **Session Affinity**: Optional sticky sessions for long-running jobs
+- **Session Affinity**: Sticky sessions for long-running jobs
 - **TLS Termination**: At load balancer or end-to-end encryption
 
 ### Global Load Balancer to AAP Instances
 
-The load balancer distributes traffic to AAP instances:
-- **Datacenter 1**: `aap-dc1.apps.ocp1.example.com`
-- **Datacenter 2**: `aap-dc2.apps.ocp2.example.com`
+The load balancer routes traffic based on priority and health:
+- **Primary (Active)**: `aap-dc1.apps.ocp1.example.com` (Priority 1, 100% traffic)
+- **Secondary (Passive)**: `aap-dc2.apps.ocp2.example.com` (Priority 2, standby)
 - **Health Check Path**: `/api/v2/ping/`
-- **Failover Time**: < 10 seconds
-- **Traffic Distribution**: 50/50 or weighted based on capacity
+- **Health Check Interval**: 5 seconds
+- **Failover Time**: < 15 seconds (detection + DNS propagation)
+- **Failover Trigger**: DC1 health check failures (3 consecutive)
+- **Failback**: Manual or automatic after DC1 passes health checks
 
 ### AAP to OpenShift Clusters
 
@@ -401,10 +410,11 @@ Each AAP instance can connect to PostgreSQL databases in both datacenters:
 Multiple replication streams between datacenters:
 
 #### AAP Database Replication
-- **Method**: PostgreSQL logical replication (bi-directional)
-- **Direction**: DC1 ↔ DC2 (both active)
-- **Conflict Resolution**: Timestamp-based, last-write-wins
+- **Method**: PostgreSQL logical replication (uni-directional)
+- **Direction**: DC1 (Active) → DC2 (Passive)
+- **Replication Mode**: Asynchronous with monitoring
 - **Lag Monitoring**: Prometheus metrics + AAP monitoring jobs
+- **Lag Threshold**: Alert if > 5 seconds
 
 #### Application Database Replication
 - **Method**: PostgreSQL logical replication
@@ -523,22 +533,29 @@ AAP maintains consistency across datacenters through:
 
 ### Scenario 1: Datacenter 1 Complete Failure
 
-1. **Detection**: Global load balancer health checks fail for DC1 AAP
-2. **Traffic Shift**: All traffic automatically routed to DC2 AAP instance
-3. **AAP Continues**: DC2 AAP manages both OpenShift clusters
-4. **Database Promotion**: DC2 production database can be promoted to primary
-5. **Recovery**: When DC1 returns, reverse replication and rebalance traffic
-6. **RTO**: < 2 minutes (load balancer failover time)
-7. **RPO**: Depends on replication lag (typically < 30 seconds)
+1. **Detection**: Global load balancer health checks fail for DC1 AAP (3 consecutive failures = 15 seconds)
+2. **Traffic Shift**: GLB automatically routes all traffic to DC2 AAP instance
+3. **Database Promotion**: DC2 AAP database promoted from read-only replica to read-write primary
+4. **AAP Activation**: DC2 AAP takes over management of both OpenShift clusters
+5. **Production Databases**: DC2 production database can be promoted if needed
+6. **Recovery**: When DC1 returns:
+   - Synchronize data from DC2 back to DC1
+   - Rebuild replication DC1 → DC2
+   - Failback to DC1 (manual or automatic)
+7. **RTO**: < 1 minute (15s detection + 45s promotion/cutover)
+8. **RPO**: Depends on replication lag (typically < 5 seconds)
 
-### Scenario 2: AAP Instance Failure in One Datacenter
+### Scenario 2: AAP Instance Failure in DC1 (OpenShift restarts pods)
 
 1. **Detection**: Load balancer marks DC1 AAP as unhealthy
-2. **Automatic Failover**: Traffic shifted to DC2 AAP
+2. **Automatic Failover**: Traffic shifted to DC2 AAP (passive becomes active)
 3. **Local Recovery**: OpenShift recreates failed AAP pods in DC1
-4. **Database Intact**: AAP database in DC1 continues to replicate
-5. **Service Restoration**: DC1 AAP rejoins pool when healthy
-6. **Impact**: Users experience seamless continuation via DC2
+4. **Database Intact**: AAP database in DC1 remains operational, continues replication
+5. **Service Restoration**: Once DC1 AAP pods are healthy and pass health checks
+6. **Failback**: 
+   - **Option A (Manual)**: Administrator triggers failback to DC1
+   - **Option B (Automatic)**: GLB automatically fails back after DC1 stable for X minutes
+7. **Impact**: Users experience brief interruption (< 15 seconds) during failover
 
 ### Scenario 3: Database Failure in DC1
 
@@ -553,12 +570,24 @@ AAP maintains consistency across datacenters through:
 
 **Scenario**: DC1 and DC2 lose connectivity
 
-1. **AAP Instances**: Both continue to operate independently
-2. **Database Writes**: Both AAP databases accept writes (split-brain)
-3. **Conflict Resolution**: When connectivity restored, timestamp-based resolution
-4. **Application DBs**: DC2 becomes read-only or applications use local DC only
-5. **Manual Intervention**: May be required for complex conflicts
-6. **Prevention**: Network monitoring and split-brain prevention policies
+1. **GLB Behavior**: 
+   - If GLB can reach DC1: Continues routing to DC1 (active)
+   - If GLB can reach DC2 only: Fails over to DC2
+   - If both reachable but partitioned from each other: Routes to DC1 (priority)
+2. **AAP Instances**: 
+   - DC1 (Active): Continues normal operations
+   - DC2 (Passive): Remains in standby mode (read-only database)
+3. **Split-Brain Prevention**: 
+   - DC2 AAP database remains read-only unless manually promoted
+   - No automatic writes to DC2 database during partition
+4. **Replication**: 
+   - Stops during partition (DC2 falls behind)
+   - Resumes when connectivity restored
+   - Catch-up replication brings DC2 current
+5. **Manual Intervention**: 
+   - If DC1 confirmed down, manually promote DC2
+   - When connectivity restored, assess and resynchronize
+6. **Prevention**: Network monitoring, redundant links, and health check tuning
 
 ### Scenario 5: OpenShift Cluster Failure (DC1)
 
@@ -738,10 +767,11 @@ To add a third datacenter:
 
 ### Geographic Distribution Benefits
 
-**Reduced Latency:**
-- Users connect to nearest datacenter via load balancer
-- AAP operations execute from geographically optimal location
-- Database queries can target nearest replica for reads
+**Disaster Recovery:**
+- Complete standby datacenter ready for failover
+- RPO < 5 seconds (replication lag)
+- RTO < 1 minute (automated failover)
+- Regular DR testing capability
 
 **Compliance:**
 - Data residency requirements met (data in specific regions)
@@ -822,10 +852,10 @@ resources:
 
 This architecture provides:
 
-✅ **Maximum High Availability**: AAP and databases redundant across datacenters  
-✅ **Geographic Distribution**: Active-Active AAP instances for optimal performance  
-✅ **Automatic Failover**: Global load balancer provides seamless failover  
-✅ **Disaster Recovery**: Multiple DR scenarios covered with automated response  
+✅ **High Availability**: AAP active in DC1 with ready standby in DC2  
+✅ **Disaster Recovery**: Complete passive DR site with automatic failover  
+✅ **Automatic Failover**: Global load balancer provides seamless failover (RTO < 1 min)  
+✅ **Low RPO**: Asynchronous replication with < 5 second lag  
 ✅ **Simplified Management**: AAP instances run on infrastructure they manage  
 ✅ **Security**: Restricted SCCs, encrypted connections, defense in depth  
 ✅ **Scalability**: Easy to scale vertically, horizontally, and geographically  
@@ -849,11 +879,12 @@ This architecture provides:
    - Health-based routing
    - SSL/TLS termination
 
-3. **Bi-directional AAP Database Replication**: Enables:
-   - Active-Active operations
-   - Shared state across datacenters
-   - Continued operations during network partitions
-   - Conflict resolution for edge cases
+3. **Active-Passive AAP Database Replication**: Provides:
+   - Simple, predictable failover model
+   - No split-brain scenarios
+   - Clear data flow (DC1 → DC2)
+   - Reduced complexity in conflict resolution
+   - Lower cost (DC2 can be smaller for standby)
 
 4. **EDB Postgres Operator**: Provides:
    - Automated PostgreSQL management
