@@ -1,0 +1,73 @@
+---
+# Ansible Playbook: Execute SQL Query Across Multiple Databases
+# This playbook runs SQL queries on PostgreSQL databases in both datacenters
+
+- name: Execute SQL Query on PostgreSQL Databases
+  hosts: postgres_clusters
+  gather_facts: false
+  
+  vars:
+    sql_query: "{{ sql_query | default('SELECT version();') }}"
+    sql_file: "{{ sql_file | default(None) }}"
+    run_on: "{{ run_on | default('all') }}"  # all, primary, production
+    
+  tasks:
+    - name: Filter hosts based on run_on parameter
+      set_fact:
+        should_run: true
+      when: >
+        (run_on == 'all') or
+        (run_on == 'primary' and is_primary | default(false)) or
+        (run_on == 'production' and 'production' in group_names)
+
+    - name: Skip if host doesn't match filter
+      meta: end_host
+      when: should_run is not defined
+
+    - name: Read SQL from file if provided
+      set_fact:
+        sql_to_execute: "{{ lookup('file', sql_file) }}"
+      when: sql_file is defined and sql_file != None
+
+    - name: Use provided SQL query
+      set_fact:
+        sql_to_execute: "{{ sql_query }}"
+      when: sql_file is None
+
+    - name: Get database password from secret
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: Secret
+        namespace: "{{ namespace }}"
+        name: "{{ cluster_name }}-superuser"
+      register: db_secret
+      delegate_to: localhost
+
+    - name: Execute SQL query
+      community.postgresql.postgresql_query:
+        login_host: "{{ pg_host }}"
+        login_port: "{{ pg_port }}"
+        login_user: "{{ pg_user }}"
+        login_password: "{{ db_secret.resources[0].data.password | b64decode }}"
+        db: "{{ pg_database }}"
+        query: "{{ sql_to_execute }}"
+        autocommit: true
+      register: query_result
+      delegate_to: localhost
+
+    - name: Display query results
+      debug:
+        msg:
+          - "Database: {{ pg_host }} ({{ datacenter }})"
+          - "Query: {{ sql_to_execute[:100] }}..."
+          - "Rows affected: {{ query_result.rowcount | default(0) }}"
+          - "Results: {{ query_result.query_result | default([]) }}"
+
+    - name: Log query execution to AAP
+      ansible.builtin.debug:
+        msg:
+          - "Logged query execution:"
+          - "  Timestamp: {{ ansible_date_time.iso8601 }}"
+          - "  Target: {{ cluster_name }}.{{ namespace }}@{{ datacenter }}"
+          - "  Query: {{ sql_to_execute[:50] }}..."
+          - "  Status: {{ 'Success' if query_result is success else 'Failed' }}"

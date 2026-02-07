@@ -1,0 +1,84 @@
+---
+# Example: Run database migration with transaction support
+# Usage: ansible-playbook examples/run-database-migration.yml -i inventory.yml -e "migration_version=v2.1"
+
+- name: Database Migration Workflow
+  hosts: production_databases
+  gather_facts: false
+  serial: 1  # Run one database at a time
+  
+  vars:
+    migration_version: "{{ migration_version | default('v1.0') }}"
+    migration_file: "./migrations/{{ migration_version }}/migration.sql"
+    
+    # SQL execution configuration
+    transaction_mode: true
+    fail_on_error: true
+    autocommit: false
+    save_results: true
+    results_output_dir: /var/log/migrations
+    
+    # Query timeout (5 minutes)
+    query_timeout: 300
+    
+  tasks:
+    - name: Pre-migration health check
+      include_role:
+        name: edb.postgres_operations.check_health
+      vars:
+        check_replication: true
+        fail_on_unhealthy: true
+    
+    - name: Create backup before migration
+      ansible.builtin.debug:
+        msg: "Creating backup before migration..."
+      # In real scenario, trigger backup job here
+    
+    - name: Wait for backup to complete
+      ansible.builtin.pause:
+        seconds: 30
+    
+    - name: Check if migration already applied
+      include_role:
+        name: edb.postgres_operations.execute_sql
+      vars:
+        sql_query: "SELECT version FROM schema_migrations WHERE version = '{{ migration_version }}';"
+        display_results: true
+      register: migration_check
+    
+    - name: Run database migration
+      include_role:
+        name: edb.postgres_operations.execute_sql
+      vars:
+        sql_file: "{{ migration_file }}"
+        transaction_mode: true
+        fail_on_error: true
+        log_queries: true
+      when: migration_check.processed_results.results | length == 0
+    
+    - name: Record migration version
+      include_role:
+        name: edb.postgres_operations.execute_sql
+      vars:
+        sql_query: "INSERT INTO schema_migrations (version, applied_at) VALUES ('{{ migration_version }}', NOW());"
+        display_results: false
+      when: migration_check.processed_results.results | length == 0
+    
+    - name: Verify migration
+      include_role:
+        name: edb.postgres_operations.execute_sql
+      vars:
+        sql_file: "./migrations/{{ migration_version }}/verify.sql"
+        display_results: true
+    
+    - name: Post-migration health check
+      include_role:
+        name: edb.postgres_operations.check_health
+      vars:
+        check_replication: true
+        fail_on_unhealthy: true
+    
+    - name: Notify success
+      ansible.builtin.debug:
+        msg:
+          - "Migration {{ migration_version }} completed successfully on {{ cluster_name }}@{{ datacenter }}"

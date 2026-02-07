@@ -1,0 +1,56 @@
+---
+# Default variables for deploy_cluster role
+# These can be overridden at playbook level or via extra vars
+
+# Cluster Configuration
+cluster_name: "my-postgres"
+namespace: "default"
+instances: 3
+postgres_version: "16.8"
+
+# Storage Configuration
+storage_size: "10Gi"
+storage_class: "local-path"
+storage_wal_size: "5Gi"
+
+# Resource Configuration
+resource_requests_memory: "512Mi"
+resource_requests_cpu: "250m"
+resource_limits_memory: "1Gi"
+resource_limits_cpu: "1000m"
+
+# PostgreSQL Configuration
+pg_max_connections: "200"
+pg_shared_buffers: "256MB"
+pg_work_mem: "4MB"
+pg_maintenance_work_mem: "64MB"
+pg_effective_cache_size: "512MB"
+
+# Bootstrap Configuration
+bootstrap_database: "app"
+bootstrap_owner: "app"
+
+# Monitoring Configuration
+monitoring_enabled: true
+monitoring_pod_monitor: true
+
+# Backup Configuration (optional)
+backup_enabled: false
+backup_bucket: ""
+backup_retention_days: 30
+backup_wal_compression: "gzip"
+backup_wal_encryption: "AES256"
+
+# Secret Configuration
+edb_pull_secret_file: "secrets/edb-dockerconfig.json"
+create_app_user_secret: true
+
+# High Availability Configuration
+enable_pod_disruption_budget: true
+min_available_instances: 1
+
+# Wait Configuration
+wait_for_cluster_ready: true
+wait_timeout: 300
+wait_delay: 10
+wait_retries: 30

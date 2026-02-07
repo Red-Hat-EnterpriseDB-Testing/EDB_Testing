@@ -1,0 +1,39 @@
+---
+galaxy_info:
+  role_name: check_health
+  author: EDB Engineering Team
+  description: Check health of EnterpriseDB Postgres clusters across multiple datacenters
+  company: EnterpriseDB
+  
+  license: Apache-2.0
+  
+  min_ansible_version: "2.14"
+  
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Fedora
+      versions:
+        - 38
+        - 39
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+
+  galaxy_tags:
+    - postgresql
+    - database
+    - monitoring
+    - health
+    - kubernetes
+    - openshift
+    - edb
+    - observability
+
+dependencies: []
+
+collections:
+  - kubernetes.core

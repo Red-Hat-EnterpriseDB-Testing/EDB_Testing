@@ -1,0 +1,263 @@
+---
+# Main tasks for check_health role
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - datacenter is defined
+      - kubeconfig_path is defined
+    fail_msg: "Required variables are missing. Check datacenter and kubeconfig_path."
+
+- name: Initialize health check variables
+  ansible.builtin.set_fact:
+    health_issues: []
+    health_warnings: []
+    health_check_time: "{{ ansible_date_time.iso8601 }}"
+
+- name: Get EDB operator status
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Deployment
+    namespace: postgresql-operator-system
+    name: postgresql-operator-controller-manager
+  register: operator_status
+  when: check_operator | bool
+
+- name: Check operator health
+  ansible.builtin.set_fact:
+    operator_healthy: "{{ operator_status.resources[0].status.readyReplicas | default(0) == operator_status.resources[0].status.replicas | default(1) }}"
+  when: check_operator | bool
+
+- name: Record operator issues
+  ansible.builtin.set_fact:
+    health_issues: "{{ health_issues + ['EDB Operator is not healthy in ' + datacenter] }}"
+  when: check_operator | bool and not operator_healthy
+
+- name: Get all PostgreSQL clusters
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Cluster
+    api_version: postgresql.k8s.enterprisedb.io/v1
+  register: postgres_clusters
+  when: check_clusters | bool
+
+- name: Analyze cluster health
+  ansible.builtin.set_fact:
+    cluster_health:
+      datacenter: "{{ datacenter }}"
+      location: "{{ location | default('Unknown') }}"
+      operator_ready: "{{ operator_healthy | default(true) }}"
+      clusters: "{{ postgres_clusters.resources | map(attribute='metadata.name') | list }}"
+      total_clusters: "{{ postgres_clusters.resources | length }}"
+      healthy_clusters: "{{ postgres_clusters.resources | selectattr('status.phase', 'defined') | selectattr('status.phase', 'equalto', 'Cluster in healthy state') | list | length }}"
+      unhealthy_clusters: "{{ postgres_clusters.resources | rejectattr('status.phase', 'defined') | list + postgres_clusters.resources | selectattr('status.phase', 'defined') | rejectattr('status.phase', 'equalto', 'Cluster in healthy state') | list }}"
+  when: check_clusters | bool
+
+- name: Display datacenter health summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════"
+      - "PostgreSQL Health Check - {{ datacenter }}"
+      - "═══════════════════════════════════════════════════════"
+      - "Location: {{ cluster_health.location }}"
+      - "Timestamp: {{ health_check_time }}"
+      - "Operator Status: {{ 'Healthy' if cluster_health.operator_ready else 'Unhealthy' }}"
+      - "Total Clusters: {{ cluster_health.total_clusters }}"
+      - "Healthy Clusters: {{ cluster_health.healthy_clusters }}"
+      - "Unhealthy Clusters: {{ cluster_health.unhealthy_clusters | length }}"
+      - "═══════════════════════════════════════════════════════"
+  when: check_clusters | bool and not show_summary_only
+
+- name: Display individual cluster status
+  ansible.builtin.debug:
+    msg:
+      - "Cluster: {{ item.metadata.name }} ({{ item.metadata.namespace }})"
+      - "  Status: {{ item.status.phase | default('Unknown') }}"
+      - "  Primary: {{ item.status.currentPrimary | default('N/A') }}"
+      - "  Instances: {{ item.status.readyInstances | default(0) }}/{{ item.status.instances | default(0) }}"
+      - "  PostgreSQL Version: {{ item.status.image | default('Unknown') | regex_search(':\\d+\\.\\d+') | default('Unknown') }}"
+      - "  Current WAL: {{ item.status.currentPrimaryTimestamp | default('N/A') }}"
+      - "  ---"
+  loop: "{{ postgres_clusters.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: check_clusters | bool and show_cluster_details and not show_summary_only
+
+- name: Identify unhealthy clusters
+  ansible.builtin.set_fact:
+    health_issues: "{{ health_issues + [item.metadata.name + ' in namespace ' + item.metadata.namespace + ' @ ' + datacenter + ' is ' + (item.status.phase | default('in unknown state'))] }}"
+  when: 
+    - check_clusters | bool
+    - item.status.phase is not defined or item.status.phase != "Cluster in healthy state"
+  loop: "{{ postgres_clusters.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Get pods for each cluster
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Pod
+    namespace: "{{ item.metadata.namespace }}"
+    label_selectors:
+      - "postgresql={{ item.metadata.name }}"
+  register: cluster_pods
+  loop: "{{ postgres_clusters.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: check_clusters | bool and show_pod_details
+
+- name: Check for pod issues
+  ansible.builtin.set_fact:
+    health_warnings: "{{ health_warnings + ['Pod ' + pod.metadata.name + ' in ' + pod.metadata.namespace + ' has restart count: ' + (pod.status.containerStatuses[0].restartCount | default(0) | string)] }}"
+  loop: "{{ cluster_pods.results | map(attribute='resources') | flatten }}"
+  loop_control:
+    loop_var: pod
+    label: "{{ pod.metadata.name }}"
+  when: 
+    - check_clusters | bool
+    - show_pod_details
+    - pod.status.containerStatuses is defined
+    - pod.status.containerStatuses | length > 0
+    - pod.status.containerStatuses[0].restartCount | default(0) > max_pod_restart_count
+
+- name: Check replication lag for multi-instance clusters
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    namespace: "{{ item.metadata.namespace }}"
+    pod: "{{ item.status.currentPrimary }}"
+    command: >
+      psql -U postgres -t -c "SELECT
+        client_addr,
+        state,
+        COALESCE(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), 0) as lag_bytes
+      FROM pg_stat_replication;"
+  register: replication_status
+  loop: "{{ postgres_clusters.resources }}"
+  when: 
+    - check_replication | bool
+    - item.status.instances | default(1) > 1
+    - item.status.currentPrimary is defined
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  ignore_errors: true
+
+- name: Display replication status
+  ansible.builtin.debug:
+    msg:
+      - "Replication Status for {{ item.item.metadata.name }}:"
+      - "{{ item.stdout_lines }}"
+  loop: "{{ replication_status.results | default([]) }}"
+  when: 
+    - check_replication | bool
+    - show_replication_details
+    - item.stdout_lines is defined
+    - item.stdout_lines | length > 0
+  loop_control:
+    label: "{{ item.item.metadata.name | default('Unknown') }}"
+
+- name: Check for replication lag issues
+  ansible.builtin.set_fact:
+    health_warnings: "{{ health_warnings + ['High replication lag detected in cluster ' + item.item.metadata.name] }}"
+  loop: "{{ replication_status.results | default([]) }}"
+  when:
+    - check_replication | bool
+    - item.stdout is defined
+    - item.stdout is search('[0-9]{8,}')  # Simple check for large numbers (lag)
+  loop_control:
+    label: "{{ item.item.metadata.name | default('Unknown') }}"
+
+- name: Check PVC status
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: PersistentVolumeClaim
+    namespace: "{{ item.metadata.namespace }}"
+    label_selectors:
+      - "postgresql={{ item.metadata.name }}"
+  register: cluster_pvcs
+  loop: "{{ postgres_clusters.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: check_pvc_status | bool
+
+- name: Check for PVC issues
+  ansible.builtin.set_fact:
+    health_issues: "{{ health_issues + ['PVC ' + pvc.metadata.name + ' in ' + pvc.metadata.namespace + ' is in ' + pvc.status.phase + ' state'] }}"
+  loop: "{{ cluster_pvcs.results | default([]) | map(attribute='resources') | flatten }}"
+  loop_control:
+    loop_var: pvc
+    label: "{{ pvc.metadata.name }}"
+  when:
+    - check_pvc_status | bool
+    - pvc.status.phase is defined
+    - pvc.status.phase != "Bound"
+
+- name: Check service endpoints
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Service
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}-rw"
+  register: cluster_services
+  loop: "{{ postgres_clusters.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: check_service_endpoints | bool
+
+- name: Alert if issues found
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  ALERT: Issues detected in {{ datacenter }}"
+      - "Issues ({{ health_issues | length }}):"
+      - "{{ health_issues }}"
+      - "Warnings ({{ health_warnings | length }}):"
+      - "{{ health_warnings }}"
+  when: (health_issues | length > 0 or health_warnings | length > 0) and enable_alerts
+
+- name: Trigger AAP notification on issues
+  ansible.builtin.uri:
+    url: "{{ aap_webhook_url }}"
+    method: POST
+    body_format: json
+    body:
+      datacenter: "{{ datacenter }}"
+      issues: "{{ health_issues }}"
+      warnings: "{{ health_warnings }}"
+      timestamp: "{{ health_check_time }}"
+      cluster_health: "{{ cluster_health }}"
+    status_code: [200, 201, 204]
+    timeout: 10
+  when: 
+    - enable_aap_notifications | bool
+    - aap_webhook_url is defined
+    - aap_webhook_url != ""
+    - (health_issues | length > 0 or health_warnings | length > 0)
+  delegate_to: localhost
+  ignore_errors: true
+
+- name: Generate health report data
+  ansible.builtin.set_fact:
+    health_report:
+      datacenter: "{{ datacenter }}"
+      location: "{{ location | default('Unknown') }}"
+      timestamp: "{{ health_check_time }}"
+      operator_status: "{{ 'Healthy' if operator_healthy | default(true) else 'Unhealthy' }}"
+      cluster_summary: "{{ cluster_health | default({}) }}"
+      issues: "{{ health_issues }}"
+      warnings: "{{ health_warnings }}"
+      status: "{{ 'HEALTHY' if health_issues | length == 0 else 'UNHEALTHY' }}"
+
+- name: Save health report to file
+  ansible.builtin.copy:
+    content: "{{ health_report | to_nice_json if report_format == 'json' else health_report | to_nice_yaml }}"
+    dest: "{{ report_output_dir }}/health-{{ datacenter }}-{{ ansible_date_time.epoch }}.{{ report_format }}"
+  delegate_to: localhost
+  when: save_report | bool and generate_report | bool
+
+- name: Set health check result fact
+  ansible.builtin.set_fact:
+    health_check_passed: "{{ health_issues | length == 0 }}"
+
+- name: Fail if unhealthy and fail_on_unhealthy is enabled
+  ansible.builtin.fail:
+    msg: "Health check failed: {{ health_issues | length }} issues found"
+  when: fail_on_unhealthy | bool and not health_check_passed
