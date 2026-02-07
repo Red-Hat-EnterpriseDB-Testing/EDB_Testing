@@ -8,74 +8,74 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#333','lineColor':'#333','secondaryColor':'#fff','tertiaryColor':'#fff','background':'#fff','mainBkg':'#fff','secondBkg':'#fff','tertiaryBkg':'#fff'}}}%%
-graph LR
-    Users["End Users<br/>aap.example.com"]
+graph TB
+    Users["Ansible VIP / Load Balancer<br/>aap.example.com"]
+    VIP1["EDB VIP / Load Balancer<br/>edb4aap.example.com"]
     
-    subgraph DC1["Datacenter 1 - Primary"]
-        AAP1["AAP Controller<br/>3 replicas"]
-        OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
-        EDB_OP1["EDB Postgres Operator"]
-        PG_PROD1["Production DB<br/>3 instances"]
-        PG_STAGE1["Staging DB<br/>2 instances"]
-        S3_DC1["S3 Storage<br/>Backups"]
-        MON1["Prometheus"]
-        
-        AAP1 -.manages.-> OCP1
-        OCP1 --> EDB_OP1
-        EDB_OP1 -.manages.-> PG_PROD1
-        EDB_OP1 -.manages.-> PG_STAGE1
-        PG_PROD1 -.backup.-> S3_DC1
-        PG_PROD1 -.metrics.-> MON1
-        AAP1 -.metrics.-> MON1
-    end
-    
-    FAILOVER{{"🔄 Failover<br/>AAP Replication<br/>DB Replication<br/>Cross-DC Management"}}
-    
-    subgraph DC2["Datacenter 2 - Standby"]
-        AAP2["AAP Controller<br/>3 replicas"]
-        OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
-        EDB_OP2["EDB Postgres Operator"]
-        PG_PROD2["Production DB<br/>3 instances"]
-        PG_DEV2["Development DB<br/>1 instance"]
-        S3_DC2["S3 Storage<br/>Backups"]
-        MON2["Prometheus"]
-        
-        AAP2 -.manages.-> OCP2
-        OCP2 --> EDB_OP2
-        EDB_OP2 -.manages.-> PG_PROD2
-        EDB_OP2 -.manages.-> PG_DEV2
-        PG_PROD2 -.backup.-> S3_DC2
-        PG_PROD2 -.metrics.-> MON2
-        AAP2 -.metrics.-> MON2
-    end
-    
-    %% User traffic
     Users ==Active==> AAP1
     Users -.Standby.-> AAP2
+    VIP1 ==Active==> PG_PROD1
+    VIP1 -.Standby.-> PG_PROD2
+
+    subgraph DC2["Datacenter 2"]
+        direction LR
+        OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
+        
+        subgraph OPS2["Operators"]
+            direction LR
+            AAP_OP2["AAP Operator"]
+            EDB_OP2["EDB Postgres Operator"]
+        end
+        
+        subgraph APPS2["AAP"]
+            direction LR
+            AAP2["Ansible Automation Platform Passive"]
+            PG_PROD2["Passive DB Secondary<br/>+ EFM Agent"]
+            AAP2 --> PG_PROD2
+        end
+        
+        OCP2 --> AAP_OP2
+        OCP2 --> EDB_OP2
+        AAP_OP2 -.Manages.-> AAP2
+        EDB_OP2 -.Manages.-> PG_PROD2
+    end
+
+    subgraph DC1["Datacenter 1"]
+        direction LR
+        OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
+        
+        subgraph OPS1["Operators"]
+            direction LR
+            AAP_OP1["AAP Operator"]
+            EDB_OP1["EDB Postgres Operator"]
+        end
+        
+        subgraph APPS1["AAP"]
+            direction LR
+            AAP1["Ansible Automation Platform Active"]
+            PG_PROD1["Active DB Primary<br/>+ EFM Agent"]
+            AAP1 --> PG_PROD1
+        end
+        
+        OCP1 --> AAP_OP1
+        OCP1 --> EDB_OP1
+        AAP_OP1 -.Manages.-> AAP1
+        EDB_OP1 -.Manages.-> PG_PROD1
+    end
     
-    %% Failover connections
-    AAP1 <==AAP DB Replication==> FAILOVER
-    FAILOVER <==AAP DB Replication==> AAP2
-    PG_PROD1 <==Logical Replication==> FAILOVER
-    FAILOVER <==Logical Replication==> PG_PROD2
-    AAP1 <-.Cross-DC Mgmt.-> FAILOVER
-    FAILOVER <-.Cross-DC Mgmt.-> AAP2
-    FAILOVER <-.Cross-DC Mgmt.-> OCP2
-    FAILOVER <-.Cross-DC Mgmt.-> OCP1
+    
+    PG_PROD1 <==Logical Replication==> PG_PROD2
     
     classDef aapStyle fill:#ee0000,stroke:#333,stroke-width:2px,color:#fff
     classDef ocpStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
-    classDef dbStyle fill:#00aa00,stroke:#333,stroke-width:2px,color:#fff
-    classDef storageStyle fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
-    classDef monitorStyle fill:#9966ff,stroke:#333,stroke-width:2px,color:#fff
-    classDef failoverStyle fill:#ffcc00,stroke:#333,stroke-width:4px,color:#000
+    classDef dbPrimaryStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
+    classDef dbStandbyStyle fill:#66cc66,stroke:#333,stroke-width:2px,color:#000
+    classDef vipStyle fill:#ff6600,stroke:#333,stroke-width:3px,color:#fff
     
     class AAP1,AAP2 aapStyle
-    class OCP1,OCP2,EDB_OP1,EDB_OP2 ocpStyle
-    class PG_PROD1,PG_STAGE1,PG_PROD2,PG_DEV2 dbStyle
-    class S3_DC1,S3_DC2 storageStyle
-    class MON1,MON2 monitorStyle
-    class FAILOVER failoverStyle
+    class OCP1,OCP2,EDB_OP1,EDB_OP2,AAP_OP1,AAP_OP2 ocpStyle
+    class PG_PROD1,PG_PROD2 dbPrimaryStyle
+    class VIP1,Users vipStyle
 ```
 
 ## Traffic Flow Overview
@@ -83,7 +83,7 @@ graph LR
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         End Users                                │
-│              (Administrators, Developers, CI/CD)                 │
+│              (Administrators, Operators, CI/CD)                   │
 └────────────────────────────┬────────────────────────────────────┘
                              │ HTTPS
                              ▼
@@ -104,36 +104,25 @@ graph LR
                      │                     │
         ┌────────────▼────────┐   ┌────────▼────────────┐
         │ OpenShift Cluster 1 │   │ OpenShift Cluster 2 │
-        │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
-        │ │ AAP Controller  │ │   │ │ AAP Controller  │ │
-        │ │ (3 replicas)    │ │   │ │ (3 replicas)    │ │
-        │ └────────┬────────┘ │   │ └────────┬────────┘ │
-        │          │          │   │          │          │
-        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
-        │ │ AAP Database    │ │   │ │ AAP Database    │ │
-        │ │ (EDB Postgres)  │◄┼───┼─┤ (EDB Postgres)  │ │
-        │ │ 3 instances     │ │   │ │ 3 instances     │ │
-        │ └─────────────────┘ │   │ └─────────────────┘ │
         │          │          │   │          │          │
         │          │ Manages  │   │          │ Manages  │
         │          ▼          │   │          ▼          │
         │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
-        │ │ EDB Operator    │ │   │ │ EDB Operator    │ │
+        │ │    EDB + AAP    │ │   │ │    EDB + AAP    │ │
+        │ │    Operators    │ │   │ │    Operators    │ │
         │ └────────┬────────┘ │   │ └────────┬────────┘ │
         │          │          │   │          │          │
-        │          ▼          │   │          ▼          │
+        │          ▼          │   │          ▼          |
         │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
-        │ │ PostgreSQL      │◄┼───┼─┤ PostgreSQL      │ │
-        │ │ Clusters        │ │   │ │ Clusters        │ │
-        │ │ (prod/stage/dev)│ │   │ │ (prod/stage/dev)│ │
+        │ │ AAP Controller  │ │   │ │ AAP Controller  │ │
+        │ └────────┬────────┘ │   │ └────────┬────────┘ │
+        │          │          │   │          │          │
+        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
+        │ │ AAP Database    │ │   │ │ AAP Database    │ │
+        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │
         │ └─────────────────┘ │   │ └─────────────────┘ │
         └─────────────────────┘   └─────────────────────┘
-              │                           │
-              ▼                           ▼
-        ┌─────────────┐           ┌─────────────┐
-        │ S3 Storage  │           │ S3 Storage  │
-        │ Datacenter 1│           │ Datacenter 2│
-        └─────────────┘           └─────────────┘
+
 
 Legend:
   ─── Data Flow
@@ -233,11 +222,6 @@ The AAP databases are replicated from active to passive datacenter:
   - Auto-failover enabled
   - Continuous WAL archiving to S3
 
-#### Staging Namespace
-- **Cluster**: `stage-db` (2 instances)
-  - 1 Primary + 1 Replica
-  - Used for testing before production
-
 ### Datacenter 2 (DR Site)
 
 **OpenShift Cluster**: `ocp2.example.com`
@@ -247,11 +231,6 @@ The AAP databases are replicated from active to passive datacenter:
   - Replicated from DC1 using logical replication
   - Can be promoted to primary during DR
   - Independent backup to S3
-
-#### Development Namespace
-- **Cluster**: `dev-db` (1 instance)
-  - Single instance for development work
-  - No replication
 
 ## Network Connectivity
 
@@ -332,7 +311,7 @@ Both operators run with `restricted-v2` SCC:
 
 ### Secrets Management
 
-AAP manages:
+AAP Manages:
 - Database credentials (stored in AAP credential store)
 - TLS certificates
 - S3 access keys
@@ -625,8 +604,6 @@ To add a third datacenter:
 
 ### Resource Management
 
-- Development clusters: Lower resources
-- Staging clusters: Medium resources  
 - Production clusters: Full resources
 - Auto-scaling based on load
 
@@ -677,7 +654,7 @@ To add a third datacenter:
 4. **Automated DR Testing**: AAP runs regular DR drills
 
 **Cost Optimization:**
-- Shared infrastructure (AAP manages multiple workloads)
+- Shared infrastructure (AAP Manages multiple workloads)
 - Efficient resource utilization across datacenters
 - Automated scaling based on demand
 - Reduced operational overhead with automation
@@ -757,8 +734,8 @@ This architecture provides:
 
 ### Key Architectural Decisions
 
-1. **AAP on OpenShift**: Running AAP on the infrastructure it manages enables:
-   - Self-healing (OpenShift manages AAP pods)
+1. **AAP on OpenShift**: Running AAP on the infrastructure it Manages enables:
+   - Self-healing (OpenShift Manages AAP pods)
    - Consistent deployment model
    - Resource efficiency
    - Simplified disaster recovery
