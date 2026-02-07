@@ -7,10 +7,11 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 ## Architecture Diagram
 
 ```mermaid
-graph TB
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#333','lineColor':'#333','secondaryColor':'#fff','tertiaryColor':'#fff','background':'#fff','mainBkg':'#fff','secondBkg':'#fff','tertiaryBkg':'#fff'}}}%%
+graph LR
     Users["End Users<br/>aap.example.com"]
     
-    subgraph DC1["Datacenter 1 (Primary)"]
+    subgraph DC1["Datacenter 1 - Primary"]
         AAP1["AAP Controller<br/>3 replicas"]
         OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
         EDB_OP1["EDB Postgres Operator"]
@@ -28,7 +29,9 @@ graph TB
         AAP1 -.metrics.-> MON1
     end
     
-    subgraph DC2["Datacenter 2 (Standby)"]
+    FAILOVER{{"🔄 Failover<br/>AAP Replication<br/>DB Replication<br/>Cross-DC Management"}}
+    
+    subgraph DC2["Datacenter 2 - Standby"]
         AAP2["AAP Controller<br/>3 replicas"]
         OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
         EDB_OP2["EDB Postgres Operator"]
@@ -47,26 +50,32 @@ graph TB
     end
     
     %% User traffic
-    Users ==HTTPS==> AAP1
-    Users -.Failover.-> AAP2
+    Users ==Active==> AAP1
+    Users -.Standby.-> AAP2
     
-    %% Cross-datacenter connections
-    AAP1 <-.Manages Both.-> OCP2
-    AAP2 <-.Manages Both.-> OCP1
-    AAP1 -.Database Replication.-> AAP2
-    PG_PROD1 <-.Logical Replication.-> PG_PROD2
+    %% Failover connections
+    AAP1 <==AAP DB Replication==> FAILOVER
+    FAILOVER <==AAP DB Replication==> AAP2
+    PG_PROD1 <==Logical Replication==> FAILOVER
+    FAILOVER <==Logical Replication==> PG_PROD2
+    AAP1 <-.Cross-DC Mgmt.-> FAILOVER
+    FAILOVER <-.Cross-DC Mgmt.-> AAP2
+    FAILOVER <-.Cross-DC Mgmt.-> OCP2
+    FAILOVER <-.Cross-DC Mgmt.-> OCP1
     
     classDef aapStyle fill:#ee0000,stroke:#333,stroke-width:2px,color:#fff
     classDef ocpStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
     classDef dbStyle fill:#00aa00,stroke:#333,stroke-width:2px,color:#fff
     classDef storageStyle fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     classDef monitorStyle fill:#9966ff,stroke:#333,stroke-width:2px,color:#fff
+    classDef failoverStyle fill:#ffcc00,stroke:#333,stroke-width:4px,color:#000
     
     class AAP1,AAP2 aapStyle
     class OCP1,OCP2,EDB_OP1,EDB_OP2 ocpStyle
     class PG_PROD1,PG_STAGE1,PG_PROD2,PG_DEV2 dbStyle
     class S3_DC1,S3_DC2 storageStyle
     class MON1,MON2 monitorStyle
+    class FAILOVER failoverStyle
 ```
 
 ## Traffic Flow Overview
