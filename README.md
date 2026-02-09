@@ -764,7 +764,7 @@ To add a third datacenter:
 
 **Multi-Level Redundancy:**
 1. **Global Load Balancer**: Single point of access with automatic failover
-2. **AAP Instances**: Active-Active across datacenters
+2. **AAP Instances**: Active-Passive across datacenters
 3. **AAP Controller Pods**: 3 replicas per datacenter (6 total)
 4. **AAP Databases**: 3-instance PostgreSQL clusters per datacenter
 5. **Application Databases**: 3-instance PostgreSQL clusters per datacenter
