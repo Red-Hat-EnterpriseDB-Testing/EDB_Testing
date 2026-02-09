@@ -11,6 +11,7 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 graph TB
     Users["Ansible VIP / Load Balancer<br/>aap.example.com"]
     VIP1["EDB Service / Load Balancer<br/>edb4aap.example.com"]
+    S3["S3 / Object Store<br/>WAL Archive<br/>Barman Cloud"]
 
     subgraph DC2["Datacenter 2 - Replica Cluster"]
         direction TB
@@ -78,6 +79,8 @@ graph TB
     end
     
     PG_PRIMARY ==Streaming<br/>Replication==> PG_DESIGNATED
+    PG_PRIMARY -.WAL<br/>Shipping.-> S3
+    S3 -.WAL<br/>Restore.-> PG_DESIGNATED
     
     Users ==Active==> AAP1
     Users -.Standby.-> AAP2
@@ -90,6 +93,7 @@ graph TB
     classDef dbDesignatedStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
     classDef dbStandbyStyle fill:#66cc66,stroke:#333,stroke-width:2px,color:#000
     classDef vipStyle fill:#ff6600,stroke:#333,stroke-width:3px,color:#fff
+    classDef storageStyle fill:#9370db,stroke:#333,stroke-width:2px,color:#fff
     classDef invisibleStyle fill:none,stroke:none,color:transparent
     
     class AAP1,AAP2 aapStyle
@@ -98,6 +102,7 @@ graph TB
     class PG_DESIGNATED dbDesignatedStyle
     class PG_STANDBY1,PG_STANDBY2,PG_STANDBY3,PG_STANDBY4 dbStandbyStyle
     class VIP1,Users vipStyle
+    class S3 storageStyle
     class DC1_SPACE1,DC1_SPACE2,DC1_SPACE3 invisibleStyle
 ```
 
@@ -128,14 +133,7 @@ graph TB
         ┌────────────▼────────┐   ┌────────▼────────────┐
         │ OpenShift Cluster 1 │   │ OpenShift Cluster 2 │
         │          │          │   │          │          │
-        │          │ Manages  │   │          │ Manages  │
         │          ▼          │   │          ▼          │
-        │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
-        │ │    EDB + AAP    │ │   │ │    EDB + AAP    │ │
-        │ │    Operators    │ │   │ │    Operators    │ │
-        │ └────────┬────────┘ │   │ └────────┬────────┘ │
-        │          │          │   │          │          │
-        │          ▼          │   │          ▼          |
         │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
         │ │ AAP Controller  │ │   │ │ AAP Controller  │ │
         │ └────────┬────────┘ │   │ └────────┬────────┘ │
@@ -143,6 +141,16 @@ graph TB
         │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
         │ │ AAP Database    │ │   │ │ AAP Database    │ │
         │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │
+        │ └────────┬────────┘ │   │ └────────┬────────┘ │
+        │          │          │   │          │          │
+        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
+        │ │ Standby Database│ │   │ │ Standby Database│ │
+        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │
+        │ └────────┬────────┘ │   │ └────────┬────────┘ │
+        │          │          │   │          │          │
+        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
+        │ │ Standby Database│ │   │ │ Standby Database│ │
+        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │   
         │ └─────────────────┘ │   │ └─────────────────┘ │
         └─────────────────────┘   └─────────────────────┘
 
@@ -187,12 +195,22 @@ AAP is deployed on **both OpenShift clusters** for high availability and geograp
 #### AAP Database Replication
 
 The AAP databases are replicated from active to passive datacenter:
-- **Method**: PostgreSQL logical replication (Active → Passive)
+- **Method**: PostgreSQL logical replication (Active → Passive) - *Note: AAP's internal database uses logical replication for flexibility*
 - **Direction**: DC1 (Active) → DC2 (Passive)
 - **Mode**: Asynchronous replication with minimal lag
 - **Shared Data**: Job templates, inventory, credentials, execution history
 - **Failover**: DC2 database promoted to read-write during failover
 - **Failback**: Data synchronized back to DC1 when it recovers
+
+#### EDB-Managed PostgreSQL Cluster Replication
+
+EDB-managed application database clusters use physical replication:
+- **Method**: PostgreSQL physical replication via streaming replication and WAL shipping
+- **Primary Method**: Streaming replication from Primary to Designated Primary
+- **Fallback Method**: WAL shipping via S3/object store (continuous WAL archiving)
+- **Within Cluster**: Hot standby replicas use streaming replication from primary/designated primary
+- **Mode**: Asynchronous streaming with optional synchronous mode
+- **Benefits**: Block-level replication, faster failover, exact byte-for-byte replica
 
 #### AAP High Availability Benefits
 
@@ -234,26 +252,91 @@ The AAP databases are replicated from active to passive datacenter:
    - Execute DR tests
    - Maintain DR documentation
 
+## EDB Postgres for Kubernetes Architecture
+
+### Distributed PostgreSQL Topology
+
+This architecture implements EDB Postgres for Kubernetes (CloudNativePG) distributed topology with replica clusters across two separate Kubernetes/OpenShift clusters, as documented in the [EDB official architecture guide](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/architecture/#deployments-across-kubernetes-clusters).
+
+**Key Concepts:**
+
+1. **Primary Cluster (DC1)**: 
+   - Contains one primary instance accepting read/write operations
+   - Contains hot standby replicas for local HA
+   - Automatically managed by EDB operator within DC1
+
+2. **Replica Cluster (DC2)**:
+   - Contains a "designated primary" - a standby server in continuous recovery
+   - Contains hot standby replicas cascading from designated primary
+   - In read-only mode until manually promoted
+   - Automatically managed by EDB operator within DC2
+
+3. **Physical Replication**:
+   - Uses PostgreSQL's native WAL-based replication
+   - Primary method: Streaming replication (network-based)
+   - Fallback method: WAL shipping via S3/object store
+   - Byte-for-byte exact replica, faster than logical replication
+
+4. **Automatic Service Management**:
+   EDB operator automatically creates and maintains these services:
+   - `<cluster>-rw`: Routes to current primary (read/write)
+   - `<cluster>-ro`: Routes to hot standby replicas (read-only)
+   - `<cluster>-r`: Routes to any instance (read-only)
+   - During failover, operator updates `-rw` service automatically
+
+5. **Cross-Cluster Limitations**:
+   - Each EDB operator manages only its local Kubernetes cluster
+   - Cross-cluster failover must be coordinated externally (via AAP, GitOps, or higher-level orchestration)
+   - Promotion of replica cluster to primary is declarative but requires external trigger
+
+### Database Types in This Architecture
+
+This architecture contains **two types of PostgreSQL databases** with different replication strategies:
+
+#### 1. AAP's Internal Database
+- **Purpose**: Stores AAP's own configuration, inventory, credentials, job templates, execution history
+- **Replication Method**: PostgreSQL logical replication
+- **Why Logical**: Provides flexibility for AAP's internal schema changes and version compatibility
+- **Management**: Managed by AAP Operator
+- **Failover**: Manual promotion of DC2 AAP database during datacenter failover
+
+#### 2. EDB-Managed Application Databases
+- **Purpose**: Application workloads managed by AAP (your production databases)
+- **Replication Method**: PostgreSQL physical replication (streaming + WAL shipping)
+- **Why Physical**: Faster, byte-for-byte exact replica, better performance, automatic with EDB operator
+- **Management**: Managed by EDB Postgres Operator (CloudNativePG)
+- **Failover**: Automatic within cluster, manual promotion across clusters (via AAP orchestration)
+- **Services**: Automatic service management (`-rw`, `-ro`, `-r`) by EDB operator
+
+**Key Distinction**: When we refer to "application database replication" or "EDB-managed clusters" in this document, we mean the databases managed by the EDB Postgres Operator using physical replication. AAP's own database uses logical replication for its specific needs.
+
 ### Datacenter 1 (Primary)
 
 **OpenShift Cluster**: `ocp1.example.com`
 
 #### Production Namespace
-- **Cluster**: `prod-db` (3 instances)
-  - 1 Primary + 2 Replicas
+- **Cluster**: `prod-db` (3 instances - Primary Cluster)
+  - 1 Primary Instance (read/write) + 2 Hot Standby Replicas
   - PostgreSQL 16.8
-  - Auto-failover enabled
-  - Continuous WAL archiving to S3
+  - Auto-failover enabled within cluster
+  - Continuous WAL archiving to S3/object store
+  - Services automatically managed by EDB operator:
+    - `-rw`: Routes to current primary (read/write)
+    - `-ro`: Routes to hot standby replicas (read-only)
+    - `-r`: Routes to any instance (read-only)
 
 ### Datacenter 2 (DR Site)
 
 **OpenShift Cluster**: `ocp2.example.com`
 
 #### Production Namespace
-- **Cluster**: `prod-db` (3 instances)
-  - Replicated from DC1 using logical replication
-  - Can be promoted to primary during DR
+- **Cluster**: `prod-db-replica` (3 instances - Replica Cluster)
+  - 1 Designated Primary (standby server in continuous recovery)
+  - 2 Hot Standby Replicas
+  - Replicated from DC1 via streaming replication and WAL shipping
+  - Can be promoted to primary cluster during DR
   - Independent backup to S3
+  - Services: `-ro` (read-only), `-r` (any instance read-only)
 
 ## Network Connectivity
 
@@ -301,19 +384,25 @@ Each AAP instance can connect to PostgreSQL databases in both datacenters:
 
 Multiple replication streams between datacenters:
 
-#### AAP Database Replication
+#### AAP Database Replication (AAP's Internal Database)
 - **Method**: PostgreSQL logical replication (uni-directional)
 - **Direction**: DC1 (Active) → DC2 (Passive)
 - **Replication Mode**: Asynchronous with monitoring
 - **Lag Monitoring**: Prometheus metrics + AAP monitoring jobs
 - **Lag Threshold**: Alert if > 5 seconds
+- **Purpose**: Replicates AAP's configuration, inventory, credentials, job history
 
-#### Application Database Replication
-- **Method**: PostgreSQL logical replication
-- **Direction**: DC1 (Primary) → DC2 (DR)
-- **Network**: Encrypted tunnel (VPN/Direct Connect/WAN)
-- **Lag Monitoring**: Both AAP instances monitor replication lag
+#### EDB-Managed Application Database Replication
+- **Method**: PostgreSQL physical replication (streaming + WAL shipping)
+- **Primary Mechanism**: Streaming replication from Primary to Designated Primary
+- **Fallback Mechanism**: WAL shipping via S3/object store
+- **Direction**: DC1 (Primary Cluster) → DC2 (Replica Cluster)
+- **Network**: Encrypted tunnel (VPN/Direct Connect/WAN) for streaming replication
+- **Replication Type**: Asynchronous (default) or synchronous (configurable)
+- **Lag Monitoring**: Both AAP instances monitor replication lag via EDB operator metrics
 - **Alerting**: Alerts triggered if lag exceeds threshold (e.g., 30 seconds)
+- **Automatic Service Updates**: EDB operator automatically updates `-rw` service during failover
+- **Cross-Cluster Limitation**: Automated failover across Kubernetes clusters must be handled externally (via AAP or higher-level orchestration)
 
 ## Security Architecture
 
@@ -344,26 +433,51 @@ AAP Manages:
 
 ### Write Operations (Normal State)
 
+**For EDB-Managed Application Databases:**
 1. Application → AAP Controller
-2. AAP Controller → DC1 Primary Database
-3. DC1 Primary → DC1 Replicas (streaming replication)
-4. DC1 Primary → DC2 Primary (logical replication)
-5. DC2 Primary → DC2 Replicas (streaming replication)
+2. AAP Controller → DC1 Primary Database (via `-rw` service)
+3. DC1 Primary → DC1 Hot Standby Replicas (streaming replication within cluster)
+4. DC1 Primary → DC2 Designated Primary (streaming replication across clusters)
+5. DC1 Primary → S3/Object Store (continuous WAL archiving - fallback)
+6. DC2 Designated Primary → DC2 Hot Standby Replicas (streaming replication within cluster)
+
+**For AAP's Internal Database:**
+1. AAP Controller → DC1 AAP Database (primary)
+2. DC1 AAP Database → DC2 AAP Database (logical replication for AAP state)
 
 ### Read Operations
 
-- **DC1**: Read from replicas via `prod-db-ro` service
-- **DC2**: Read from replicas via `prod-db-ro` service
-- **Load Balancing**: OpenShift Service distributes reads
+**EDB-Managed Clusters:**
+- **DC1 Primary Cluster**: 
+  - Write operations via `prod-db-rw` service (routes to primary)
+  - Read operations via `prod-db-ro` service (routes to hot standby replicas)
+  - Read operations via `prod-db-r` service (routes to any instance)
+- **DC2 Replica Cluster**: 
+  - Read operations only via `prod-db-replica-ro` service (routes to designated primary or replicas)
+  - Cannot accept writes unless promoted
+- **Load Balancing**: EDB operator manages service routing automatically
+
+**Service Behavior During Failover:**
+- EDB operator automatically updates `-rw` service to point to newly promoted primary
+- Applications experience seamless redirection without connection string changes
 
 ### Backup Flow
 
-1. Scheduled backup job (initiated by AAP or CronJob)
-2. Backup pod created by operator
-3. Database backup streamed to S3
-4. WAL files continuously archived
-5. AAP monitors backup completion
-6. Alerts sent if backup fails
+**EDB-Managed PostgreSQL Backups:**
+1. Scheduled backup job (initiated by AAP or CronJob via EDB operator)
+2. Backup pod created by EDB operator
+3. Database backup streamed to S3/object store (using Barman Cloud)
+4. WAL files continuously archived to S3 (automatic by EDB operator)
+5. WAL archiving serves dual purpose:
+   - Point-in-time recovery (PITR)
+   - Fallback replication mechanism for replica clusters
+6. Replica clusters can recover from WAL archive if streaming replication fails
+7. AAP monitors backup completion via operator metrics
+8. Alerts sent if backup fails
+
+**Backup Strategy per Datacenter:**
+- **DC1**: Full backups + continuous WAL archiving to S3 bucket (primary region)
+- **DC2**: Independent backups to separate S3 bucket (DR region) for redundancy
 
 ## AAP Deployment Architecture
 
@@ -449,14 +563,18 @@ AAP maintains consistency across datacenters through:
    - **Option B (Automatic)**: GLB automatically fails back after DC1 stable for X minutes
 7. **Impact**: Users experience brief interruption (< 15 seconds) during failover
 
-### Scenario 3: Database Failure in DC1
+### Scenario 3: Database Failure in DC1 (Within Cluster)
 
+**For EDB-Managed Databases:**
 1. **EDB Operator**: Detects primary PostgreSQL failure
-2. **Automatic Failover**: Replica promoted to primary within DC1
-3. **AAP Controller**: Reconnects to new primary automatically
-4. **Replication**: Continues to DC2 from new primary
-5. **Both AAP Instances**: Continue operating normally
-6. **Downtime**: < 30 seconds for database failover
+2. **Automatic Failover**: Hot standby replica promoted to primary within DC1 cluster
+3. **Service Update**: EDB operator automatically updates `-rw` service to point to new primary
+4. **AAP Controller**: Reconnects to new primary automatically (via unchanged service name)
+5. **Replication**: Continues to DC2 from new primary
+6. **Both AAP Instances**: Continue operating normally
+7. **Downtime**: < 30 seconds for database failover
+
+**Important**: This is automatic failover within a single Kubernetes cluster. Cross-cluster failover (DC1 → DC2) requires external coordination.
 
 ### Scenario 4: Complete Network Partition
 
@@ -602,9 +720,12 @@ spec:
 To add a third datacenter:
 1. Deploy OpenShift cluster in new region
 2. Install EDB operator via AAP
-3. Create PostgreSQL cluster
-4. Configure logical replication from DC1
+3. Create PostgreSQL replica cluster (designated primary + replicas)
+4. Configure physical replication from DC1:
+   - Streaming replication from DC1 primary
+   - WAL shipping from shared S3/object store as fallback
 5. Update AAP inventory
+6. Configure cross-cluster promotion procedures (manual or via GitOps)
 
 ## Compliance and Auditing
 
@@ -733,10 +854,13 @@ resources:
 **Adding Datacenter 3:**
 1. Deploy OpenShift cluster in new region
 2. Deploy AAP instance using Ansible playbook
-3. Configure AAP database replication (tri-directional)
+3. Configure AAP database replication (logical replication for AAP state)
 4. Add to global load balancer backend pool
-5. Deploy EDB operator and PostgreSQL clusters
-6. Configure logical replication from DC1
+5. Deploy EDB operator and PostgreSQL replica clusters
+6. Configure physical replication from DC1:
+   - Primary replication: Streaming from DC1 primary cluster
+   - Fallback: WAL shipping via S3/object store
+7. Configure replica cluster promotion procedures
 
 ## Conclusion
 
@@ -778,8 +902,24 @@ This architecture provides:
 
 4. **EDB Postgres Operator**: Provides:
    - Automated PostgreSQL management
-   - Built-in high availability
-   - Backup and recovery automation
+   - Built-in high availability with automatic failover
+   - Physical replication (streaming + WAL shipping)
+   - Automatic service management and routing updates
+   - Backup and recovery automation with Barman Cloud
+   - Distributed topology support with replica clusters
    - Consistent security policies (restricted-v2 SCC)
 
-The combination of Global Load Balancing, distributed AAP instances, and EDB Postgres for Kubernetes provides an enterprise-grade, highly available, geographically distributed PostgreSQL database platform with comprehensive automation and disaster recovery capabilities.
+5. **Physical Replication for EDB Clusters**: Using PostgreSQL's native WAL-based replication:
+   - Byte-for-byte exact replicas (no schema conflicts)
+   - Faster than logical replication
+   - Supports streaming (primary) and WAL shipping (fallback)
+   - Battle-tested by millions of PostgreSQL deployments
+   - Automatic continuous recovery for replica clusters
+   - Point-in-time recovery (PITR) capability
+
+6. **Separation of Concerns**:
+   - AAP's internal database uses logical replication (flexibility for AAP schema changes)
+   - Application databases use physical replication (performance and reliability)
+   - Clear distinction prevents confusion about replication strategies
+
+The combination of Global Load Balancing, distributed AAP instances, and EDB Postgres for Kubernetes provides an enterprise-grade, highly available, geographically distributed PostgreSQL database platform with comprehensive automation and disaster recovery capabilities. The architecture follows EDB's recommended patterns for distributed PostgreSQL topologies across multiple Kubernetes clusters.
