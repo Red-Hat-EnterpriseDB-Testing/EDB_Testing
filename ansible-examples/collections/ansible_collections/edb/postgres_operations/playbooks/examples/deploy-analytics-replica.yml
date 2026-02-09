@@ -1,0 +1,76 @@
+---
+# Example: Deploy Standalone Replica for Analytics Workloads
+# This example shows how to deploy a read-only replica cluster
+# optimized for analytics and reporting workloads
+
+- name: Deploy Analytics Replica Cluster
+  hosts: analytics_cluster
+  gather_facts: false
+  
+  vars:
+    production_cluster: prod-db
+    production_namespace: production
+    analytics_cluster: analytics-db
+    analytics_namespace: analytics
+    
+  roles:
+    - role: edb.postgres_operations.deploy_replica_cluster
+      vars:
+        # Analytics replica configuration
+        replica_cluster_name: "{{ analytics_cluster }}"
+        replica_namespace: "{{ analytics_namespace }}"
+        replica_datacenter: dc1  # Same datacenter as production
+        replica_instances: 5  # More instances for read scaling
+        replica_postgres_version: "16.8"
+        
+        # Source production cluster
+        source_cluster_name: "{{ production_cluster }}"
+        source_namespace: "{{ production_namespace }}"
+        
+        # Standalone replica strategy (read-only)
+        replica_strategy: standalone
+        standalone_enabled: true
+        
+        # No delayed replay for analytics (want fresh data)
+        enable_delayed_replica: false
+        
+        # Bootstrap from object store (no impact on production)
+        bootstrap_method: recovery_object_store
+        barman_destination_path: s3://prod-backups/prod-db/
+        barman_object_name: "{{ production_cluster }}"
+        barman_server_name: "{{ production_cluster }}"
+        
+        # Hybrid replication
+        enable_streaming_replication: true
+        enable_wal_archive_replication: true
+        
+        # Analytics-optimized storage (more space for workload)
+        replica_storage_size: 200Gi
+        replica_storage_class: gp3-csi
+        
+        # Analytics-optimized resources (more memory for queries)
+        replica_resource_requests_memory: 8Gi
+        replica_resource_requests_cpu: "4"
+        replica_resource_limits_memory: 16Gi
+        replica_resource_limits_cpu: "8"
+        
+        # Analytics-optimized PostgreSQL tuning
+        replica_pg_max_connections: "300"
+        replica_pg_shared_buffers: "2GB"  # Larger for query caching
+        replica_pg_work_mem: "32MB"  # Larger for complex queries
+        replica_pg_maintenance_work_mem: "512MB"
+        replica_pg_effective_cache_size: "6GB"  # Large cache
+        
+        # Monitoring
+        replica_monitoring_enabled: true
+        replica_monitoring_pod_monitor: true
+        
+        # No backup needed (not used for DR)
+        replica_backup_enabled: false
+        
+        # HA for analytics availability
+        enable_pod_disruption_budget: true
+        min_available_instances: 2
+        
+        # Secret sync
+        sync_secrets_from_source: true

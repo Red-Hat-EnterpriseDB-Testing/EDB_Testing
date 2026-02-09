@@ -1,0 +1,70 @@
+---
+# Example: Deploy Delayed Replica for Data Protection
+# This example shows how to deploy a delayed replica that provides
+# a recovery window to detect and recover from accidental data modifications
+
+- name: Deploy Delayed Replica for Data Protection
+  hosts: openshift_clusters
+  gather_facts: false
+  
+  vars:
+    production_cluster: prod-db
+    delayed_cluster: prod-db-delayed
+    namespace: production
+    
+  roles:
+    - role: edb.postgres_operations.deploy_replica_cluster
+      vars:
+        # Delayed replica configuration
+        replica_cluster_name: "{{ delayed_cluster }}"
+        replica_namespace: "{{ namespace }}"
+        replica_datacenter: dc1  # Same datacenter for fast recovery
+        replica_instances: 1  # Single instance sufficient for protection
+        replica_postgres_version: "16.8"
+        
+        # Source production cluster
+        source_cluster_name: "{{ production_cluster }}"
+        source_namespace: "{{ namespace }}"
+        
+        # Standalone replica with delay
+        replica_strategy: standalone
+        standalone_enabled: true
+        enable_delayed_replica: true
+        replica_min_apply_delay: "8h"  # 8-hour recovery window
+        
+        # Bootstrap via streaming (fast, same cluster)
+        bootstrap_method: pg_basebackup
+        
+        # Hybrid replication
+        enable_streaming_replication: true
+        enable_wal_archive_replication: true
+        
+        # Minimal storage (protection only, not for queries)
+        replica_storage_size: 50Gi
+        replica_storage_class: gp3-csi
+        
+        # Minimal resources (low activity)
+        replica_resource_requests_memory: 2Gi
+        replica_resource_requests_cpu: "1"
+        replica_resource_limits_memory: 4Gi
+        replica_resource_limits_cpu: "2"
+        
+        # Standard PostgreSQL configuration
+        replica_pg_max_connections: "100"
+        replica_pg_shared_buffers: "512MB"
+        replica_pg_work_mem: "4MB"
+        replica_pg_maintenance_work_mem: "128MB"
+        replica_pg_effective_cache_size: "1GB"
+        
+        # Monitoring
+        replica_monitoring_enabled: true
+        replica_monitoring_pod_monitor: true
+        
+        # No backup needed (protection role only)
+        replica_backup_enabled: false
+        
+        # No PDB needed (single instance)
+        enable_pod_disruption_budget: false
+        
+        # Secret sync
+        sync_secrets_from_source: true

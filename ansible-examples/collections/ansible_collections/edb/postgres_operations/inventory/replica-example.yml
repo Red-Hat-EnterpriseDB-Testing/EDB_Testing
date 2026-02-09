@@ -1,0 +1,187 @@
+---
+# Example inventory for deploying replica clusters across multiple datacenters
+# This demonstrates a distributed topology for disaster recovery
+
+all:
+  vars:
+    # Global EDB configuration
+    edb_pull_secret_file: secrets/edb-dockerconfig.json
+    postgres_version: "16.8"
+    
+    # Global backup configuration
+    backup_enabled: true
+    backup_retention_days: 30
+    backup_wal_compression: gzip
+    backup_wal_encryption: AES256
+    
+    # Global monitoring
+    monitoring_enabled: true
+    monitoring_pod_monitor: true
+    
+  children:
+    # Primary Datacenter (DC1)
+    dc1_clusters:
+      hosts:
+        dc1_ocp:
+          ansible_host: api.ocp1.example.com
+          ansible_port: 6443
+          kubeconfig_path: ~/.kube/dc1-config
+          datacenter: dc1
+          
+          # Primary cluster configuration
+          cluster_name: prod-db
+          namespace: production
+          instances: 3
+          storage_size: 100Gi
+          storage_class: gp3-csi
+          
+          # Primary cluster is the global primary
+          is_primary: true
+          
+          # Backup to DC1 bucket
+          backup_bucket: s3://prod-backups-dc1/prod-db/
+          
+          # Resource configuration
+          resource_requests_memory: 4Gi
+          resource_requests_cpu: "2"
+          resource_limits_memory: 8Gi
+          resource_limits_cpu: "4"
+          
+          # PostgreSQL tuning
+          pg_max_connections: "500"
+          pg_shared_buffers: "1GB"
+          pg_effective_cache_size: "3GB"
+    
+    # Replica Datacenter (DC2)
+    dc2_clusters:
+      hosts:
+        dc2_ocp:
+          ansible_host: api.ocp2.example.com
+          ansible_port: 6443
+          kubeconfig_path: ~/.kube/dc2-config
+          datacenter: dc2
+          
+          # Replica cluster configuration
+          replica_cluster_name: prod-db-replica
+          replica_namespace: production
+          replica_instances: 3
+          replica_storage_size: 100Gi
+          replica_storage_class: gp3-csi
+          replica_datacenter: dc2
+          
+          # Source cluster (primary in DC1)
+          source_cluster_name: prod-db
+          source_namespace: production
+          source_kubeconfig_path: ~/.kube/dc1-config
+          
+          # Distributed topology strategy
+          replica_strategy: distributed_topology
+          global_primary_cluster: prod-db  # DC1 is current primary
+          enable_promotion_token: true
+          
+          # Bootstrap and replication
+          bootstrap_method: pg_basebackup
+          enable_streaming_replication: true
+          enable_wal_archive_replication: true
+          
+          # Barman Cloud configuration
+          barman_destination_path: s3://prod-backups-dc1/prod-db/
+          barman_object_name: prod-db
+          barman_server_name: prod-db
+          barman_s3_credentials_secret: prod-db-backup-s3
+          
+          # Symmetric architecture - backup to DC2 bucket
+          replica_backup_enabled: true
+          replica_backup_bucket: s3://prod-backups-dc2/prod-db-replica/
+          
+          # Match primary resources for symmetric architecture
+          replica_resource_requests_memory: 4Gi
+          replica_resource_requests_cpu: "2"
+          replica_resource_limits_memory: 8Gi
+          replica_resource_limits_cpu: "4"
+          
+          # Match primary PostgreSQL tuning
+          replica_pg_max_connections: "500"
+          replica_pg_shared_buffers: "1GB"
+          replica_pg_effective_cache_size: "3GB"
+          
+          # Secret synchronization
+          sync_secrets_from_source: true
+          create_replication_secrets: true
+    
+    # Analytics Cluster (same datacenter as primary, but standalone)
+    analytics_clusters:
+      hosts:
+        analytics_ocp:
+          ansible_host: api.ocp1.example.com
+          ansible_port: 6443
+          kubeconfig_path: ~/.kube/dc1-config
+          datacenter: dc1
+          
+          # Analytics replica configuration
+          replica_cluster_name: analytics-db
+          replica_namespace: analytics
+          replica_instances: 5  # More instances for read scaling
+          replica_storage_size: 200Gi  # More storage for analytics
+          replica_storage_class: gp3-csi
+          replica_datacenter: dc1
+          
+          # Source production cluster
+          source_cluster_name: prod-db
+          source_namespace: production
+          
+          # Standalone replica strategy (read-only)
+          replica_strategy: standalone
+          standalone_enabled: true
+          enable_delayed_replica: false
+          
+          # Bootstrap from object store (no production impact)
+          bootstrap_method: recovery_object_store
+          barman_destination_path: s3://prod-backups-dc1/prod-db/
+          barman_object_name: prod-db
+          barman_server_name: prod-db
+          
+          # Replication
+          enable_streaming_replication: true
+          enable_wal_archive_replication: true
+          
+          # Analytics-optimized resources (more memory)
+          replica_resource_requests_memory: 8Gi
+          replica_resource_requests_cpu: "4"
+          replica_resource_limits_memory: 16Gi
+          replica_resource_limits_cpu: "8"
+          
+          # Analytics-optimized PostgreSQL tuning
+          replica_pg_max_connections: "300"
+          replica_pg_shared_buffers: "2GB"
+          replica_pg_work_mem: "32MB"
+          replica_pg_effective_cache_size: "6GB"
+          
+          # No backup needed for analytics
+          replica_backup_enabled: false
+          
+          # Secret sync
+          sync_secrets_from_source: true
+
+    # Group for all OpenShift clusters
+    openshift_clusters:
+      children:
+        dc1_clusters:
+        dc2_clusters:
+        analytics_clusters:
+      
+      vars:
+        # Common OpenShift configuration
+        ansible_connection: local
+        ansible_python_interpreter: /usr/bin/python3
+        
+        # Wait configuration
+        wait_for_cluster_ready: true
+        wait_for_replica_cluster_ready: true
+        wait_timeout: 600
+        wait_delay: 10
+        wait_retries: 60
+        
+        # High availability
+        enable_pod_disruption_budget: true
+        min_available_instances: 1

@@ -1,0 +1,102 @@
+---
+# Default variables for deploy_replica_cluster role
+# These can be overridden at playbook level or via extra vars
+
+# Replica Cluster Configuration
+replica_cluster_name: "my-postgres-replica"
+replica_namespace: "default"
+replica_instances: 3
+replica_postgres_version: "16.8"
+
+# Source Cluster Configuration (required)
+source_cluster_name: "my-postgres"
+source_namespace: "default"
+source_kubeconfig_path: ""  # If different from replica
+
+# Replica Strategy
+# Options: 'distributed_topology', 'standalone'
+replica_strategy: "distributed_topology"
+
+# Bootstrap Method
+# Options: 'pg_basebackup', 'recovery_object_store', 'recovery_volume_snapshot'
+bootstrap_method: "pg_basebackup"
+
+# Distributed Topology Settings (when replica_strategy: distributed_topology)
+global_primary_cluster: "{{ source_cluster_name }}"  # Name of current global primary
+enable_promotion_token: true  # Enable controlled switchover capability
+
+# Standalone Replica Settings (when replica_strategy: standalone)
+standalone_enabled: true  # Enable continuous recovery for standalone replicas
+enable_delayed_replica: false  # Enable delayed replica for data protection
+replica_min_apply_delay: "0s"  # Delay duration (e.g., '8h', '2h')
+
+# Replication Methods
+enable_streaming_replication: true  # Primary replication method
+enable_wal_archive_replication: true  # Fallback replication method
+
+# External Cluster Connection (for streaming replication)
+streaming_replica_user: "streaming_replica"
+streaming_replica_ssl_mode: "verify-full"
+
+# Storage Configuration
+replica_storage_size: "10Gi"
+replica_storage_class: "local-path"
+replica_storage_wal_size: "5Gi"
+
+# Resource Configuration
+replica_resource_requests_memory: "512Mi"
+replica_resource_requests_cpu: "250m"
+replica_resource_limits_memory: "1Gi"
+replica_resource_limits_cpu: "1000m"
+
+# PostgreSQL Configuration
+replica_pg_max_connections: "200"
+replica_pg_shared_buffers: "256MB"
+replica_pg_work_mem: "4MB"
+replica_pg_maintenance_work_mem: "64MB"
+replica_pg_effective_cache_size: "512MB"
+
+# Bootstrap Configuration (for application database)
+replica_bootstrap_database: "app"
+replica_bootstrap_owner: "app"
+
+# Monitoring Configuration
+replica_monitoring_enabled: true
+replica_monitoring_pod_monitor: true
+
+# Backup Configuration (for symmetric architectures)
+replica_backup_enabled: false
+replica_backup_bucket: ""
+replica_backup_retention_days: 30
+replica_backup_wal_compression: "gzip"
+replica_backup_wal_encryption: "AES256"
+
+# Barman Cloud Plugin Configuration (for object store)
+barman_object_name: "{{ source_cluster_name }}"
+barman_server_name: "{{ source_cluster_name }}"
+barman_endpoint_url: ""
+barman_destination_path: ""
+barman_s3_credentials_secret: "{{ source_cluster_name }}-backup-s3"
+
+# Volume Snapshot Configuration
+volume_snapshot_name: ""
+volume_snapshot_kind: "VolumeSnapshot"
+
+# Secret Management
+sync_secrets_from_source: true  # Copy secrets from source cluster for distributed topology
+edb_pull_secret_file: "secrets/edb-dockerconfig.json"
+create_replication_secrets: true
+
+# High Availability Configuration
+enable_pod_disruption_budget: true
+min_available_instances: 1
+
+# Wait Configuration
+wait_for_replica_cluster_ready: true
+wait_timeout: 300
+wait_delay: 10
+wait_retries: 30
+
+# Datacenter Labels
+replica_datacenter: "dc2"
+replica_environment: "production"
