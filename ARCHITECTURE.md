@@ -10,15 +10,10 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#333','lineColor':'#333','secondaryColor':'#fff','tertiaryColor':'#fff','background':'#fff','mainBkg':'#fff','secondBkg':'#fff','tertiaryBkg':'#fff'}}}%%
 graph TB
     Users["Ansible VIP / Load Balancer<br/>aap.example.com"]
-    VIP1["EDB VIP / Load Balancer<br/>edb4aap.example.com"]
-    
-    Users ==Active==> AAP1
-    Users -.Standby.-> AAP2
-    VIP1 ==Active==> PG_PROD1
-    VIP1 -.Standby.-> PG_PROD2
+    VIP1["EDB Service / Load Balancer<br/>edb4aap.example.com"]
 
-    subgraph DC2["Datacenter 2"]
-        direction LR
+    subgraph DC2["Datacenter 2 - Replica Cluster"]
+        direction TB
         OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
         
         subgraph OPS2["Operators"]
@@ -29,20 +24,35 @@ graph TB
         
         subgraph APPS2["AAP"]
             direction LR
-            AAP2["Ansible Automation Platform Passive"]
-            PG_PROD2["Passive DB Secondary<br/>+ EFM Agent"]
-            AAP2 --> PG_PROD2
+            AAP2["Ansible Automation Platform<br/>Passive"]
+        end
+        
+        subgraph REPLICA_CLUSTER["PostgreSQL Replica Cluster"]
+            direction TB
+            PG_DESIGNATED["Designated Primary<br/>Standby Server<br/>Continuous Recovery"]
+            PG_STANDBY3["Hot Standby<br/>Replica 1"]
+            PG_STANDBY4["Hot Standby<br/>Replica 2"]
+            
+            PG_DESIGNATED -.Streaming<br/>Replication.-> PG_STANDBY3
+            PG_DESIGNATED -.Streaming<br/>Replication.-> PG_STANDBY4
         end
         
         OCP2 --> AAP_OP2
         OCP2 --> EDB_OP2
         AAP_OP2 -.Manages.-> AAP2
-        EDB_OP2 -.Manages.-> PG_PROD2
+        EDB_OP2 -.Manages.-> REPLICA_CLUSTER
+        AAP2 --> PG_DESIGNATED
     end
 
-    subgraph DC1["Datacenter 1"]
-        direction LR
+    subgraph DC1["Datacenter 1 - Primary Cluster"]
+        direction TB
+        DC1_SPACE1[" "]
+        DC1_SPACE2[" "]
+        DC1_SPACE3[" "]
         OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
+        DC1_SPACE1 ~~~ DC1_SPACE2
+        DC1_SPACE2 ~~~ DC1_SPACE3
+        DC1_SPACE3 ~~~ OCP1
         
         subgraph OPS1["Operators"]
             direction LR
@@ -52,30 +62,48 @@ graph TB
         
         subgraph APPS1["AAP"]
             direction LR
-            AAP1["Ansible Automation Platform Active"]
-            PG_PROD1["Active DB Primary<br/>+ EFM Agent"]
-            AAP1 --> PG_PROD1
+            AAP1["Ansible Automation Platform<br/>Active"]
+        end
+        
+        subgraph PRIMARY_CLUSTER["PostgreSQL Primary Cluster"]
+            direction TB
+            PG_PRIMARY["Primary Instance<br/>Read/Write"]
+            PG_STANDBY1["Hot Standby<br/>Replica 1"]
+            PG_STANDBY2["Hot Standby<br/>Replica 2"]
+            
+            PG_PRIMARY -.Streaming<br/>Replication.-> PG_STANDBY1
+            PG_PRIMARY -.Streaming<br/>Replication.-> PG_STANDBY2
         end
         
         OCP1 --> AAP_OP1
         OCP1 --> EDB_OP1
         AAP_OP1 -.Manages.-> AAP1
-        EDB_OP1 -.Manages.-> PG_PROD1
+        EDB_OP1 -.Manages.-> PRIMARY_CLUSTER
+        AAP1 --> PG_PRIMARY
     end
     
+    PG_PRIMARY ==Streaming<br/>Replication==> PG_DESIGNATED
     
-    PG_PROD1 <==Logical Replication==> PG_PROD2
+    Users ==Active==> AAP1
+    Users -.Standby.-> AAP2
+    VIP1 ==Active==> PG_PRIMARY
+    VIP1 -.Standby.-> PG_DESIGNATED
     
     classDef aapStyle fill:#ee0000,stroke:#333,stroke-width:2px,color:#fff
     classDef ocpStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
     classDef dbPrimaryStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
+    classDef dbDesignatedStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
     classDef dbStandbyStyle fill:#66cc66,stroke:#333,stroke-width:2px,color:#000
     classDef vipStyle fill:#ff6600,stroke:#333,stroke-width:3px,color:#fff
+    classDef invisibleStyle fill:none,stroke:none,color:transparent
     
     class AAP1,AAP2 aapStyle
     class OCP1,OCP2,EDB_OP1,EDB_OP2,AAP_OP1,AAP_OP2 ocpStyle
-    class PG_PROD1,PG_PROD2 dbPrimaryStyle
+    class PG_PRIMARY dbPrimaryStyle
+    class PG_DESIGNATED dbDesignatedStyle
+    class PG_STANDBY1,PG_STANDBY2,PG_STANDBY3,PG_STANDBY4 dbStandbyStyle
     class VIP1,Users vipStyle
+    class DC1_SPACE1,DC1_SPACE2,DC1_SPACE3 invisibleStyle
 ```
 
 ## Traffic Flow Overview
