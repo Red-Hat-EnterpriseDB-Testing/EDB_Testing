@@ -1,0 +1,98 @@
+---
+# tasks file for manage_aap_cluster
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - manage_aap_cluster_action is defined
+      - manage_aap_cluster_action in ['scale_up', 'scale_down', 'start', 'stop', 'status']
+      - manage_aap_cluster_deployment_type in ['openshift', 'rhel']
+    fail_msg: "Required variables are missing or invalid"
+    quiet: true
+  tags:
+    - always
+
+- name: Validate OpenShift-specific requirements
+  ansible.builtin.assert:
+    that:
+      - manage_aap_cluster_namespace is defined
+      - manage_aap_cluster_namespace | length > 0
+    fail_msg: "OpenShift namespace is required for OpenShift deployments"
+    quiet: true
+  when:
+    - manage_aap_cluster_deployment_type == 'openshift'
+    - manage_aap_cluster_action in ['scale_up', 'scale_down', 'status']
+  tags:
+    - always
+
+- name: Display operation details
+  ansible.builtin.debug:
+    msg:
+      - "AAP Cluster Management Operation"
+      - "Action: {{ manage_aap_cluster_action }}"
+      - "Deployment Type: {{ manage_aap_cluster_deployment_type }}"
+      - "Namespace: {{ manage_aap_cluster_namespace | default('N/A') }}"
+      - "Context: {{ manage_aap_cluster_context | default('default') }}"
+    verbosity: 1
+  tags:
+    - always
+
+- name: Execute OpenShift scale up
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/openshift_scale_up.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'openshift'
+    - manage_aap_cluster_action == 'scale_up'
+  tags:
+    - manage_aap_cluster
+    - scale_up
+
+- name: Execute OpenShift scale down
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/openshift_scale_down.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'openshift'
+    - manage_aap_cluster_action == 'scale_down'
+  tags:
+    - manage_aap_cluster
+    - scale_down
+
+- name: Execute OpenShift status check
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/openshift_status.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'openshift'
+    - manage_aap_cluster_action == 'status'
+  tags:
+    - manage_aap_cluster
+    - status
+
+- name: Execute RHEL service start
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/rhel_start.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'rhel'
+    - manage_aap_cluster_action == 'start'
+  tags:
+    - manage_aap_cluster
+    - start
+
+- name: Execute RHEL service stop
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/rhel_stop.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'rhel'
+    - manage_aap_cluster_action == 'stop'
+  tags:
+    - manage_aap_cluster
+    - stop
+
+- name: Execute RHEL status check
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/rhel_status.yml"
+  when:
+    - manage_aap_cluster_deployment_type == 'rhel'
+    - manage_aap_cluster_action == 'status'
+  tags:
+    - manage_aap_cluster
+    - status

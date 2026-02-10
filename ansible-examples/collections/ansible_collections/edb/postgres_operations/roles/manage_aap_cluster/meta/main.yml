@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  author: EDB Operations Team
+  description: Manage Ansible Automation Platform cluster operations
+  company: EnterpriseDB
+  license: BSD-3-Clause
+  min_ansible_version: "2.11"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Fedora
+      versions:
+        - all
+  galaxy_tags:
+    - aap
+    - ansible
+    - automation
+    - cluster
+    - openshift
+    - kubernetes
+    - failover
+    - disaster_recovery
+
+dependencies: []
+
+collections:
+  - kubernetes.core

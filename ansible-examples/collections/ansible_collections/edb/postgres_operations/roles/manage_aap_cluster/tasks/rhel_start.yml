@@ -1,0 +1,76 @@
+---
+# RHEL service start tasks
+
+- name: rhel_start | Create log file if not exists
+  ansible.builtin.file:
+    path: "{{ manage_aap_cluster_log_file }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+  changed_when: false
+
+- name: rhel_start | Log startup initiation
+  ansible.builtin.lineinfile:
+    path: "{{ manage_aap_cluster_log_file }}"
+    line: "[{{ ansible_date_time.iso8601 }}] Starting AAP cluster services via Ansible..."
+    create: true
+    mode: "0644"
+
+- name: rhel_start | Start AAP services in order
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: started
+    enabled: true
+  loop: "{{ manage_aap_cluster_services_start_order }}"
+  loop_control:
+    label: "{{ item }}"
+  register: __manage_aap_cluster_service_start
+  # Continue if service doesn't exist
+  failed_when: false
+
+- name: rhel_start | Wait for services to stabilize
+  ansible.builtin.pause:
+    seconds: 5
+    prompt: "Waiting for service to stabilize..."
+  loop: "{{ manage_aap_cluster_services_start_order }}"
+  loop_control:
+    label: "{{ item }}"
+  when: __manage_aap_cluster_service_start.results[ansible_loop.index0].changed | default(false)
+
+- name: rhel_start | Verify services are running
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+  loop: "{{ manage_aap_cluster_services_start_order }}"
+  loop_control:
+    label: "{{ item }}"
+  register: __manage_aap_cluster_service_status
+  failed_when: false
+
+- name: rhel_start | Wait for AAP Controller API
+  ansible.builtin.uri:
+    url: https://localhost/api/v2/ping/
+    validate_certs: false
+    status_code: 200
+    timeout: 30
+  register: __manage_aap_cluster_api_check
+  retries: 20
+  delay: 10
+  until: __manage_aap_cluster_api_check.status == 200
+  when: manage_aap_cluster_health_check_enabled | bool
+  failed_when: false
+
+- name: rhel_start | Log successful startup
+  ansible.builtin.lineinfile:
+    path: "{{ manage_aap_cluster_log_file }}"
+    line: "[{{ ansible_date_time.iso8601 }}] ✓ AAP cluster startup complete. API: {{ 'Healthy' if __manage_aap_cluster_api_check.status | default(0) == 200 else 'Not responding' }}"
+
+- name: rhel_start | Display startup results
+  ansible.builtin.debug:
+    msg:
+      - "✓ AAP cluster services started"
+      - "Services started: {{ __manage_aap_cluster_service_start.results | selectattr('changed', 'equalto', true) | list | length }}"
+      - "Services already running: {{ __manage_aap_cluster_service_start.results | selectattr('changed', 'equalto', false) | list | length }}"
+      - "API Health: {{ 'Healthy' if __manage_aap_cluster_api_check.status | default(0) == 200 else 'Not responding' }}"

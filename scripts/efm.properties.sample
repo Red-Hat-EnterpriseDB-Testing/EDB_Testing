@@ -1,0 +1,100 @@
+# EFM Configuration Sample - AAP Integration
+# This is a sample configuration showing how to integrate AAP failover scripts with EFM
+# Copy relevant sections to your actual /etc/edb/efm-4.x/efm.properties file
+
+#############################################
+# Custom Script Configuration
+#############################################
+
+# Enable custom script execution
+enable.custom.scripts=true
+
+# Script timeout (seconds) - Allow sufficient time for AAP to start
+# Recommended: 300-600 seconds (5-10 minutes)
+script.timeout=300
+
+#############################################
+# Post-Promotion Script
+# Runs on the newly promoted primary after promotion is complete
+# Use this to activate AAP in the datacenter where database was promoted
+#############################################
+
+# Basic AAP failover integration
+script.post.promotion=/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh %h %s %a %v
+
+# OR: Use orchestrated failover for complex scenarios
+# script.post.promotion=/usr/edb/efm-4.x/bin/efm-orchestrated-failover.sh %h %s %a %v
+
+#############################################
+# Post-Failure Script (Optional)
+# Runs after detecting primary database failure
+# Use for immediate notifications or logging
+#############################################
+
+# Example: Send immediate notification when failure detected
+# script.post.failure=/usr/local/bin/send-failure-alert.sh %h %s %a %v
+
+#############################################
+# Pre-Promotion Script (Optional)
+# Runs before promoting a standby to primary
+# Use for pre-flight checks or preparation tasks
+#############################################
+
+# Example: Verify readiness before promotion
+# script.pre.promotion=/usr/local/bin/pre-promotion-checks.sh %h %s %a %v
+
+#############################################
+# Script Parameter Placeholders
+#############################################
+
+# %h - Cluster name (e.g., "prod-db-cluster")
+# %s - Node type: "primary", "standby", or "witness"
+# %a - Node address (hostname or IP)
+# %v - Virtual IP address (if VIP is configured)
+
+#############################################
+# Important Notes
+#############################################
+
+# 1. Scripts must be executable and owned by the efm user:
+#    sudo chown efm:efm /usr/edb/efm-4.x/bin/*.sh
+#    sudo chmod +x /usr/edb/efm-4.x/bin/*.sh
+
+# 2. Scripts must exit with code 0 for success, non-zero for failure
+
+# 3. For OpenShift deployments, ensure efm user has kubeconfig access:
+#    sudo mkdir -p /var/lib/efm/.kube
+#    sudo cp ~/.kube/config /var/lib/efm/.kube/config
+#    sudo chown -R efm:efm /var/lib/efm/.kube
+
+# 4. Test scripts manually before relying on automatic failover:
+#    sudo -u efm /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh test standby dc2-node 10.0.2.100
+
+# 5. Monitor script execution in logs:
+#    /var/log/efm-aap-failover.log
+#    /var/log/efm-4.x/efm-startup.log
+
+# 6. After modifying efm.properties, restart EFM:
+#    sudo systemctl restart edb-efm-4.x
+
+#############################################
+# Additional EFM Configuration (Reference)
+#############################################
+
+# Database connection settings
+# db.user=efm
+# db.password.encrypted=<encrypted_password>
+# db.port=5432
+# db.database=postgres
+
+# Cluster settings
+# bind.address=0.0.0.0:7800
+# is.witness=false
+# auto.allow.hosts=true
+
+# Notification settings
+# notification.level=WARNING
+# notification.text.prefix=[EFM Alert]
+
+# For complete EFM configuration reference, see:
+# https://www.enterprisedb.com/docs/efm/latest/

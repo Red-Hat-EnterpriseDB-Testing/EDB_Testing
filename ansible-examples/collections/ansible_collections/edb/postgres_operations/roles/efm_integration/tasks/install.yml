@@ -1,0 +1,102 @@
+---
+# Install EFM integration scripts
+
+- name: install | Verify EFM is installed
+  ansible.builtin.stat:
+    path: "{{ efm_integration_efm_base_dir }}"
+  register: __efm_integration_efm_dir
+  failed_when: not __efm_integration_efm_dir.stat.exists
+
+- name: install | Create EFM bin directory if not exists
+  ansible.builtin.file:
+    path: "{{ efm_integration_script_target_dir }}"
+    state: directory
+    owner: "{{ efm_integration_efm_user }}"
+    group: "{{ efm_integration_efm_group }}"
+    mode: "0755"
+
+- name: install | Check if source scripts exist
+  ansible.builtin.stat:
+    path: "{{ efm_integration_script_source_dir }}/{{ item['name'] }}"
+  loop: "{{ efm_integration_scripts_to_install }}"
+  loop_control:
+    label: "{{ item['name'] }}"
+  register: __efm_integration_source_scripts
+  delegate_to: localhost
+  become: false
+
+- name: install | Copy AAP management scripts to EFM directory
+  ansible.builtin.copy:
+    src: "{{ efm_integration_script_source_dir }}/{{ item['name'] }}"
+    dest: "{{ efm_integration_script_target_dir }}/{{ item['target_name'] }}"
+    owner: "{{ efm_integration_efm_user }}"
+    group: "{{ efm_integration_efm_group }}"
+    mode: "0755"
+  loop: "{{ efm_integration_scripts_to_install }}"
+  loop_control:
+    label: "{{ item['name'] }} -> {{ item['target_name'] }}"
+  when: __efm_integration_source_scripts.results[ansible_loop.index0].stat.exists
+  register: __efm_integration_scripts_copied
+
+- name: install | Setup OpenShift kubeconfig for efm user
+  when: efm_integration_aap_deployment_type == 'openshift'
+  block:
+    - name: install | Create .kube directory for efm user
+      ansible.builtin.file:
+        path: "{{ efm_integration_kubeconfig_target | dirname }}"
+        state: directory
+        owner: "{{ efm_integration_efm_user }}"
+        group: "{{ efm_integration_efm_group }}"
+        mode: "0700"
+
+    - name: install | Copy kubeconfig to efm user directory
+      ansible.builtin.copy:
+        src: "{{ efm_integration_kubeconfig_source }}"
+        dest: "{{ efm_integration_kubeconfig_target }}"
+        owner: "{{ efm_integration_efm_user }}"
+        group: "{{ efm_integration_efm_group }}"
+        mode: "0600"
+      when: efm_integration_kubeconfig_source != ""
+
+    - name: install | Test kubeconfig access as efm user
+      ansible.builtin.command:
+        cmd: oc --kubeconfig={{ efm_integration_kubeconfig_target }} whoami
+      become_user: "{{ efm_integration_efm_user }}"
+      register: __efm_integration_oc_test
+      changed_when: false
+      failed_when: false
+
+    - name: install | Display kubeconfig test result
+      ansible.builtin.debug:
+        msg:
+          - "OpenShift access test: {{ 'SUCCESS' if __efm_integration_oc_test.rc == 0 else 'FAILED' }}"
+          - "User: {{ __efm_integration_oc_test.stdout | default('Unable to authenticate') }}"
+      when: __efm_integration_oc_test is defined
+
+- name: install | Create log files with proper permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: touch
+    owner: "{{ efm_integration_efm_user }}"
+    group: "{{ efm_integration_efm_group }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+  loop:
+    - "{{ efm_integration_wrapper_log }}"
+    - "{{ efm_integration_orchestrated_log }}"
+  changed_when: false
+
+- name: install | Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✓ EFM AAP Integration Scripts Installed"
+      - "Target Directory: {{ efm_integration_script_target_dir }}"
+      - "Scripts Installed: {{ __efm_integration_scripts_copied.results | selectattr('changed', 'equalto', true) | list | length }}"
+      - "Deployment Type: {{ efm_integration_aap_deployment_type }}"
+      - "Kubeconfig: {{ 'Configured' if efm_integration_aap_deployment_type == 'openshift' else 'Not required (RHEL)' }}"
+      - ""
+      - "Next Steps:"
+      - "1. Run with efm_integration_action: configure to update EFM configuration"
+      - "2. Test the integration with efm_integration_action: test"
+      - "3. Restart EFM service: systemctl restart edb-efm-{{ efm_integration_efm_version }}"

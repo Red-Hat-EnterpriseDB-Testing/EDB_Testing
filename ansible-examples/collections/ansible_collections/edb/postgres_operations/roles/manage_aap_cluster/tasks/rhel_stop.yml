@@ -1,0 +1,41 @@
+---
+# RHEL service stop tasks
+
+- name: rhel_stop | Log shutdown initiation
+  ansible.builtin.lineinfile:
+    path: "{{ manage_aap_cluster_log_file }}"
+    line: "[{{ ansible_date_time.iso8601 }}] Stopping AAP cluster services via Ansible..."
+    create: true
+    mode: "0644"
+
+- name: rhel_stop | Stop AAP services in reverse order
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: stopped
+  loop: "{{ manage_aap_cluster_services_stop_order }}"
+  loop_control:
+    label: "{{ item }}"
+  register: __manage_aap_cluster_service_stop
+  # Continue if service doesn't exist
+  failed_when: false
+
+- name: rhel_stop | Verify services are stopped
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+  loop: "{{ manage_aap_cluster_services_stop_order }}"
+  loop_control:
+    label: "{{ item }}"
+  register: __manage_aap_cluster_service_status
+  failed_when: false
+
+- name: rhel_stop | Log successful shutdown
+  ansible.builtin.lineinfile:
+    path: "{{ manage_aap_cluster_log_file }}"
+    line: "[{{ ansible_date_time.iso8601 }}] ✓ AAP cluster shutdown complete"
+
+- name: rhel_stop | Display shutdown results
+  ansible.builtin.debug:
+    msg:
+      - "✓ AAP cluster services stopped"
+      - "Services stopped: {{ __manage_aap_cluster_service_stop.results | selectattr('changed', 'equalto', true) | list | length }}"
+      - "Services already stopped: {{ __manage_aap_cluster_service_stop.results | selectattr('changed', 'equalto', false) | list | length }}"

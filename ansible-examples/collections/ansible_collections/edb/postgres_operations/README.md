@@ -4,11 +4,17 @@ This collection provides roles and playbooks for managing EnterpriseDB Postgres 
 
 ## Description
 
-The `edb.postgres_operations` collection simplifies PostgreSQL cluster management with three comprehensive roles:
+The `edb.postgres_operations` collection simplifies PostgreSQL cluster management with comprehensive roles:
 
+### Database Management
 - **deploy_cluster** - Deploy and configure PostgreSQL clusters
+- **deploy_replica_cluster** - Deploy replica clusters for DR and HA
 - **execute_sql** - Execute SQL queries across multiple databases
 - **check_health** - Monitor cluster health and replication status
+
+### AAP Cluster Management & DR
+- **manage_aap_cluster** - Manage AAP cluster scaling and services (OpenShift/RHEL)
+- **efm_integration** - Integrate AAP management with EDB Failover Manager
 
 ## Requirements
 

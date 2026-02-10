@@ -1,0 +1,14 @@
+[Unit]
+Description=Ansible Automation Platform Cluster Services
+After=network.target
+Wants=postgresql.service redis.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/start-aap-cluster.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

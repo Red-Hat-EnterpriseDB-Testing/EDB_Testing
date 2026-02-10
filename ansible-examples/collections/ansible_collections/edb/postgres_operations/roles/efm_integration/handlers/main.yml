@@ -1,0 +1,14 @@
+---
+# handlers file for efm_integration
+
+- name: Restart EFM service
+  ansible.builtin.systemd:
+    name: "edb-efm-{{ efm_integration_efm_version }}"
+    state: restarted
+  listen: restart efm
+
+- name: Verify EFM is running
+  ansible.builtin.systemd:
+    name: "edb-efm-{{ efm_integration_efm_version }}"
+    state: started
+  listen: restart efm

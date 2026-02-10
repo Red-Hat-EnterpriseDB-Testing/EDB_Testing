@@ -1,0 +1,58 @@
+---
+# RHEL service status check tasks
+
+- name: rhel_status | Check AAP services status
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+  loop: "{{ manage_aap_cluster_services_start_order }}"
+  loop_control:
+    label: "{{ item }}"
+  register: __manage_aap_cluster_services_status
+  failed_when: false
+
+- name: rhel_status | Calculate service statistics
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_service_stats:
+      total_services: "{{ manage_aap_cluster_services_start_order | length }}"
+      running_services: "{{ __manage_aap_cluster_services_status.results | selectattr('status.ActiveState', 'equalto', 'active') | list | length }}"
+      stopped_services: "{{ __manage_aap_cluster_services_status.results | selectattr('status.ActiveState', 'equalto', 'inactive') | list | length }}"
+      failed_services: "{{ __manage_aap_cluster_services_status.results | selectattr('status.ActiveState', 'equalto', 'failed') | list | length }}"
+
+- name: rhel_status | Check AAP API health
+  ansible.builtin.uri:
+    url: https://localhost/api/v2/ping/
+    validate_certs: false
+    status_code: 200
+    timeout: 10
+  register: __manage_aap_cluster_api_status
+  failed_when: false
+
+- name: rhel_status | Determine cluster state
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_state: >-
+      {{
+        'stopped' if __manage_aap_cluster_service_stats.running_services | int == 0
+        else 'active' if __manage_aap_cluster_api_status.status | default(0) == 200
+        else 'starting'
+      }}
+
+- name: rhel_status | Display AAP cluster status
+  ansible.builtin.debug:
+    msg:
+      - "AAP Cluster Status (RHEL)"
+      - "========================"
+      - "State: {{ __manage_aap_cluster_state | upper }}"
+      - "Total Services: {{ __manage_aap_cluster_service_stats.total_services }}"
+      - "Running: {{ __manage_aap_cluster_service_stats.running_services }}"
+      - "Stopped: {{ __manage_aap_cluster_service_stats.stopped_services }}"
+      - "Failed: {{ __manage_aap_cluster_service_stats.failed_services }}"
+      - "API Health: {{ 'Healthy' if __manage_aap_cluster_api_status.status | default(0) == 200 else 'Not responding' }}"
+
+- name: rhel_status | Set result fact
+  ansible.builtin.set_fact:
+    manage_aap_cluster_result:
+      changed: false
+      status: "{{ __manage_aap_cluster_state }}"
+      statistics: "{{ __manage_aap_cluster_service_stats }}"
+      api_healthy: "{{ __manage_aap_cluster_api_status.status | default(0) == 200 }}"
+      message: "AAP cluster is {{ __manage_aap_cluster_state }}"
