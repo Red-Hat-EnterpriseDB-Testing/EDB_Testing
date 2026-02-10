@@ -15,8 +15,6 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 - [Ansible Automation](#ansible-automation)
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Scaling Considerations](#scaling-considerations)
-- [Compliance and Auditing](#compliance-and-auditing)
-- [Conclusion](#conclusion)
 
 ## Architecture Diagram
 
@@ -1536,43 +1534,6 @@ Comprehensive documentation is available:
 2. **DNS Fallback**: Update DNS records to point to surviving datacenter
 3. **AAP Continues**: Both instances operational, accept direct connections
 4. **Restore LB**: Bring load balancer back online, resume normal routing
-
-
-## Scaling Considerations
-
-### Horizontal Scaling
-
-Add more replicas:
-```bash
-kubectl patch cluster prod-db -n production \
-  --type='json' -p='[{"op": "replace", "path": "/spec/instances", "value": 5}]'
-```
-
-### Vertical Scaling
-
-Increase resources:
-```yaml
-spec:
-  resources:
-    requests:
-      memory: "4Gi"
-      cpu: "2000m"
-    limits:
-      memory: "8Gi"
-      cpu: "4000m"
-```
-
-### Multi-Region Expansion
-
-To add a third datacenter:
-1. Deploy OpenShift cluster in new region
-2. Install EDB operator via AAP
-3. Create PostgreSQL replica cluster (designated primary + replicas)
-4. Configure physical replication from DC1:
-   - Streaming replication from DC1 primary
-   - WAL shipping from shared S3/object store as fallback
-5. Update AAP inventory
-6. Configure cross-cluster promotion procedures (manual or via GitOps)
 
 ## Scaling Considerations
 
