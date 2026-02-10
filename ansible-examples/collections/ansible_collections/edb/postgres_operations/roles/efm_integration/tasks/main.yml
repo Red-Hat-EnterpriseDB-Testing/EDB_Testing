@@ -1,0 +1,56 @@
+---
+# tasks file for efm_integration
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - efm_integration_action is defined
+      - efm_integration_action in ['install', 'configure', 'test', 'uninstall']
+    fail_msg: "efm_integration_action must be one of: install, configure, test, uninstall"
+    quiet: true
+  tags:
+    - always
+
+- name: Display operation details
+  ansible.builtin.debug:
+    msg:
+      - "EFM Integration Operation"
+      - "Action: {{ efm_integration_action }}"
+      - "EFM Version: {{ efm_integration_efm_version }}"
+      - "AAP Deployment Type: {{ efm_integration_aap_deployment_type }}"
+      - "Orchestrated Failover: {{ efm_integration_use_orchestrated_failover }}"
+    verbosity: 1
+  tags:
+    - always
+
+- name: Execute install tasks
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/install.yml"
+  when: efm_integration_action == 'install'
+  tags:
+    - efm_integration
+    - install
+
+- name: Execute configure tasks
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/configure.yml"
+  when: efm_integration_action == 'configure'
+  tags:
+    - efm_integration
+    - configure
+
+- name: Execute test tasks
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/test.yml"
+  when: efm_integration_action == 'test'
+  tags:
+    - efm_integration
+    - test
+
+- name: Execute uninstall tasks
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/uninstall.yml"
+  when: efm_integration_action == 'uninstall'
+  tags:
+    - efm_integration
+    - uninstall

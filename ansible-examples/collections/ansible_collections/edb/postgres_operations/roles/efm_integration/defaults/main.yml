@@ -1,0 +1,67 @@
+---
+# defaults file for efm_integration
+
+# EFM configuration
+efm_integration_efm_version: "4.7"
+efm_integration_efm_base_dir: "/usr/edb/efm-{{ efm_integration_efm_version }}"
+efm_integration_efm_config_dir: "/etc/edb/efm-{{ efm_integration_efm_version }}"
+efm_integration_efm_cluster_name: "efm-cluster"
+efm_integration_efm_properties_file: "{{ efm_integration_efm_config_dir }}/efm.properties"
+
+# Script locations
+efm_integration_script_source_dir: "{{ playbook_dir }}/../../scripts"
+efm_integration_script_target_dir: "{{ efm_integration_efm_base_dir }}/bin"
+
+# Deployment type for AAP: openshift or rhel
+efm_integration_aap_deployment_type: openshift
+
+# OpenShift configuration
+efm_integration_openshift_namespace: ansible-automation-platform
+efm_integration_openshift_contexts:
+  dc1: api-crc-testing:6443
+  dc2: api-chadsno2026-fteam-local:6443
+
+# Kubeconfig for efm user (OpenShift only)
+efm_integration_kubeconfig_source: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"
+efm_integration_kubeconfig_target: /var/lib/efm/.kube/config
+efm_integration_efm_user: efm
+efm_integration_efm_group: efm
+
+# Scripts to install
+efm_integration_scripts_to_install:
+  - name: scale-aap-up.sh
+    target_name: aap-failover.sh
+  - name: scale-aap-down.sh
+    target_name: aap-failback.sh
+  - name: efm-aap-failover-wrapper.sh
+    target_name: efm-aap-failover-wrapper.sh
+  - name: efm-orchestrated-failover.sh
+    target_name: efm-orchestrated-failover.sh
+
+# EFM script configuration
+efm_integration_script_timeout: 300
+efm_integration_enable_custom_scripts: true
+
+# Use orchestrated failover (includes notifications and multi-step actions)
+efm_integration_use_orchestrated_failover: false
+
+# Notification settings
+efm_integration_enable_notifications: true
+efm_integration_notification_email: ""
+efm_integration_notification_slack_webhook: ""
+
+# Logging
+efm_integration_log_dir: /var/log
+efm_integration_wrapper_log: "{{ efm_integration_log_dir }}/efm-aap-failover.log"
+efm_integration_orchestrated_log: "{{ efm_integration_log_dir }}/efm-orchestrated-failover.log"
+
+# Testing
+efm_integration_test_datacenter: dc2
+efm_integration_test_node_address: test-node.example.com
+efm_integration_test_node_type: standby
+efm_integration_test_cluster_name: test-cluster
+efm_integration_test_vip: "10.0.2.100"
+
+# Backup original EFM configuration
+efm_integration_backup_config: true
+efm_integration_backup_suffix: ".backup-{{ ansible_date_time.epoch }}"

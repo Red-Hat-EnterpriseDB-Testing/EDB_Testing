@@ -11,6 +11,8 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 - [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture)
 - [Network Connectivity](#network-connectivity)
 - [AAP Deployment Architecture](#aap-deployment-architecture)
+- [AAP Cluster Management](#aap-cluster-management)
+- [Ansible Automation](#ansible-automation)
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Scaling Considerations](#scaling-considerations)
 - [Compliance and Auditing](#compliance-and-auditing)
@@ -231,6 +233,1228 @@ Each AAP instance can connect to PostgreSQL databases in both datacenters:
 - **Automation Hub**: 2 pods × (2 CPU, 4GB RAM)
 - **AAP Database**: 3 pods × (2 CPU, 4GB RAM)
 - **Total**: ~18 CPUs, 36GB RAM per datacenter
+
+## AAP Cluster Management
+
+This section covers operational procedures for managing AAP clusters in both RHEL-based and OpenShift-based deployments.
+
+### Managing AAP on RHEL (systemctl)
+
+For RHEL-based AAP deployments, AAP components run as systemd services. This approach is useful for traditional VM-based deployments or when running AAP outside of OpenShift.
+
+#### AAP Service Components on RHEL
+
+The following systemd services are typically installed:
+
+- `automation-controller.service` - AAP Controller service
+- `automation-hub.service` - Automation Hub service (if installed)
+- `receptor.service` - Receptor for job execution
+- `nginx.service` - Web server/reverse proxy
+- `redis.service` - Redis for caching and messaging
+- `postgresql.service` - PostgreSQL database (if using local DB)
+
+#### Starting the Inactive AAP Cluster
+
+Create a script to start all AAP services on the standby RHEL server:
+
+**File**: `/usr/local/bin/start-aap-cluster.sh`
+
+```bash
+#!/bin/bash
+#
+# Start AAP Cluster Services
+# This script starts all AAP components on a standby RHEL server
+#
+
+set -e
+
+LOGFILE="/var/log/aap-startup.log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+log_message() {
+    echo "[$TIMESTAMP] $1" | tee -a "$LOGFILE"
+}
+
+log_message "Starting AAP cluster services..."
+
+# Array of services to start in order
+AAP_SERVICES=(
+    "postgresql"
+    "redis"
+    "receptor"
+    "automation-controller"
+    "automation-hub"
+    "nginx"
+)
+
+# Start each service and verify it's running
+for service in "${AAP_SERVICES[@]}"; do
+    log_message "Starting $service..."
+    
+    if systemctl start "$service"; then
+        log_message "✓ $service started successfully"
+        
+        # Wait for service to be fully ready
+        sleep 5
+        
+        if systemctl is-active --quiet "$service"; then
+            log_message "✓ $service is active and running"
+        else
+            log_message "✗ Warning: $service may not be fully ready"
+        fi
+    else
+        log_message "✗ Failed to start $service"
+        exit 1
+    fi
+done
+
+# Verify AAP Controller is responding
+log_message "Verifying AAP Controller API..."
+sleep 10
+
+if curl -k -s -o /dev/null -w "%{http_code}" https://localhost/api/v2/ping/ | grep -q "200"; then
+    log_message "✓ AAP Controller API is responding"
+else
+    log_message "✗ Warning: AAP Controller API not responding yet"
+fi
+
+log_message "AAP cluster startup complete!"
+log_message "Access AAP at: https://$(hostname)/api/v2/"
+```
+
+#### Make the Script Executable
+
+```bash
+sudo chmod +x /usr/local/bin/start-aap-cluster.sh
+```
+
+#### Create Systemd Service for AAP Cluster Startup
+
+Create a systemd service to manage AAP cluster startup:
+
+**File**: `/etc/systemd/system/aap-cluster.service`
+
+```ini
+[Unit]
+Description=Ansible Automation Platform Cluster Services
+After=network.target
+Wants=postgresql.service redis.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/start-aap-cluster.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Enable and Start the AAP Cluster Service
+
+```bash
+# Reload systemd to recognize new service
+sudo systemctl daemon-reload
+
+# Enable service to start on boot
+sudo systemctl enable aap-cluster.service
+
+# Start the AAP cluster manually
+sudo systemctl start aap-cluster.service
+
+# Check status
+sudo systemctl status aap-cluster.service
+```
+
+#### Stop AAP Cluster (for maintenance)
+
+Create a companion script to stop services:
+
+**File**: `/usr/local/bin/stop-aap-cluster.sh`
+
+```bash
+#!/bin/bash
+#
+# Stop AAP Cluster Services
+#
+
+set -e
+
+LOGFILE="/var/log/aap-shutdown.log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+log_message() {
+    echo "[$TIMESTAMP] $1" | tee -a "$LOGFILE"
+}
+
+log_message "Stopping AAP cluster services..."
+
+# Stop services in reverse order
+AAP_SERVICES=(
+    "nginx"
+    "automation-hub"
+    "automation-controller"
+    "receptor"
+    "redis"
+    "postgresql"
+)
+
+for service in "${AAP_SERVICES[@]}"; do
+    log_message "Stopping $service..."
+    systemctl stop "$service" && log_message "✓ $service stopped" || log_message "✗ Failed to stop $service"
+done
+
+log_message "AAP cluster shutdown complete!"
+```
+
+```bash
+sudo chmod +x /usr/local/bin/stop-aap-cluster.sh
+```
+
+#### Manual Service Management
+
+```bash
+# Start individual services
+sudo systemctl start automation-controller.service
+
+# Stop individual services
+sudo systemctl stop automation-controller.service
+
+# Restart services
+sudo systemctl restart automation-controller.service
+
+# Check service status
+sudo systemctl status automation-controller.service
+
+# View service logs
+sudo journalctl -u automation-controller.service -f
+
+# Enable service on boot
+sudo systemctl enable automation-controller.service
+
+# Disable service on boot
+sudo systemctl disable automation-controller.service
+```
+
+### Managing AAP on OpenShift (Pod Scaling)
+
+For OpenShift-based AAP deployments, you can scale pods to zero to conserve resources in the standby datacenter, then scale them back up during failover or testing.
+
+#### Scaling AAP Pods to Zero
+
+**Manual Scaling:**
+
+```bash
+# Set kubeconfig for the target cluster
+export KUBECONFIG=~/.kube/chadsnoconfig
+
+# Switch to AAP namespace
+oc project ansible-automation-platform
+
+# Scale AAP Controller to 0 replicas
+oc scale deployment automation-controller-operator-controller-manager --replicas=0
+
+# Scale Automation Hub to 0 replicas
+oc scale deployment automation-hub-operator-controller-manager --replicas=0
+
+# Scale AAP Gateway to 0 replicas
+oc scale deployment aap-gateway --replicas=0
+
+# Verify all pods are scaled down
+oc get pods -n ansible-automation-platform
+```
+
+#### Automated Scaling Script
+
+Create a script to scale down all AAP components:
+
+**File**: `scripts/scale-aap-down.sh`
+
+```bash
+#!/bin/bash
+#
+# Scale Down AAP Pods on OpenShift
+# This script scales AAP components to zero replicas
+#
+
+set -e
+
+# Configuration
+NAMESPACE="ansible-automation-platform"
+KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
+CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+
+echo "==================================="
+echo "AAP Scale Down Script"
+echo "==================================="
+echo "Namespace: $NAMESPACE"
+echo "Context: $CLUSTER_CONTEXT"
+echo "==================================="
+
+# Set kubeconfig
+export KUBECONFIG="$KUBECONFIG_FILE"
+
+# Switch to target context
+echo "Switching to context: $CLUSTER_CONTEXT"
+oc config use-context "$CLUSTER_CONTEXT" || {
+    echo "Error: Failed to switch context"
+    exit 1
+}
+
+# Verify current context
+CURRENT_CONTEXT=$(oc config current-context)
+echo "Current context: $CURRENT_CONTEXT"
+
+# Switch to AAP namespace
+echo "Switching to namespace: $NAMESPACE"
+oc project "$NAMESPACE" || {
+    echo "Error: Namespace $NAMESPACE not found"
+    exit 1
+}
+
+# Define AAP deployments to scale down
+AAP_DEPLOYMENTS=(
+    "aap-gateway"
+    "automation-controller-operator-controller-manager"
+    "automation-controller-task"
+    "automation-controller-web"
+    "automation-hub-operator-controller-manager"
+    "automation-hub-api"
+    "automation-hub-content"
+    "automation-hub-worker"
+)
+
+echo ""
+echo "Scaling down AAP deployments..."
+echo ""
+
+# Scale each deployment to 0
+for deployment in "${AAP_DEPLOYMENTS[@]}"; do
+    if oc get deployment "$deployment" -n "$NAMESPACE" &>/dev/null; then
+        echo "Scaling down: $deployment"
+        oc scale deployment "$deployment" -n "$NAMESPACE" --replicas=0
+        echo "✓ $deployment scaled to 0 replicas"
+    else
+        echo "⚠ Deployment $deployment not found, skipping..."
+    fi
+done
+
+echo ""
+echo "Waiting for pods to terminate..."
+sleep 10
+
+# Verify pods are scaled down
+REMAINING_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | wc -l || echo 0)
+
+if [ "$REMAINING_PODS" -eq 0 ]; then
+    echo "✓ All AAP pods have been scaled down successfully"
+else
+    echo "⚠ Warning: $REMAINING_PODS AAP pods still running"
+    echo "Remaining pods:"
+    oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running | grep -E "automation|aap-gateway" || true
+fi
+
+echo ""
+echo "Scale down operation complete!"
+echo "Database pods are NOT scaled down (intentional for replication)"
+```
+
+#### Automated Scaling Up Script
+
+Create a script to restore AAP components:
+
+**File**: `scripts/scale-aap-up.sh`
+
+```bash
+#!/bin/bash
+#
+# Scale Up AAP Pods on OpenShift
+# This script restores AAP components to operational replica counts
+#
+
+set -e
+
+# Configuration
+NAMESPACE="ansible-automation-platform"
+KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
+CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+
+echo "==================================="
+echo "AAP Scale Up Script"
+echo "==================================="
+echo "Namespace: $NAMESPACE"
+echo "Context: $CLUSTER_CONTEXT"
+echo "==================================="
+
+# Set kubeconfig
+export KUBECONFIG="$KUBECONFIG_FILE"
+
+# Switch to target context
+echo "Switching to context: $CLUSTER_CONTEXT"
+oc config use-context "$CLUSTER_CONTEXT" || {
+    echo "Error: Failed to switch context"
+    exit 1
+}
+
+# Verify current context
+CURRENT_CONTEXT=$(oc config current-context)
+echo "Current context: $CURRENT_CONTEXT"
+
+# Switch to AAP namespace
+echo "Switching to namespace: $NAMESPACE"
+oc project "$NAMESPACE" || {
+    echo "Error: Namespace $NAMESPACE not found"
+    exit 1
+}
+
+# Define AAP deployments with target replica counts
+# Format: "deployment:replicas"
+declare -A AAP_DEPLOYMENTS=(
+    ["aap-gateway"]="3"
+    ["automation-controller-operator-controller-manager"]="1"
+    ["automation-controller-task"]="3"
+    ["automation-controller-web"]="3"
+    ["automation-hub-operator-controller-manager"]="1"
+    ["automation-hub-api"]="2"
+    ["automation-hub-content"]="2"
+    ["automation-hub-worker"]="2"
+)
+
+echo ""
+echo "Scaling up AAP deployments..."
+echo ""
+
+# Scale each deployment to target replicas
+for deployment in "${!AAP_DEPLOYMENTS[@]}"; do
+    replicas="${AAP_DEPLOYMENTS[$deployment]}"
+    
+    if oc get deployment "$deployment" -n "$NAMESPACE" &>/dev/null; then
+        echo "Scaling up: $deployment to $replicas replicas"
+        oc scale deployment "$deployment" -n "$NAMESPACE" --replicas="$replicas"
+        echo "✓ $deployment scaled to $replicas replicas"
+    else
+        echo "⚠ Deployment $deployment not found, skipping..."
+    fi
+done
+
+echo ""
+echo "Waiting for pods to start..."
+sleep 15
+
+# Wait for pods to be ready
+echo "Checking pod readiness..."
+MAX_WAIT=300
+ELAPSED=0
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    READY_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | grep "1/1\|2/2\|3/3" | wc -l || echo 0)
+    TOTAL_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | wc -l || echo 0)
+    
+    echo "Ready pods: $READY_PODS / $TOTAL_PODS"
+    
+    if [ "$READY_PODS" -ge 10 ]; then
+        echo "✓ AAP pods are ready!"
+        break
+    fi
+    
+    sleep 10
+    ELAPSED=$((ELAPSED + 10))
+done
+
+if [ $ELAPSED -ge $MAX_WAIT ]; then
+    echo "⚠ Warning: Timeout waiting for pods to be ready"
+fi
+
+echo ""
+echo "Current pod status:"
+oc get pods -n "$NAMESPACE" | grep -E "NAME|automation|aap-gateway"
+
+echo ""
+echo "Scale up operation complete!"
+echo ""
+echo "Verify AAP is accessible:"
+AAP_ROUTE=$(oc get route -n "$NAMESPACE" -o jsonpath='{.items[0].spec.host}' 2>/dev/null || echo "route-not-found")
+echo "AAP URL: https://$AAP_ROUTE"
+```
+
+#### Make Scripts Executable
+
+```bash
+chmod +x scripts/scale-aap-down.sh
+chmod +x scripts/scale-aap-up.sh
+```
+
+#### Usage Examples
+
+**Scale down AAP in DC2:**
+
+```bash
+# Using default context
+./scripts/scale-aap-down.sh
+
+# Specifying context explicitly
+./scripts/scale-aap-down.sh api-chadsno2026-fteam-local:6443
+```
+
+**Scale up AAP in DC2:**
+
+```bash
+# Using default context
+./scripts/scale-aap-up.sh
+
+# Specifying context explicitly
+./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+```
+
+**Verify scaling operations:**
+
+```bash
+# Check current replica counts
+oc get deployments -n ansible-automation-platform
+
+# Watch pods scaling
+watch oc get pods -n ansible-automation-platform
+
+# Check AAP route
+oc get route -n ansible-automation-platform
+
+# Test AAP API accessibility
+AAP_URL=$(oc get route -n ansible-automation-platform -o jsonpath='{.items[0].spec.host}')
+curl -k https://$AAP_URL/api/v2/ping/
+```
+
+#### Integration with Disaster Recovery
+
+These scaling scripts can be integrated into disaster recovery procedures:
+
+**Failover Scenario (DC1 → DC2):**
+
+1. Detect DC1 failure
+2. Scale up AAP pods in DC2: `./scripts/scale-aap-up.sh`
+3. Promote DC2 database to read-write
+4. Update global load balancer to route to DC2
+5. Verify AAP is accepting connections
+
+**Failback Scenario (DC2 → DC1):**
+
+1. Ensure DC1 is fully recovered
+2. Synchronize database from DC2 to DC1
+3. Scale up AAP pods in DC1: `./scripts/scale-aap-up.sh api-crc-testing:6443`
+4. Update global load balancer to route to DC1
+5. Scale down AAP pods in DC2: `./scripts/scale-aap-down.sh`
+
+#### Monitoring and Alerting
+
+Add monitoring for scaled-down clusters:
+
+```bash
+# Check if AAP is scaled down
+SCALED_DOWN=$(oc get deployments -n ansible-automation-platform -o json | \
+    jq '[.items[] | select(.metadata.name | contains("automation")) | .spec.replicas] | add')
+
+if [ "$SCALED_DOWN" -eq 0 ]; then
+    echo "AAP is in standby mode (scaled to zero)"
+else
+    echo "AAP is active with $SCALED_DOWN total replicas"
+fi
+```
+
+### Integration with EDB EFM (Enterprise Failover Manager)
+
+EDB Failover Manager (EFM) can automatically trigger the AAP cluster management scripts during PostgreSQL database failover events. This provides seamless coordination between database failover and AAP cluster activation.
+
+#### EFM Overview
+
+EFM monitors PostgreSQL database clusters and automatically promotes standby nodes to primary when failures are detected. During this process, EFM can execute custom scripts at specific points in the failover lifecycle:
+
+- **Pre-promotion**: Before promoting a standby database
+- **Post-promotion**: After successfully promoting a standby to primary
+- **Post-failure**: After detecting primary database failure
+- **Pre-resume**: Before resuming monitoring after manual intervention
+
+#### EFM Script Locations
+
+EFM scripts are typically located in:
+
+```bash
+# Default EFM script directory
+/etc/edb/efm-4.x/
+
+# Custom scripts directory (configurable)
+/usr/edb/efm-4.x/bin/
+```
+
+#### Integration Architecture
+
+When EFM detects a database failure and promotes the standby:
+
+1. **Pre-Promotion Hook**: EFM detects primary failure
+2. **Post-Promotion Hook**: EFM promotes standby to primary
+3. **Custom Script Execution**: EFM calls AAP scale-up script
+4. **AAP Activation**: AAP cluster becomes active in DR datacenter
+5. **Service Restoration**: Applications reconnect to new primary and active AAP
+
+#### Installing Scripts for EFM Integration
+
+**Step 1: Copy Scripts to EFM Directory**
+
+```bash
+# For OpenShift-based AAP deployments
+sudo cp scripts/scale-aap-up.sh /usr/edb/efm-4.x/bin/aap-failover.sh
+sudo cp scripts/scale-aap-down.sh /usr/edb/efm-4.x/bin/aap-failback.sh
+sudo chmod +x /usr/edb/efm-4.x/bin/aap-failover.sh
+sudo chmod +x /usr/edb/efm-4.x/bin/aap-failback.sh
+
+# For RHEL-based AAP deployments
+sudo cp scripts/start-aap-cluster.sh /usr/edb/efm-4.x/bin/aap-failover.sh
+sudo cp scripts/stop-aap-cluster.sh /usr/edb/efm-4.x/bin/aap-failback.sh
+sudo chmod +x /usr/edb/efm-4.x/bin/aap-failover.sh
+sudo chmod +x /usr/edb/efm-4.x/bin/aap-failback.sh
+```
+
+**Step 2: Create EFM Wrapper Script**
+
+EFM passes specific parameters to custom scripts. Create a wrapper to handle these:
+
+**File**: `/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh`
+
+```bash
+#!/bin/bash
+#
+# EFM AAP Failover Wrapper Script
+# This script is called by EFM during database failover
+#
+# EFM passes the following parameters:
+# $1 = cluster name
+# $2 = node type (primary/standby/witness)
+# $3 = node address
+# $4 = VIP address (if configured)
+#
+
+set -e
+
+CLUSTER_NAME="$1"
+NODE_TYPE="$2"
+NODE_ADDRESS="$3"
+VIP_ADDRESS="${4:-}"
+
+LOGFILE="/var/log/efm-aap-failover.log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+log_message() {
+    echo "[$TIMESTAMP] $1" | tee -a "$LOGFILE"
+}
+
+log_message "========================================"
+log_message "EFM AAP Failover Script Triggered"
+log_message "========================================"
+log_message "Cluster: $CLUSTER_NAME"
+log_message "Node Type: $NODE_TYPE"
+log_message "Node Address: $NODE_ADDRESS"
+log_message "VIP Address: $VIP_ADDRESS"
+log_message "========================================"
+
+# Determine which datacenter this node is in based on address or hostname
+DATACENTER=""
+if [[ "$NODE_ADDRESS" == *"dc1"* ]] || [[ "$NODE_ADDRESS" == *"ocp1"* ]]; then
+    DATACENTER="DC1"
+    CLUSTER_CONTEXT="api-crc-testing:6443"
+elif [[ "$NODE_ADDRESS" == *"dc2"* ]] || [[ "$NODE_ADDRESS" == *"ocp2"* ]]; then
+    DATACENTER="DC2"
+    CLUSTER_CONTEXT="api-chadsno2026-fteam-local:6443"
+else
+    log_message "ERROR: Unable to determine datacenter from node address"
+    exit 1
+fi
+
+log_message "Detected Datacenter: $DATACENTER"
+log_message "OpenShift Context: $CLUSTER_CONTEXT"
+
+# Only scale up AAP if this node is being promoted to primary
+if [ "$NODE_TYPE" = "standby" ]; then
+    log_message "Node is being promoted to primary - scaling up AAP in $DATACENTER"
+    
+    # Check deployment type and call appropriate script
+    if command -v oc &> /dev/null; then
+        # OpenShift deployment
+        log_message "Detected OpenShift deployment"
+        /usr/edb/efm-4.x/bin/aap-failover.sh "$CLUSTER_CONTEXT"
+        EXIT_CODE=$?
+    else
+        # RHEL deployment
+        log_message "Detected RHEL deployment"
+        /usr/edb/efm-4.x/bin/aap-failover.sh
+        EXIT_CODE=$?
+    fi
+    
+    if [ $EXIT_CODE -eq 0 ]; then
+        log_message "✓ AAP cluster scaled up successfully in $DATACENTER"
+    else
+        log_message "✗ ERROR: Failed to scale up AAP cluster (exit code: $EXIT_CODE)"
+        exit $EXIT_CODE
+    fi
+else
+    log_message "Node type is $NODE_TYPE - no AAP scaling action required"
+fi
+
+log_message "EFM AAP Failover Script Completed"
+log_message "========================================"
+
+exit 0
+```
+
+**Step 3: Make Wrapper Executable**
+
+```bash
+sudo chmod +x /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh
+sudo chown efm:efm /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh
+```
+
+#### Configuring EFM to Call Custom Scripts
+
+Edit the EFM configuration file for your cluster:
+
+**File**: `/etc/edb/efm-4.x/efm.properties`
+
+```properties
+# Post-Promotion Script (runs on newly promoted primary)
+# This script activates AAP in the datacenter where database was promoted
+script.post.promotion=/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh %h %s %a %v
+
+# Post-Failure Script (runs after detecting primary failure)
+# Optional: Use for additional logging or alerting
+script.post.failure=/usr/edb/efm-4.x/bin/efm-failure-notification.sh %h %s %a %v
+
+# Script Timeout (seconds)
+# Allow sufficient time for AAP to start (300 seconds = 5 minutes)
+script.timeout=300
+
+# Enable script execution
+enable.custom.scripts=true
+```
+
+**EFM Script Parameters:**
+
+- `%h` - Cluster name
+- `%s` - Node type (primary/standby/witness)
+- `%a` - Node address
+- `%v` - Virtual IP address (if configured)
+
+**Step 4: Restart EFM to Apply Changes**
+
+```bash
+# Restart EFM service
+sudo systemctl restart edb-efm-4.x
+
+# Verify EFM is running
+sudo systemctl status edb-efm-4.x
+
+# Check EFM logs
+sudo tail -f /var/log/efm-4.x/efm-startup.log
+```
+
+#### Testing EFM Integration
+
+Before relying on automatic failover, test the integration:
+
+**Test 1: Manual Script Execution**
+
+```bash
+# Test the wrapper script directly (simulate EFM call)
+sudo /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh \
+    "prod-db" \
+    "standby" \
+    "prod-db-replica-dc2.example.com" \
+    "10.0.2.100"
+
+# Check the logs
+sudo tail -50 /var/log/efm-aap-failover.log
+
+# Verify AAP scaled up
+oc get pods -n ansible-automation-platform
+```
+
+**Test 2: EFM Test Failover**
+
+```bash
+# Perform a test failover using EFM CLI
+sudo /usr/edb/efm-4.x/bin/efm promote efm-cluster -switchover
+
+# Monitor EFM logs
+sudo tail -f /var/log/efm-4.x/efm-startup.log
+
+# Verify AAP was scaled up
+oc get deployments -n ansible-automation-platform
+```
+
+**Test 3: Simulated Database Failure**
+
+```bash
+# Stop primary database (in test environment only!)
+sudo systemctl stop postgresql-16
+
+# Watch EFM detect failure and promote standby
+sudo tail -f /var/log/efm-4.x/efm-startup.log
+
+# Verify AAP activation
+oc get pods -n ansible-automation-platform --watch
+```
+
+#### Advanced Configuration
+
+**Parallel Script Execution**
+
+For complex failover scenarios, execute multiple scripts:
+
+**File**: `/usr/edb/efm-4.x/bin/efm-orchestrated-failover.sh`
+
+```bash
+#!/bin/bash
+#
+# Orchestrated Failover - Multiple Actions
+#
+
+set -e
+
+LOGFILE="/var/log/efm-orchestrated-failover.log"
+
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
+}
+
+log_message "Starting orchestrated failover..."
+
+# Step 1: Update DNS (if managing DNS programmatically)
+log_message "Updating DNS records..."
+/usr/local/bin/update-dns-failover.sh
+
+# Step 2: Scale up AAP cluster
+log_message "Scaling up AAP cluster..."
+/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh "$@"
+
+# Step 3: Notify monitoring systems
+log_message "Sending notifications..."
+/usr/local/bin/send-failover-notification.sh "Database failover completed"
+
+# Step 4: Update load balancer (if managing programmatically)
+log_message "Updating load balancer configuration..."
+/usr/local/bin/update-load-balancer.sh "dc2"
+
+log_message "Orchestrated failover complete!"
+```
+
+**Conditional Execution Based on Time of Day**
+
+```bash
+#!/bin/bash
+#
+# Time-aware failover script
+#
+
+HOUR=$(date +%H)
+DAY=$(date +%u)
+
+# Only auto-scale AAP during business hours (8am-6pm, Mon-Fri)
+if [ "$DAY" -le 5 ] && [ "$HOUR" -ge 8 ] && [ "$HOUR" -le 18 ]; then
+    /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh "$@"
+else
+    # Outside business hours - send alert for manual intervention
+    /usr/local/bin/send-alert.sh "Database failover detected outside business hours"
+fi
+```
+
+#### Monitoring EFM Script Execution
+
+Create a monitoring script to track EFM script executions:
+
+```bash
+#!/bin/bash
+#
+# Monitor EFM script execution
+#
+
+# Check last EFM script execution
+LAST_EXECUTION=$(grep "EFM AAP Failover Script" /var/log/efm-aap-failover.log | tail -1)
+
+if [ -n "$LAST_EXECUTION" ]; then
+    echo "Last EFM failover script execution:"
+    echo "$LAST_EXECUTION"
+    
+    # Check if execution was successful
+    if grep -q "AAP cluster scaled up successfully" /var/log/efm-aap-failover.log; then
+        echo "Status: SUCCESS"
+        exit 0
+    else
+        echo "Status: FAILED"
+        exit 1
+    fi
+else
+    echo "No EFM failover script executions found"
+    exit 0
+fi
+```
+
+#### Troubleshooting EFM Integration
+
+**Issue: Script Not Executing**
+
+```bash
+# Check EFM configuration
+sudo cat /etc/edb/efm-4.x/efm.properties | grep script
+
+# Verify script permissions
+ls -l /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh
+
+# Check EFM user has execute permissions
+sudo -u efm /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh test test test test
+
+# Review EFM logs for errors
+sudo grep -i "script" /var/log/efm-4.x/efm-startup.log
+```
+
+**Issue: Script Timeout**
+
+```bash
+# Increase timeout in efm.properties
+script.timeout=600  # Increase to 10 minutes
+
+# Restart EFM
+sudo systemctl restart edb-efm-4.x
+```
+
+**Issue: OpenShift Authentication**
+
+```bash
+# Ensure efm user has access to kubeconfig
+sudo mkdir -p /var/lib/efm/.kube
+sudo cp ~/.kube/chadsnoconfig /var/lib/efm/.kube/config
+sudo chown -R efm:efm /var/lib/efm/.kube
+
+# Update wrapper script to use correct kubeconfig
+export KUBECONFIG=/var/lib/efm/.kube/config
+```
+
+**Issue: Network Connectivity**
+
+```bash
+# Test connectivity from efm user
+sudo -u efm oc --kubeconfig=/var/lib/efm/.kube/config get nodes
+
+# Check firewall rules
+sudo firewall-cmd --list-all
+
+# Verify DNS resolution
+sudo -u efm nslookup api.chadsno2026.fteam.local
+```
+
+#### Rollback Procedures
+
+If AAP fails to start during EFM failover:
+
+```bash
+# 1. Check what went wrong
+sudo tail -100 /var/log/efm-aap-failover.log
+
+# 2. Manually scale up AAP
+./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+
+# 3. Or for RHEL deployments
+sudo systemctl start aap-cluster.service
+
+# 4. Verify AAP is operational
+curl -k https://aap-dc2.apps.ocp2.example.com/api/v2/ping/
+
+# 5. If still failing, failback to original primary
+sudo /usr/edb/efm-4.x/bin/efm promote efm-cluster -switchover
+```
+
+#### Best Practices
+
+1. **Test Regularly**: Schedule quarterly failover drills
+2. **Monitor Logs**: Set up log aggregation for EFM and AAP script logs
+3. **Timeout Tuning**: Allow sufficient time for AAP pods to start (5-10 minutes)
+4. **Idempotency**: Ensure scripts can be run multiple times safely
+5. **Error Handling**: Scripts should exit with appropriate codes (0=success, non-zero=failure)
+6. **Notifications**: Send alerts when scripts execute or fail
+7. **Documentation**: Keep runbooks updated with latest script versions
+8. **Version Control**: Track script changes in Git
+9. **Rollback Plan**: Always have manual fallback procedures
+10. **Security**: Restrict script permissions to efm user only
+
+#### Integration with AAP Job Templates
+
+For additional automation, create AAP Job Templates that can be triggered during failover:
+
+```bash
+# Call AAP job template from EFM script
+curl -k -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AAP_TOKEN" \
+  https://aap.example.com/api/v2/job_templates/123/launch/ \
+  -d '{"extra_vars": {"datacenter": "dc2", "action": "failover"}}'
+```
+
+This allows complex orchestration workflows to be managed through AAP's workflow capabilities while still being triggered by EFM during database failover events.
+
+## Ansible Automation
+
+In addition to the bash scripts, comprehensive Ansible automation is available through the `edb.postgres_operations` collection.
+
+### Ansible Collection Overview
+
+The `edb.postgres_operations` collection provides production-ready roles and playbooks for:
+
+- **AAP Cluster Management**: Automated scaling and service management
+- **EFM Integration**: Seamless integration with EDB Failover Manager
+- **Disaster Recovery Orchestration**: End-to-end DR failover automation
+- **Testing and Validation**: Built-in testing capabilities
+
+### Installation
+
+```bash
+# Navigate to collections directory
+cd ansible-examples/collections
+
+# Install collection locally
+ansible-galaxy collection install -p . ./ansible_collections/edb/postgres_operations
+
+# Or build and install
+cd ansible_collections/edb/postgres_operations
+ansible-galaxy collection build
+ansible-galaxy collection install edb-postgres_operations-*.tar.gz
+```
+
+### Ansible Roles
+
+#### manage_aap_cluster Role
+
+Manages AAP cluster operations for both OpenShift and RHEL deployments.
+
+**Capabilities:**
+- Scale OpenShift pods up/down
+- Start/stop RHEL systemd services
+- Health checks and status monitoring
+- Wait for operational readiness
+
+**Example Usage:**
+
+```yaml
+---
+- name: Scale up AAP in DR datacenter
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.manage_aap_cluster
+      manage_aap_cluster_action: scale_up
+      manage_aap_cluster_context: api-chadsno2026-fteam-local:6443
+```
+
+#### efm_integration Role
+
+Integrates AAP cluster management with EDB Failover Manager for automated failover orchestration.
+
+**Capabilities:**
+- Install integration scripts to EFM nodes
+- Configure EFM to call AAP management scripts
+- Setup OpenShift kubeconfig for EFM user
+- Test integration before production use
+
+**Example Usage:**
+
+```yaml
+---
+- name: Setup EFM AAP Integration
+  hosts: efm_nodes
+  become: true
+  roles:
+    - role: edb.postgres_operations.efm_integration
+      efm_integration_action: install
+      
+    - role: edb.postgres_operations.efm_integration
+      efm_integration_action: configure
+```
+
+### Ansible Playbooks
+
+#### manage-aap-cluster.yml
+
+General-purpose playbook for AAP cluster management operations.
+
+```bash
+# Scale up AAP
+ansible-playbook edb.postgres_operations.manage-aap-cluster \
+  -e 'manage_aap_cluster_action=scale_up' \
+  -e 'manage_aap_cluster_context=api-chadsno2026-fteam-local:6443'
+
+# Check status
+ansible-playbook edb.postgres_operations.manage-aap-cluster \
+  -e 'manage_aap_cluster_action=status'
+
+# Start services on RHEL
+ansible-playbook edb.postgres_operations.manage-aap-cluster \
+  -i rhel_inventory \
+  -e 'manage_aap_cluster_action=start' \
+  -e 'manage_aap_cluster_deployment_type=rhel' \
+  -e 'aap_require_become=true'
+```
+
+#### setup-efm-integration.yml
+
+Complete EFM integration setup with installation, configuration, and optional testing.
+
+```bash
+# Install and configure
+ansible-playbook edb.postgres_operations.setup-efm-integration \
+  -i inventory \
+  -l efm_nodes
+
+# With testing
+ansible-playbook edb.postgres_operations.setup-efm-integration \
+  -i inventory \
+  -l efm_nodes \
+  -e 'run_test=true'
+```
+
+#### disaster-recovery-failover.yml
+
+Complete disaster recovery failover orchestration with safety checks and confirmation.
+
+```bash
+# Manual failover with confirmation
+ansible-playbook edb.postgres_operations.disaster-recovery-failover \
+  -e 'failover_source_dc=dc1' \
+  -e 'failover_target_dc=dc2'
+
+# Automatic failover (no confirmation)
+ansible-playbook edb.postgres_operations.disaster-recovery-failover \
+  -e 'failover_source_dc=dc1' \
+  -e 'failover_target_dc=dc2' \
+  -e 'dr_failover_mode=automatic' \
+  -e 'dr_require_confirmation=false'
+```
+
+### Ansible vs Bash Scripts
+
+Both automation approaches are available:
+
+| Feature | Bash Scripts | Ansible Automation |
+|---------|-------------|-------------------|
+| **Complexity** | Simple, direct | More structured |
+| **Idempotency** | Manual handling | Built-in |
+| **Error Handling** | Basic | Comprehensive |
+| **Testing** | Manual | Built-in check mode |
+| **Orchestration** | Sequential | Parallel & conditional |
+| **Logging** | File-based | Ansible native |
+| **Integration** | EFM-specific | Multi-tool support |
+| **Best For** | EFM integration | Complex workflows |
+
+**Recommendation:**
+- Use **Bash scripts** for direct EFM integration
+- Use **Ansible automation** for:
+  - Complex multi-step procedures
+  - Testing and validation
+  - Integration with AAP workflows
+  - Centralized management
+  - Audit trails
+
+### Directory Structure
+
+```
+ansible-examples/
+└── collections/
+    └── ansible_collections/
+        └── edb/
+            └── postgres_operations/
+                ├── galaxy.yml
+                ├── README.md
+                ├── roles/
+                │   ├── manage_aap_cluster/
+                │   │   ├── README.md
+                │   │   ├── defaults/main.yml
+                │   │   ├── tasks/
+                │   │   │   ├── main.yml
+                │   │   │   ├── openshift_scale_up.yml
+                │   │   │   ├── openshift_scale_down.yml
+                │   │   │   ├── rhel_start.yml
+                │   │   │   └── rhel_stop.yml
+                │   │   └── meta/main.yml
+                │   └── efm_integration/
+                │       ├── README.md
+                │       ├── defaults/main.yml
+                │       ├── tasks/
+                │       │   ├── main.yml
+                │       │   ├── install.yml
+                │       │   ├── configure.yml
+                │       │   ├── test.yml
+                │       │   └── uninstall.yml
+                │       ├── handlers/main.yml
+                │       └── meta/main.yml
+                └── playbooks/
+                    ├── manage-aap-cluster.yml
+                    ├── setup-efm-integration.yml
+                    ├── disaster-recovery-failover.yml
+                    └── AAP_MANAGEMENT.md
+```
+
+### Integration with AAP Workflows
+
+The Ansible playbooks can be integrated into AAP Workflow Templates for complete automation:
+
+**Workflow Example: Complete DR Failover**
+
+1. **Check Source DC Status**
+   - Job Template: Check Health
+   - Playbook: `check-health.yml`
+   - On Failure: Continue to failover
+
+2. **Execute Failover**
+   - Job Template: DR Failover
+   - Playbook: `disaster-recovery-failover.yml`
+   - Extra Vars: `{ failover_source_dc: "dc1", failover_target_dc: "dc2" }`
+
+3. **Verify Target DC Health**
+   - Job Template: Verify Health
+   - Playbook: `check-health.yml`
+   - On Failure: Alert and rollback
+
+4. **Update Monitoring**
+   - Job Template: Update Monitoring
+   - Custom playbook for your monitoring system
+
+5. **Send Notifications**
+   - Job Template: Notify Stakeholders
+   - Email/Slack/PagerDuty notifications
+
+### Testing Ansible Automation
+
+```bash
+# Test in check mode (no changes)
+ansible-playbook edb.postgres_operations.disaster-recovery-failover \
+  -e 'failover_source_dc=dc1' \
+  -e 'failover_target_dc=dc2' \
+  --check
+
+# Test with increased verbosity
+ansible-playbook edb.postgres_operations.manage-aap-cluster \
+  -e 'manage_aap_cluster_action=status' \
+  -vvv
+
+# Test specific tags
+ansible-playbook edb.postgres_operations.setup-efm-integration \
+  -i inventory \
+  -l efm_nodes \
+  --tags test
+```
+
+### Documentation
+
+Comprehensive documentation is available:
+
+- **Collection README**: `ansible-examples/collections/ansible_collections/edb/postgres_operations/README.md`
+- **AAP Management Guide**: `ansible-examples/collections/ansible_collections/edb/postgres_operations/playbooks/AAP_MANAGEMENT.md`
+- **Role READMEs**: Individual README files in each role directory
+- **Bash Scripts**: `scripts/README.md`
 
 ## Disaster Recovery Scenarios
 

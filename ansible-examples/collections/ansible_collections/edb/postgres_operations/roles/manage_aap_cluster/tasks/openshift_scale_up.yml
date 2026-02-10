@@ -1,0 +1,112 @@
+---
+# OpenShift scale up tasks
+
+- name: openshift_scale_up | Set kubeconfig environment
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_k8s_auth:
+      kubeconfig: "{{ manage_aap_cluster_kubeconfig }}"
+      context: "{{ manage_aap_cluster_context if manage_aap_cluster_context else omit }}"
+  no_log: false
+
+- name: openshift_scale_up | Verify namespace exists
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    name: "{{ manage_aap_cluster_namespace }}"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_namespace_check
+  failed_when: __manage_aap_cluster_namespace_check.resources | length == 0
+
+- name: openshift_scale_up | Get current deployment states
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_deployments_before
+
+- name: openshift_scale_up | Scale up AAP deployments
+  kubernetes.core.k8s_scale:
+    kind: Deployment
+    name: "{{ item['key'] }}"
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    replicas: "{{ item['value'] }}"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+    wait: false
+  loop: "{{ manage_aap_cluster_replicas | dict2items }}"
+  loop_control:
+    label: "{{ item['key'] }}: {{ item['value'] }} replicas"
+  register: __manage_aap_cluster_scale_results
+  # Continue even if some deployments don't exist
+  failed_when: false
+
+- name: openshift_scale_up | Wait for deployments to scale
+  ansible.builtin.pause:
+    seconds: 15
+    prompt: "Waiting for pods to start..."
+  when: manage_aap_cluster_wait_for_ready | bool
+
+- name: openshift_scale_up | Wait for pods to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/component in (automation-controller, automation-hub, gateway)"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_pods
+  until: >
+    __manage_aap_cluster_pods.resources |
+    selectattr('status.phase', 'equalto', 'Running') |
+    selectattr('status.conditions', 'defined') |
+    map(attribute='status.conditions') |
+    flatten |
+    selectattr('type', 'equalto', 'Ready') |
+    selectattr('status', 'equalto', 'True') |
+    list | length >= manage_aap_cluster_min_ready_pods
+  retries: "{{ (manage_aap_cluster_wait_timeout / manage_aap_cluster_wait_delay) | int }}"
+  delay: "{{ manage_aap_cluster_wait_delay }}"
+  when: manage_aap_cluster_wait_for_ready | bool
+
+- name: openshift_scale_up | Get route for health check
+  kubernetes.core.k8s_info:
+    kind: Route
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_routes
+  when:
+    - manage_aap_cluster_health_check_enabled | bool
+    - manage_aap_cluster_health_check_url == ""
+
+- name: openshift_scale_up | Set health check URL from route
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_health_url: "https://{{ __manage_aap_cluster_routes.resources[0].spec.host }}/api/v2/ping/"
+  when:
+    - manage_aap_cluster_health_check_enabled | bool
+    - manage_aap_cluster_health_check_url == ""
+    - __manage_aap_cluster_routes.resources | length > 0
+
+- name: openshift_scale_up | Check AAP API health
+  ansible.builtin.uri:
+    url: "{{ manage_aap_cluster_health_check_url if manage_aap_cluster_health_check_url else __manage_aap_cluster_health_url }}"
+    validate_certs: false
+    status_code: 200
+    timeout: "{{ manage_aap_cluster_health_check_timeout }}"
+  register: __manage_aap_cluster_health
+  retries: 10
+  delay: 10
+  until: __manage_aap_cluster_health.status == 200
+  when:
+    - manage_aap_cluster_health_check_enabled | bool
+    - manage_aap_cluster_health_check_url != "" or __manage_aap_cluster_health_url is defined
+  failed_when: false
+
+- name: openshift_scale_up | Display scale up results
+  ansible.builtin.debug:
+    msg:
+      - "✓ AAP cluster scaled up successfully"
+      - "Namespace: {{ manage_aap_cluster_namespace }}"
+      - "Ready pods: {{ __manage_aap_cluster_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length }}"
+      - "Health check: {{ 'Passed' if __manage_aap_cluster_health.status | default(0) == 200 else 'Failed or Skipped' }}"

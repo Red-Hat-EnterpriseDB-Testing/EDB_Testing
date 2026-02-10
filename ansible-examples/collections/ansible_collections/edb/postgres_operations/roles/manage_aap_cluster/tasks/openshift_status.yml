@@ -1,0 +1,70 @@
+---
+# OpenShift status check tasks
+
+- name: openshift_status | Set kubeconfig environment
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_k8s_auth:
+      kubeconfig: "{{ manage_aap_cluster_kubeconfig }}"
+      context: "{{ manage_aap_cluster_context if manage_aap_cluster_context else omit }}"
+  no_log: false
+
+- name: openshift_status | Get AAP deployments
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/component in (automation-controller, automation-hub, gateway)"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_deployments_status
+
+- name: openshift_status | Get AAP pods
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ manage_aap_cluster_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/component in (automation-controller, automation-hub, gateway)"
+    kubeconfig: "{{ __manage_aap_cluster_k8s_auth['kubeconfig'] }}"
+    context: "{{ __manage_aap_cluster_k8s_auth['context'] | default(omit) }}"
+  register: __manage_aap_cluster_pods_status
+
+- name: openshift_status | Calculate deployment statistics
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_stats:
+      total_deployments: "{{ __manage_aap_cluster_deployments_status.resources | length }}"
+      total_replicas: "{{ __manage_aap_cluster_deployments_status.resources | map(attribute='spec.replicas') | sum }}"
+      ready_replicas: "{{ __manage_aap_cluster_deployments_status.resources | map(attribute='status.readyReplicas') | select('defined') | sum }}"
+      running_pods: "{{ __manage_aap_cluster_pods_status.resources | selectattr('status.phase', 'equalto', 'Running') | list | length }}"
+      pending_pods: "{{ __manage_aap_cluster_pods_status.resources | selectattr('status.phase', 'equalto', 'Pending') | list | length }}"
+      failed_pods: "{{ __manage_aap_cluster_pods_status.resources | selectattr('status.phase', 'equalto', 'Failed') | list | length }}"
+
+- name: openshift_status | Determine cluster state
+  ansible.builtin.set_fact:
+    __manage_aap_cluster_state: >-
+      {{
+        'scaled_down' if __manage_aap_cluster_stats.total_replicas | int == 0
+        else 'active' if __manage_aap_cluster_stats.ready_replicas | int >= manage_aap_cluster_min_ready_pods
+        else 'starting'
+      }}
+
+- name: openshift_status | Display AAP cluster status
+  ansible.builtin.debug:
+    msg:
+      - "AAP Cluster Status (OpenShift)"
+      - "============================="
+      - "State: {{ __manage_aap_cluster_state | upper }}"
+      - "Namespace: {{ manage_aap_cluster_namespace }}"
+      - "Deployments: {{ __manage_aap_cluster_stats.total_deployments }}"
+      - "Target Replicas: {{ __manage_aap_cluster_stats.total_replicas }}"
+      - "Ready Replicas: {{ __manage_aap_cluster_stats.ready_replicas }}"
+      - "Running Pods: {{ __manage_aap_cluster_stats.running_pods }}"
+      - "Pending Pods: {{ __manage_aap_cluster_stats.pending_pods }}"
+      - "Failed Pods: {{ __manage_aap_cluster_stats.failed_pods }}"
+
+- name: openshift_status | Set result fact
+  ansible.builtin.set_fact:
+    manage_aap_cluster_result:
+      changed: false
+      status: "{{ __manage_aap_cluster_state }}"
+      statistics: "{{ __manage_aap_cluster_stats }}"
+      message: "AAP cluster is {{ __manage_aap_cluster_state }}"
