@@ -4,161 +4,21 @@
 
 This document describes the architecture of EnterpriseDB Postgres for Kubernetes deployed across two OpenShift clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
 
+## Table of Contents
+
+- [Architecture Diagram](#architecture-diagram)
+- [Component Details](#component-details)
+- [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture)
+- [Network Connectivity](#network-connectivity)
+- [AAP Deployment Architecture](#aap-deployment-architecture)
+- [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
+- [Scaling Considerations](#scaling-considerations)
+- [Compliance and Auditing](#compliance-and-auditing)
+- [Conclusion](#conclusion)
+
 ## Architecture Diagram
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#333','lineColor':'#333','secondaryColor':'#fff','tertiaryColor':'#fff','background':'#fff','mainBkg':'#fff','secondBkg':'#fff','tertiaryBkg':'#fff'}}}%%
-graph TB
-    Users["Ansible VIP / Load Balancer<br/>aap.example.com"]
-    VIP1["EDB Service / Load Balancer<br/>edb4aap.example.com"]
-    S3["S3 / Object Store<br/>WAL Archive<br/>Barman Cloud"]
-
-    subgraph DC2["Datacenter 2 - Replica Cluster"]
-        direction TB
-        OCP2["OpenShift Cluster 2<br/>api.ocp2.example.com"]
-        
-        subgraph OPS2["Operators"]
-            direction LR
-            AAP_OP2["AAP Operator"]
-            EDB_OP2["EDB Postgres Operator"]
-        end
-        
-        subgraph APPS2["AAP"]
-            direction LR
-            AAP2["Ansible Automation Platform<br/>Passive"]
-        end
-        
-        subgraph REPLICA_CLUSTER["PostgreSQL Replica Cluster"]
-            direction TB
-            PG_DESIGNATED["Designated Primary<br/>Standby Server<br/>Continuous Recovery"]
-            PG_STANDBY3["Hot Standby<br/>Replica 1"]
-            PG_STANDBY4["Hot Standby<br/>Replica 2"]
-            
-            PG_DESIGNATED -.Streaming<br/>Replication.-> PG_STANDBY3
-            PG_DESIGNATED -.Streaming<br/>Replication.-> PG_STANDBY4
-        end
-        
-        OCP2 --> AAP_OP2
-        OCP2 --> EDB_OP2
-        AAP_OP2 -.Manages.-> AAP2
-        EDB_OP2 -.Manages.-> REPLICA_CLUSTER
-        AAP2 --> PG_DESIGNATED
-    end
-
-    subgraph DC1["Datacenter 1 - Primary Cluster"]
-        direction TB
-        OCP1["OpenShift Cluster 1<br/>api.ocp1.example.com"]
-        DC1_SPACE3 ~~~ OCP1
-        
-        subgraph OPS1["Operators"]
-            direction LR
-            AAP_OP1["AAP Operator"]
-            EDB_OP1["EDB Postgres Operator"]
-        end
-        
-        subgraph APPS1["AAP"]
-            direction LR
-            AAP1["Ansible Automation Platform<br/>Active"]
-        end
-        
-        subgraph PRIMARY_CLUSTER["PostgreSQL Primary Cluster"]
-            direction TB
-            PG_PRIMARY["Primary Instance<br/>Read/Write"]
-            PG_STANDBY1["Hot Standby<br/>Replica 1"]
-            PG_STANDBY2["Hot Standby<br/>Replica 2"]
-            
-            PG_PRIMARY -.Streaming<br/>Replication.-> PG_STANDBY1
-            PG_PRIMARY -.Streaming<br/>Replication.-> PG_STANDBY2
-        end
-        
-        OCP1 --> AAP_OP1
-        OCP1 --> EDB_OP1
-        AAP_OP1 -.Manages.-> AAP1
-        EDB_OP1 -.Manages.-> PRIMARY_CLUSTER
-        AAP1 --> PG_PRIMARY
-    end
-    
-    PG_PRIMARY ==Streaming<br/>Replication==> PG_DESIGNATED
-    PG_PRIMARY -.WAL<br/>Shipping.-> S3
-    S3 -.WAL<br/>Restore.-> PG_DESIGNATED
-    
-    Users ==Active==> AAP1
-    Users -.Standby.-> AAP2
-    VIP1 ==Active==> PG_PRIMARY
-    VIP1 -.Standby.-> PG_DESIGNATED
-    
-    classDef aapStyle fill:#ee0000,stroke:#333,stroke-width:2px,color:#fff
-    classDef ocpStyle fill:#0066cc,stroke:#333,stroke-width:2px,color:#fff
-    classDef dbPrimaryStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
-    classDef dbDesignatedStyle fill:#00aa00,stroke:#333,stroke-width:3px,color:#fff
-    classDef dbStandbyStyle fill:#66cc66,stroke:#333,stroke-width:2px,color:#000
-    classDef vipStyle fill:#ff6600,stroke:#333,stroke-width:3px,color:#fff
-    classDef storageStyle fill:#9370db,stroke:#333,stroke-width:2px,color:#fff
-    classDef invisibleStyle fill:none,stroke:none,color:transparent
-    
-    class AAP1,AAP2 aapStyle
-    class OCP1,OCP2,EDB_OP1,EDB_OP2,AAP_OP1,AAP_OP2 ocpStyle
-    class PG_PRIMARY dbPrimaryStyle
-    class PG_DESIGNATED dbDesignatedStyle
-    class PG_STANDBY1,PG_STANDBY2,PG_STANDBY3,PG_STANDBY4 dbStandbyStyle
-    class VIP1,Users vipStyle
-    class S3 storageStyle
-    class DC1_SPACE1,DC1_SPACE2,DC1_SPACE3 invisibleStyle
-```
-
-## Traffic Flow Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         End Users                                │
-│              (Administrators, Operators, CI/CD)                   │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS
-                             ▼
-          ┌──────────────────────────────────────────┐
-          │     Global Load Balancer (GLB)           │
-          │     aap.example.com                      │
-          │     • Health Checks                      │
-          │     • Priority Routing (DC1 Primary)     │
-          │     • Auto Failover to DC2               │
-          └──────────┬─────────────────────┬─────────┘
-                     │ Active              │ Passive
-                     │ (100% Traffic)      │ (Standby)
-        ┌────────────▼────────┐   ┌────────▼────────────┐
-        │   Datacenter 1      │   │   Datacenter 2      │
-        │   AAP Instance      │   │   AAP Instance      │
-        │   🟢 ACTIVE         │   │   🔵 PASSIVE        │
-        └────────────┬────────┘   └────────┬────────────┘
-                     │                     │
-        ┌────────────▼────────┐   ┌────────▼────────────┐
-        │ OpenShift Cluster 1 │   │ OpenShift Cluster 2 │
-        │          │          │   │          │          │
-        │          ▼          │   │          ▼          │
-        │ ┌─────────────────┐ │   │ ┌─────────────────┐ │
-        │ │ AAP Controller  │ │   │ │ AAP Controller  │ │
-        │ └────────┬────────┘ │   │ └────────┬────────┘ │
-        │          │          │   │          │          │
-        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
-        │ │ AAP Database    │ │   │ │ AAP Database    │ │
-        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │
-        │ └────────┬────────┘ │   │ └────────┬────────┘ │
-        │          │          │   │          │          │
-        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
-        │ │ Standby Database│ │   │ │ Standby Database│ │
-        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │
-        │ └────────┬────────┘ │   │ └────────┬────────┘ │
-        │          │          │   │          │          │
-        │ ┌────────▼────────┐ │   │ ┌────────▼────────┐ │
-        │ │ Standby Database│ │   │ │ Standby Database│ │
-        │ │ (EDB Postgres)  │─┼───┼►│ (EDB Postgres)  │ │   
-        │ └─────────────────┘ │   │ └─────────────────┘ │
-        └─────────────────────┘   └─────────────────────┘
-
-
-Legend:
-  ─── Data Flow
-  ◄─► Bi-directional Replication
-```
+![EDB Postgres Multi-Datacenter Architecture](images/AAP_EDB.drawio.png)
 
 ## Component Details
 
@@ -180,13 +40,15 @@ AAP is deployed on **both OpenShift clusters** for high availability and geograp
 
 #### Datacenter 1 - AAP Instance
 - **Namespace**: `ansible-automation-platform`
+- **AAP Gateway**: 3 replicas for HA
 - **AAP Controller**: 3 replicas for HA
 - **Automation Hub**: 2 replicas
 - **Database**: PostgreSQL cluster (1 primary + 2 replicas) managed by EDB operator
 - **Route**: `aap-dc1.apps.ocp1.example.com`
 
-#### Datacenter 2 - AAP Instance
+#### Datacenter 2 - AAP Instance (scaled down)
 - **Namespace**: `ansible-automation-platform`
+- **AAP Gateway**: 3 replicas for HA
 - **AAP Controller**: 3 replicas for HA
 - **Automation Hub**: 2 replicas  
 - **Database**: PostgreSQL cluster (1 primary + 2 replicas) managed by EDB operator
@@ -211,46 +73,6 @@ EDB-managed application database clusters use physical replication:
 - **Within Cluster**: Hot standby replicas use streaming replication from primary/designated primary
 - **Mode**: Asynchronous streaming with optional synchronous mode
 - **Benefits**: Block-level replication, faster failover, exact byte-for-byte replica
-
-#### AAP High Availability Benefits
-
-1. **Geographic Redundancy**: AAP instances in multiple datacenters
-2. **Automatic Failover**: Seamless failover to DC2 if DC1 fails
-3. **Disaster Recovery**: Full DR capability with passive site
-4. **Consistent State**: Replication ensures DC2 is ready to take over
-5. **Simplified Operations**: No split-brain scenarios (active-passive model)
-6. **Cost Efficiency**: DC2 can be right-sized for standby operations
-
-#### AAP Responsibilities
-
-1. **Cluster Management**
-   - Deploy and configure EDB Postgres operator
-   - Create and manage PostgreSQL clusters
-   - Apply security policies (SCCs, network policies)
-
-2. **Database Operations**
-   - Execute SQL scripts across multiple databases
-   - Manage database users and permissions
-   - Perform schema migrations
-   - Database configuration management
-
-3. **Backup & Recovery**
-   - Schedule and monitor backups
-   - Restore databases from backups
-   - Verify backup integrity
-   - Manage retention policies
-
-4. **Monitoring & Alerting**
-   - Collect database metrics
-   - Monitor cluster health
-   - Alert on issues
-   - Generate reports
-
-5. **Disaster Recovery**
-   - Coordinate failover between datacenters
-   - Manage replication setup
-   - Execute DR tests
-   - Maintain DR documentation
 
 ## EDB Postgres for Kubernetes Architecture
 
@@ -288,27 +110,6 @@ This architecture implements EDB Postgres for Kubernetes (CloudNativePG) distrib
    - Each EDB operator manages only its local Kubernetes cluster
    - Cross-cluster failover must be coordinated externally (via AAP, GitOps, or higher-level orchestration)
    - Promotion of replica cluster to primary is declarative but requires external trigger
-
-### Database Types in This Architecture
-
-This architecture contains **two types of PostgreSQL databases** with different replication strategies:
-
-#### 1. AAP's Internal Database
-- **Purpose**: Stores AAP's own configuration, inventory, credentials, job templates, execution history
-- **Replication Method**: PostgreSQL logical replication
-- **Why Logical**: Provides flexibility for AAP's internal schema changes and version compatibility
-- **Management**: Managed by AAP Operator
-- **Failover**: Manual promotion of DC2 AAP database during datacenter failover
-
-#### 2. EDB-Managed Application Databases
-- **Purpose**: Application workloads managed by AAP (your production databases)
-- **Replication Method**: PostgreSQL physical replication (streaming + WAL shipping)
-- **Why Physical**: Faster, byte-for-byte exact replica, better performance, automatic with EDB operator
-- **Management**: Managed by EDB Postgres Operator (CloudNativePG)
-- **Failover**: Automatic within cluster, manual promotion across clusters (via AAP orchestration)
-- **Services**: Automatic service management (`-rw`, `-ro`, `-r`) by EDB operator
-
-**Key Distinction**: When we refer to "application database replication" or "EDB-managed clusters" in this document, we mean the databases managed by the EDB Postgres Operator using physical replication. AAP's own database uses logical replication for its specific needs.
 
 ### Datacenter 1 (Primary)
 
@@ -352,25 +153,6 @@ Users and automation clients connect to AAP through the global load balancer:
 - **Session Affinity**: Sticky sessions for long-running jobs
 - **TLS Termination**: At load balancer or end-to-end encryption
 
-### Global Load Balancer to AAP Instances
-
-The load balancer routes traffic based on priority and health:
-- **Primary (Active)**: `aap-dc1.apps.ocp1.example.com` (Priority 1, 100% traffic)
-- **Secondary (Passive)**: `aap-dc2.apps.ocp2.example.com` (Priority 2, standby)
-- **Health Check Path**: `/api/v2/ping/`
-- **Health Check Interval**: 5 seconds
-- **Failover Time**: < 15 seconds (detection + DNS propagation)
-- **Failover Trigger**: DC1 health check failures (3 consecutive)
-- **Failback**: Manual or automatic after DC1 passes health checks
-
-### AAP to OpenShift Clusters
-
-AAP instances connect to both OpenShift clusters (local and remote):
-- **Control Plane**: OpenShift API (`api.ocp1.example.com:6443`, `api.ocp2.example.com:6443`)
-- **Authentication**: Service account tokens or kubeconfig files
-- **Network**: Direct connectivity required (VPN/WAN/Direct Connect)
-- **Permissions**: Cluster-admin or namespace-specific RBAC
-
 ### AAP to PostgreSQL Databases
 
 Each AAP instance can connect to PostgreSQL databases in both datacenters:
@@ -381,16 +163,6 @@ Each AAP instance can connect to PostgreSQL databases in both datacenters:
 - **Connection Pooling**: PgBouncer for efficient connection management
 
 ### Inter-Datacenter Replication
-
-Multiple replication streams between datacenters:
-
-#### AAP Database Replication (AAP's Internal Database)
-- **Method**: PostgreSQL logical replication (uni-directional)
-- **Direction**: DC1 (Active) → DC2 (Passive)
-- **Replication Mode**: Asynchronous with monitoring
-- **Lag Monitoring**: Prometheus metrics + AAP monitoring jobs
-- **Lag Threshold**: Alert if > 5 seconds
-- **Purpose**: Replicates AAP's configuration, inventory, credentials, job history
 
 #### EDB-Managed Application Database Replication
 - **Method**: PostgreSQL physical replication (streaming + WAL shipping)
@@ -404,33 +176,6 @@ Multiple replication streams between datacenters:
 - **Automatic Service Updates**: EDB operator automatically updates `-rw` service during failover
 - **Cross-Cluster Limitation**: Automated failover across Kubernetes clusters must be handled externally (via AAP or higher-level orchestration)
 
-## Security Architecture
-
-### Security Context Constraints
-
-Both operators run with `restricted-v2` SCC:
-- **UID Range**: Auto-assigned from namespace range
-- **Privilege Escalation**: Disabled
-- **Capabilities**: All dropped
-- **Seccomp**: RuntimeDefault enabled
-
-### Network Policies
-
-- Pod-to-pod communication restricted
-- External access via Routes only
-- Database connections encrypted with TLS
-- Inter-datacenter traffic encrypted
-
-### Secrets Management
-
-AAP Manages:
-- Database credentials (stored in AAP credential store)
-- TLS certificates
-- S3 access keys
-- Service account tokens
-
-## Data Flow
-
 ### Write Operations (Normal State)
 
 **For EDB-Managed Application Databases:**
@@ -440,10 +185,6 @@ AAP Manages:
 4. DC1 Primary → DC2 Designated Primary (streaming replication across clusters)
 5. DC1 Primary → S3/Object Store (continuous WAL archiving - fallback)
 6. DC2 Designated Primary → DC2 Hot Standby Replicas (streaming replication within cluster)
-
-**For AAP's Internal Database:**
-1. AAP Controller → DC1 AAP Database (primary)
-2. DC1 AAP Database → DC2 AAP Database (logical replication for AAP state)
 
 ### Read Operations
 
@@ -483,40 +224,6 @@ AAP Manages:
 
 ### AAP on OpenShift
 
-Each AAP instance runs on OpenShift with the following components:
-
-#### AAP Controller Deployment
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: automation-controller
-  namespace: ansible-automation-platform
-spec:
-  replicas: 3
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: automation-controller
-```
-
-#### AAP Database (EDB Postgres)
-```yaml
-apiVersion: postgresql.k8s.enterprisedb.io/v1
-kind: Cluster
-metadata:
-  name: aap-postgres
-  namespace: ansible-automation-platform
-spec:
-  instances: 3
-  storage:
-    size: 100Gi
-  backup:
-    barmanObjectStore:
-      destinationPath: s3://aap-backups/
-```
-
 #### Resource Requirements
 
 **Per Datacenter:**
@@ -524,16 +231,6 @@ spec:
 - **Automation Hub**: 2 pods × (2 CPU, 4GB RAM)
 - **AAP Database**: 3 pods × (2 CPU, 4GB RAM)
 - **Total**: ~18 CPUs, 36GB RAM per datacenter
-
-### AAP State Synchronization
-
-AAP maintains consistency across datacenters through:
-
-1. **Shared PostgreSQL Database**: Replicated between DC1 and DC2
-2. **Project Sync**: Git-based project synchronization
-3. **Execution Environments**: Shared container registry or mirrored registries
-4. **Credentials**: Encrypted in database, replicated across datacenters
-5. **Job Output**: Stored in database and object storage
 
 ## Disaster Recovery Scenarios
 
@@ -616,80 +313,6 @@ AAP maintains consistency across datacenters through:
 3. **AAP Continues**: Both instances operational, accept direct connections
 4. **Restore LB**: Bring load balancer back online, resume normal routing
 
-## Ansible Automation Examples
-
-### Deploy PostgreSQL Cluster
-
-```yaml
-- name: Deploy PostgreSQL Cluster
-  hosts: localhost
-  tasks:
-    - name: Create PostgreSQL Cluster
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_dc1 }}"
-        state: present
-        definition:
-          apiVersion: postgresql.k8s.enterprisedb.io/v1
-          kind: Cluster
-          metadata:
-            name: prod-db
-            namespace: production
-          spec:
-            instances: 3
-            storage:
-              size: 100Gi
-```
-
-### Execute SQL Across Clusters
-
-```yaml
-- name: Execute SQL on all databases
-  hosts: postgres_clusters
-  tasks:
-    - name: Run migration script
-      community.postgresql.postgresql_query:
-        login_host: "{{ pg_host }}"
-        login_user: "{{ pg_user }}"
-        login_password: "{{ pg_password }}"
-        db: "{{ pg_database }}"
-        query: "{{ lookup('file', 'migration.sql') }}"
-```
-
-### Monitor Database Health
-
-```yaml
-- name: Check PostgreSQL Health
-  hosts: localhost
-  tasks:
-    - name: Get cluster status
-      kubernetes.core.k8s_info:
-        kubeconfig: "{{ item.kubeconfig }}"
-        kind: Cluster
-        namespace: production
-        name: prod-db
-      loop:
-        - { kubeconfig: "{{ kubeconfig_dc1 }}" }
-        - { kubeconfig: "{{ kubeconfig_dc2 }}" }
-      register: cluster_status
-```
-
-## Monitoring and Metrics
-
-### Prometheus Metrics
-
-Each datacenter has Prometheus collecting:
-- PostgreSQL metrics (queries, connections, replication lag)
-- Operator metrics (reconciliation loops, errors)
-- OpenShift metrics (pod status, resource usage)
-
-### AAP Dashboards
-
-AAP provides centralized dashboards showing:
-- All database clusters across datacenters
-- Backup status and history
-- Replication lag
-- Connection pool status
-- Query performance
 
 ## Scaling Considerations
 
@@ -916,10 +539,5 @@ This architecture provides:
    - Battle-tested by millions of PostgreSQL deployments
    - Automatic continuous recovery for replica clusters
    - Point-in-time recovery (PITR) capability
-
-6. **Separation of Concerns**:
-   - AAP's internal database uses logical replication (flexibility for AAP schema changes)
-   - Application databases use physical replication (performance and reliability)
-   - Clear distinction prevents confusion about replication strategies
 
 The combination of Global Load Balancing, distributed AAP instances, and EDB Postgres for Kubernetes provides an enterprise-grade, highly available, geographically distributed PostgreSQL database platform with comprehensive automation and disaster recovery capabilities. The architecture follows EDB's recommended patterns for distributed PostgreSQL topologies across multiple Kubernetes clusters.

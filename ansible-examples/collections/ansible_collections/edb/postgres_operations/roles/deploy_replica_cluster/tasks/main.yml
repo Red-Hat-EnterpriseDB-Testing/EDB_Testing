@@ -1,0 +1,316 @@
+---
+# Main tasks for deploy_replica_cluster role
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - replica_cluster_name is defined
+      - replica_namespace is defined
+      - kubeconfig_path is defined
+      - source_cluster_name is defined
+      - replica_datacenter is defined
+      - replica_strategy in ['distributed_topology', 'standalone']
+      - bootstrap_method in ['pg_basebackup', 'recovery_object_store', 'recovery_volume_snapshot']
+    fail_msg: "Required variables are missing or invalid. Check replica_cluster_name, replica_namespace, kubeconfig_path, source_cluster_name, replica_datacenter, replica_strategy, and bootstrap_method."
+
+- name: Validate distributed topology configuration
+  ansible.builtin.assert:
+    that:
+      - global_primary_cluster is defined
+      - global_primary_cluster in [source_cluster_name, replica_cluster_name]
+    fail_msg: "For distributed_topology, global_primary_cluster must be defined and must be either source or replica cluster name."
+  when: replica_strategy == 'distributed_topology'
+
+- name: Validate standalone replica configuration
+  ansible.builtin.assert:
+    that:
+      - standalone_enabled is defined
+      - standalone_enabled | bool
+    fail_msg: "For standalone replica strategy, standalone_enabled must be true."
+  when: replica_strategy == 'standalone'
+
+- name: Validate delayed replica configuration
+  ansible.builtin.assert:
+    that:
+      - not enable_promotion_token
+    fail_msg: "Delayed replicas (minApplyDelay) cannot be used with promotionToken. Set enable_promotion_token to false."
+  when:
+    - enable_delayed_replica | bool
+    - replica_min_apply_delay != "0s"
+
+- name: Ensure namespace exists
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ replica_namespace }}"
+        labels:
+          datacenter: "{{ replica_datacenter }}"
+          managed-by: ansible-automation-platform
+          app: postgresql
+          cluster-type: replica
+
+- name: Copy EDB pull secret to replica namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: edb-pull-secret
+        namespace: "{{ replica_namespace }}"
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ lookup('file', edb_pull_secret_file) | b64encode }}"
+  when: edb_pull_secret_file is defined
+
+- name: Get source cluster information
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+    kind: Cluster
+    namespace: "{{ source_namespace }}"
+    name: "{{ source_cluster_name }}"
+    api_version: postgresql.k8s.enterprisedb.io/v1
+  register: source_cluster_info
+  when: sync_secrets_from_source | bool
+
+- name: Sync superuser secret from source cluster
+  block:
+    - name: Get source superuser secret
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+        kind: Secret
+        namespace: "{{ source_namespace }}"
+        name: "{{ source_cluster_name }}-superuser"
+      register: source_superuser_secret
+
+    - name: Create replica superuser secret
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ replica_cluster_name }}-superuser"
+            namespace: "{{ replica_namespace }}"
+            labels:
+              synced-from: "{{ source_cluster_name }}"
+          type: kubernetes.io/basic-auth
+          data:
+            username: "{{ source_superuser_secret.resources[0].data.username }}"
+            password: "{{ source_superuser_secret.resources[0].data.password }}"
+      when: source_superuser_secret.resources | length > 0
+  when: sync_secrets_from_source | bool
+
+- name: Sync application user secret from source cluster
+  block:
+    - name: Get source app user secret
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+        kind: Secret
+        namespace: "{{ source_namespace }}"
+        name: "{{ source_cluster_name }}-app-user"
+      register: source_app_secret
+
+    - name: Create replica app user secret
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ replica_cluster_name }}-app-user"
+            namespace: "{{ replica_namespace }}"
+            labels:
+              synced-from: "{{ source_cluster_name }}"
+          type: kubernetes.io/basic-auth
+          data:
+            username: "{{ source_app_secret.resources[0].data.username }}"
+            password: "{{ source_app_secret.resources[0].data.password }}"
+      when: source_app_secret.resources | length > 0
+  when: sync_secrets_from_source | bool
+
+- name: Create streaming replication certificates (if using TLS)
+  block:
+    - name: Get source replication certificate
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+        kind: Secret
+        namespace: "{{ source_namespace }}"
+        name: "{{ source_cluster_name }}-replication"
+      register: source_replication_cert
+
+    - name: Create replica replication certificate
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ source_cluster_name }}-replication"
+            namespace: "{{ replica_namespace }}"
+            labels:
+              synced-from: "{{ source_cluster_name }}"
+          type: kubernetes.io/tls
+          data: "{{ source_replication_cert.resources[0].data }}"
+      when: source_replication_cert.resources | length > 0
+
+    - name: Get source CA certificate
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+        kind: Secret
+        namespace: "{{ source_namespace }}"
+        name: "{{ source_cluster_name }}-ca"
+      register: source_ca_cert
+
+    - name: Create replica CA certificate
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ source_cluster_name }}-ca"
+            namespace: "{{ replica_namespace }}"
+            labels:
+              synced-from: "{{ source_cluster_name }}"
+          type: Opaque
+          data: "{{ source_ca_cert.resources[0].data }}"
+      when: source_ca_cert.resources | length > 0
+  when:
+    - create_replication_secrets | bool
+    - enable_streaming_replication | bool
+    - streaming_replica_ssl_mode == 'verify-full'
+
+- name: Copy S3 credentials secret (if using object store)
+  block:
+    - name: Get source S3 credentials
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ source_kubeconfig_path | default(kubeconfig_path) }}"
+        kind: Secret
+        namespace: "{{ source_namespace }}"
+        name: "{{ barman_s3_credentials_secret }}"
+      register: source_s3_credentials
+
+    - name: Create replica S3 credentials
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ replica_cluster_name }}-backup-s3"
+            namespace: "{{ replica_namespace }}"
+            labels:
+              synced-from: "{{ source_cluster_name }}"
+          type: Opaque
+          data: "{{ source_s3_credentials.resources[0].data }}"
+      when: source_s3_credentials.resources | length > 0
+  when:
+    - bootstrap_method in ['recovery_object_store']
+    - barman_s3_credentials_secret is defined
+
+- name: Deploy PostgreSQL Replica Cluster
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'replica-cluster.yml.j2') | from_yaml }}"
+
+- name: Create PodDisruptionBudget for replica cluster high availability
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      metadata:
+        name: "{{ replica_cluster_name }}-pdb"
+        namespace: "{{ replica_namespace }}"
+      spec:
+        minAvailable: "{{ min_available_instances }}"
+        selector:
+          matchLabels:
+            postgresql: "{{ replica_cluster_name }}"
+  when: enable_pod_disruption_budget | bool
+
+- name: Wait for replica cluster to be ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Cluster
+    namespace: "{{ replica_namespace }}"
+    name: "{{ replica_cluster_name }}"
+    api_version: postgresql.k8s.enterprisedb.io/v1
+  register: replica_cluster_status
+  until: >
+    replica_cluster_status.resources | length > 0 and
+    replica_cluster_status.resources[0].status.phase is defined and
+    replica_cluster_status.resources[0].status.phase == "Cluster in healthy state"
+  retries: "{{ wait_retries }}"
+  delay: "{{ wait_delay }}"
+  when: wait_for_replica_cluster_ready | bool
+
+- name: Get replica cluster information
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    kind: Cluster
+    namespace: "{{ replica_namespace }}"
+    name: "{{ replica_cluster_name }}"
+    api_version: postgresql.k8s.enterprisedb.io/v1
+  register: replica_cluster_info
+
+- name: Set replica cluster facts
+  ansible.builtin.set_fact:
+    replica_cluster_primary: "{{ replica_cluster_info.resources[0].status.currentPrimary | default('N/A') }}"
+    replica_cluster_phase: "{{ replica_cluster_info.resources[0].status.phase | default('Unknown') }}"
+    replica_cluster_instances: "{{ replica_cluster_info.resources[0].status.instances | default(0) }}"
+    replica_cluster_ready_instances: "{{ replica_cluster_info.resources[0].status.readyInstances | default(0) }}"
+    replica_cluster_ro_service: "{{ replica_cluster_name }}-ro.{{ replica_namespace }}.svc.cluster.local"
+    replica_cluster_r_service: "{{ replica_cluster_name }}-r.{{ replica_namespace }}.svc.cluster.local"
+    replica_is_primary: "{{ (global_primary_cluster == replica_cluster_name) if replica_strategy == 'distributed_topology' else false }}"
+
+- name: Set replica RW service (only if this is the global primary)
+  ansible.builtin.set_fact:
+    replica_cluster_rw_service: "{{ replica_cluster_name }}-rw.{{ replica_namespace }}.svc.cluster.local"
+  when: replica_is_primary | bool
+
+- name: Display replica cluster deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════"
+      - "PostgreSQL Replica Cluster Deployed Successfully"
+      - "═══════════════════════════════════════════════════════"
+      - "Cluster Name: {{ replica_cluster_name }}"
+      - "Namespace: {{ replica_namespace }}"
+      - "Datacenter: {{ replica_datacenter }}"
+      - "Strategy: {{ replica_strategy }}"
+      - "Phase: {{ replica_cluster_phase }}"
+      - "Instances: {{ replica_cluster_ready_instances }}/{{ replica_cluster_instances }}"
+      - "Designated Primary: {{ replica_cluster_primary }}"
+      - "PostgreSQL Version: {{ replica_postgres_version }}"
+      - "───────────────────────────────────────────────────────"
+      - "Replication Configuration:"
+      - "  Source Cluster: {{ source_cluster_name }}"
+      - "  Bootstrap Method: {{ bootstrap_method }}"
+      - "  Streaming Replication: {{ 'Enabled' if enable_streaming_replication else 'Disabled' }}"
+      - "  WAL Archive Replication: {{ 'Enabled' if enable_wal_archive_replication else 'Disabled' }}"
+      - "{% if replica_strategy == 'distributed_topology' %}  Global Primary: {{ global_primary_cluster }}{% endif %}"
+      - "{% if enable_delayed_replica %}  Apply Delay: {{ replica_min_apply_delay }}{% endif %}"
+      - "───────────────────────────────────────────────────────"
+      - "Connection Endpoints (Read-Only):"
+      - "  Read-Only:  {{ replica_cluster_ro_service }}:5432"
+      - "  Read:       {{ replica_cluster_r_service }}:5432"
+      - "{% if replica_is_primary %}  Read-Write: {{ replica_cluster_rw_service }}:5432 (Primary){% endif %}"
+      - "───────────────────────────────────────────────────────"
+      - "Secrets (synced from source):"
+      - "  {{ replica_cluster_name }}-superuser"
+      - "  {{ replica_cluster_name }}-app-user"
+      - "═══════════════════════════════════════════════════════"

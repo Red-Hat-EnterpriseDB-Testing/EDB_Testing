@@ -1,0 +1,93 @@
+---
+# Example: Deploy Cross-Region Replica with Volume Snapshot Bootstrap
+# This example shows how to deploy a replica cluster in a different region
+# using volume snapshot for fast bootstrap of large databases
+
+- name: Deploy Cross-Region Replica from Volume Snapshot
+  hosts: region_west
+  gather_facts: false
+  
+  vars:
+    primary_cluster: prod-db
+    primary_namespace: production
+    primary_region: us-east-1
+    
+    replica_cluster: prod-db-west
+    replica_namespace: production
+    replica_region: us-west-2
+    
+    snapshot_name: prod-db-snapshot-20260209-120000
+    
+  pre_tasks:
+    - name: Verify volume snapshot exists and is ready
+      kubernetes.core.k8s_info:
+        kind: VolumeSnapshot
+        name: "{{ snapshot_name }}"
+        namespace: "{{ primary_namespace }}"
+        kubeconfig: "{{ primary_kubeconfig | default('~/.kube/config-east') }}"
+      register: snapshot_info
+      failed_when: >
+        snapshot_info.resources | length == 0 or
+        snapshot_info.resources[0].status.readyToUse != true
+  
+  roles:
+    - role: edb.postgres_operations.deploy_replica_cluster
+      vars:
+        # Cross-region replica configuration
+        replica_cluster_name: "{{ replica_cluster }}"
+        replica_namespace: "{{ replica_namespace }}"
+        replica_datacenter: "{{ replica_region }}"
+        replica_instances: 3
+        replica_postgres_version: "16.8"
+        
+        # Source cluster (different region)
+        source_cluster_name: "{{ primary_cluster }}"
+        source_namespace: "{{ primary_namespace }}"
+        source_kubeconfig_path: ~/.kube/config-east
+        
+        # Distributed topology
+        replica_strategy: distributed_topology
+        global_primary_cluster: "{{ primary_cluster }}"
+        enable_promotion_token: true
+        
+        # Bootstrap from volume snapshot (fastest for large databases)
+        bootstrap_method: recovery_volume_snapshot
+        volume_snapshot_name: "{{ snapshot_name }}"
+        volume_snapshot_kind: VolumeSnapshot
+        
+        # After bootstrap, use hybrid replication
+        enable_streaming_replication: true
+        enable_wal_archive_replication: true
+        
+        # Cross-region WAL archive via S3
+        barman_destination_path: s3://prod-backups-east/prod-db/
+        barman_endpoint_url: https://s3.us-east-1.amazonaws.com
+        barman_object_name: "{{ primary_cluster }}"
+        barman_server_name: "{{ primary_cluster }}"
+        
+        # Symmetric architecture - backup to west region bucket
+        replica_backup_enabled: true
+        replica_backup_bucket: s3://prod-backups-west/prod-db-west/
+        replica_backup_retention_days: 30
+        
+        # Production storage
+        replica_storage_size: 100Gi
+        replica_storage_class: gp3-csi
+        
+        # Production resources
+        replica_resource_requests_memory: 4Gi
+        replica_resource_requests_cpu: "2"
+        replica_resource_limits_memory: 8Gi
+        replica_resource_limits_cpu: "4"
+        
+        # Monitoring
+        replica_monitoring_enabled: true
+        replica_monitoring_pod_monitor: true
+        
+        # HA
+        enable_pod_disruption_budget: true
+        min_available_instances: 1
+        
+        # Secret synchronization
+        sync_secrets_from_source: true
+        create_replication_secrets: true

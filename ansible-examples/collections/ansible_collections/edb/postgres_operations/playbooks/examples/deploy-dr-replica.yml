@@ -1,0 +1,98 @@
+---
+# Example: Deploy Disaster Recovery Replica Cluster (Distributed Topology)
+# This example shows how to deploy a replica cluster for DR purposes
+# with symmetric architecture supporting bidirectional switchover
+
+- name: Deploy DR Replica Cluster in Datacenter 2
+  hosts: dc2_openshift
+  gather_facts: false
+  
+  vars:
+    # Primary cluster (source) in DC1
+    primary_cluster_name: prod-db
+    primary_namespace: production
+    primary_datacenter: dc1
+    
+    # Replica cluster in DC2
+    replica_cluster_name: prod-db-replica
+    replica_namespace: production
+    replica_datacenter: dc2
+    
+    # Global configuration
+    global_primary: prod-db  # DC1 is currently primary
+    
+    # S3 configuration
+    s3_backup_bucket_dc1: s3://prod-backups-dc1/prod-db/
+    s3_backup_bucket_dc2: s3://prod-backups-dc2/prod-db-replica/
+    
+  roles:
+    - role: edb.postgres_operations.deploy_replica_cluster
+      vars:
+        # Replica cluster configuration
+        replica_cluster_name: "{{ replica_cluster_name }}"
+        replica_namespace: "{{ replica_namespace }}"
+        replica_datacenter: "{{ replica_datacenter }}"
+        replica_instances: 3
+        replica_postgres_version: "16.8"
+        
+        # Source cluster (DC1 primary)
+        source_cluster_name: "{{ primary_cluster_name }}"
+        source_namespace: "{{ primary_namespace }}"
+        source_kubeconfig_path: ~/.kube/dc1-config  # If different cluster
+        
+        # Distributed topology for DR
+        replica_strategy: distributed_topology
+        global_primary_cluster: "{{ global_primary }}"
+        enable_promotion_token: true
+        
+        # Bootstrap via streaming (fastest with good network)
+        bootstrap_method: pg_basebackup
+        
+        # Hybrid replication for reliability
+        enable_streaming_replication: true
+        enable_wal_archive_replication: true
+        streaming_replica_ssl_mode: verify-full
+        
+        # Barman Cloud for WAL archive from DC1
+        barman_destination_path: "{{ s3_backup_bucket_dc1 }}"
+        barman_object_name: "{{ primary_cluster_name }}"
+        barman_server_name: "{{ primary_cluster_name }}"
+        barman_s3_credentials_secret: prod-db-backup-s3
+        
+        # Symmetric architecture - enable backup on replica for DC2
+        replica_backup_enabled: true
+        replica_backup_bucket: "{{ s3_backup_bucket_dc2 }}"
+        replica_backup_retention_days: 30
+        
+        # Production storage
+        replica_storage_size: 100Gi
+        replica_storage_class: gp3-csi
+        replica_storage_wal_size: 50Gi
+        
+        # Production resources
+        replica_resource_requests_memory: 4Gi
+        replica_resource_requests_cpu: "2"
+        replica_resource_limits_memory: 8Gi
+        replica_resource_limits_cpu: "4"
+        
+        # PostgreSQL tuning
+        replica_pg_max_connections: "500"
+        replica_pg_shared_buffers: "1GB"
+        replica_pg_work_mem: "8MB"
+        replica_pg_maintenance_work_mem: "256MB"
+        replica_pg_effective_cache_size: "3GB"
+        
+        # Monitoring and HA
+        replica_monitoring_enabled: true
+        replica_monitoring_pod_monitor: true
+        enable_pod_disruption_budget: true
+        min_available_instances: 1
+        
+        # Secret synchronization
+        sync_secrets_from_source: true
+        create_replication_secrets: true
+        
+        # Wait for readiness
+        wait_for_replica_cluster_ready: true
+        wait_retries: 60
+        wait_delay: 10

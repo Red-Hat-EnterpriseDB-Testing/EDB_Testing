@@ -1,0 +1,185 @@
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: {{ replica_cluster_name }}
+  namespace: {{ replica_namespace }}
+  labels:
+    datacenter: {{ replica_datacenter }}
+    environment: {{ replica_environment }}
+    cluster-type: replica
+    source-cluster: {{ source_cluster_name }}
+{% if replica_strategy == 'distributed_topology' %}
+    topology: distributed
+    global-primary: {{ global_primary_cluster }}
+{% else %}
+    topology: standalone-replica
+{% endif %}
+spec:
+  instances: {{ replica_instances }}
+  imageName: docker.enterprisedb.com/k8s/postgresql:{{ replica_postgres_version }}
+  
+  # Bootstrap Configuration
+  bootstrap:
+{% if bootstrap_method == 'pg_basebackup' %}
+    # Bootstrap via streaming replication (pg_basebackup)
+    pg_basebackup:
+      source: {{ source_cluster_name }}
+{% elif bootstrap_method == 'recovery_object_store' %}
+    # Bootstrap from object store backup
+    recovery:
+      source: {{ source_cluster_name }}
+{% elif bootstrap_method == 'recovery_volume_snapshot' %}
+    # Bootstrap from volume snapshot
+    recovery:
+      volumeSnapshots:
+        storage:
+          name: {{ volume_snapshot_name }}
+          kind: {{ volume_snapshot_kind }}
+      source: {{ source_cluster_name }}
+{% endif %}
+  
+  # Replica Configuration
+  replica:
+{% if replica_strategy == 'distributed_topology' %}
+    # Distributed Topology Strategy
+    primary: {{ global_primary_cluster }}
+    source: {{ source_cluster_name }}
+    self: {{ replica_cluster_name }}
+{% else %}
+    # Standalone Replica Strategy
+    enabled: {{ standalone_enabled | lower }}
+    source: {{ source_cluster_name }}
+{% if enable_delayed_replica %}
+    minApplyDelay: {{ replica_min_apply_delay }}
+{% endif %}
+{% endif %}
+  
+  # External Clusters Configuration
+  externalClusters:
+    # Source cluster definition
+    - name: {{ source_cluster_name }}
+{% if enable_wal_archive_replication %}
+      # Barman Cloud Plugin for WAL archive
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: {{ barman_object_name }}
+          serverName: {{ barman_server_name }}
+{% if barman_endpoint_url %}
+          endpointURL: {{ barman_endpoint_url }}
+{% endif %}
+{% if barman_destination_path %}
+          destinationPath: {{ barman_destination_path }}
+{% endif %}
+{% if barman_s3_credentials_secret %}
+          s3Credentials:
+            accessKeyId:
+              name: {{ replica_cluster_name }}-backup-s3
+              key: ACCESS_KEY_ID
+            secretAccessKey:
+              name: {{ replica_cluster_name }}-backup-s3
+              key: SECRET_ACCESS_KEY
+{% endif %}
+{% endif %}
+{% if enable_streaming_replication %}
+      # Streaming replication connection
+      connectionParameters:
+        host: {{ source_cluster_name }}-rw.{{ source_namespace }}.svc.cluster.local
+        user: {{ streaming_replica_user }}
+        sslmode: {{ streaming_replica_ssl_mode }}
+        dbname: postgres
+{% if streaming_replica_ssl_mode == 'verify-full' %}
+      sslKey:
+        name: {{ source_cluster_name }}-replication
+        key: tls.key
+      sslCert:
+        name: {{ source_cluster_name }}-replication
+        key: tls.crt
+      sslRootCert:
+        name: {{ source_cluster_name }}-ca
+        key: ca.crt
+{% endif %}
+{% endif %}
+{% if replica_strategy == 'distributed_topology' %}
+    
+    # This replica cluster definition (for symmetric architecture)
+    - name: {{ replica_cluster_name }}
+{% if replica_backup_enabled %}
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: {{ replica_cluster_name }}
+          serverName: {{ replica_cluster_name }}
+{% if barman_endpoint_url %}
+          endpointURL: {{ barman_endpoint_url }}
+{% endif %}
+{% if replica_backup_enabled and replica_backup_bucket %}
+          destinationPath: {{ replica_backup_bucket }}
+{% endif %}
+{% if barman_s3_credentials_secret %}
+          s3Credentials:
+            accessKeyId:
+              name: {{ replica_cluster_name }}-backup-s3
+              key: ACCESS_KEY_ID
+            secretAccessKey:
+              name: {{ replica_cluster_name }}-backup-s3
+              key: SECRET_ACCESS_KEY
+{% endif %}
+{% endif %}
+{% endif %}
+  
+  # Storage Configuration
+  storage:
+    size: {{ replica_storage_size }}
+    storageClass: {{ replica_storage_class }}
+  
+  walStorage:
+    size: {{ replica_storage_wal_size }}
+    storageClass: {{ replica_storage_class }}
+  
+  # Image Pull Secrets
+  imagePullSecrets:
+    - name: edb-pull-secret
+  
+  # Resource Configuration
+  resources:
+    requests:
+      memory: {{ replica_resource_requests_memory }}
+      cpu: {{ replica_resource_requests_cpu }}
+    limits:
+      memory: {{ replica_resource_limits_memory }}
+      cpu: {{ replica_resource_limits_cpu }}
+  
+  # Monitoring Configuration
+  monitoring:
+    enablePodMonitor: {{ replica_monitoring_pod_monitor | lower }}
+  
+  # PostgreSQL Configuration
+  postgresql:
+    parameters:
+      max_connections: "{{ replica_pg_max_connections }}"
+      shared_buffers: {{ replica_pg_shared_buffers }}
+      work_mem: {{ replica_pg_work_mem }}
+      maintenance_work_mem: {{ replica_pg_maintenance_work_mem }}
+      effective_cache_size: {{ replica_pg_effective_cache_size }}
+{% if replica_backup_enabled and replica_strategy == 'distributed_topology' %}
+  
+  # Backup Configuration (for symmetric architecture)
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ replica_backup_bucket }}
+      wal:
+        compression: {{ replica_backup_wal_compression }}
+        encryption: {{ replica_backup_wal_encryption }}
+      data:
+        compression: {{ replica_backup_wal_compression }}
+        encryption: {{ replica_backup_wal_encryption }}
+      retentionPolicy: {{ replica_backup_retention_days }}d
+      s3Credentials:
+        accessKeyId:
+          name: {{ replica_cluster_name }}-backup-s3
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ replica_cluster_name }}-backup-s3
+          key: SECRET_ACCESS_KEY
+{% endif %}
