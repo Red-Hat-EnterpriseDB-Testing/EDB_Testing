@@ -6,6 +6,7 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Architecture Diagram](#architecture-diagram)
 - [Component Details](#component-details)
 - [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture)
@@ -15,6 +16,238 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 - [Ansible Automation](#ansible-automation)
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Scaling Considerations](#scaling-considerations)
+
+## Installation
+
+This section provides guidance for installing EDB Postgres on RHEL systems for traditional VM-based deployments, as well as EDB Postgres for Kubernetes for container-based deployments.
+
+### Installing EDB Postgres on RHEL
+
+For RHEL-based deployments where AAP runs as systemd services or where you need traditional PostgreSQL installations, follow the EDB installation guide.
+
+#### Prerequisites
+
+Before installing EDB Postgres on RHEL, ensure you have:
+
+- **RHEL 8 or 9** system with root or sudo access
+- **EDB Repository Access**: Valid EDB subscription credentials
+- **Network Access**: Connection to EDB repositories
+- **Minimum Resources**:
+  - 2 CPU cores (4+ recommended for production)
+  - 4 GB RAM (8+ GB recommended for production)
+  - 50 GB disk space (more for production databases)
+
+#### Installation Methods
+
+**Method 1: Using EDB Repository (Recommended)**
+
+```bash
+# Install the EDB repository configuration
+sudo dnf install -y https://yum.enterprisedb.com/edb-repo-rpms/edb-repo-latest.noarch.rpm
+
+# Configure your EDB subscription token
+sudo bash -c 'echo "username:password" > /etc/yum.repos.d/edb.repo'
+# Replace username:password with your EDB credentials
+
+# Install EDB Postgres Advanced Server (EPAS) or PostgreSQL
+sudo dnf install -y edb-as16-server  # For EPAS 16
+# OR
+sudo dnf install -y postgresql16-server  # For PostgreSQL 16
+
+# Initialize the database cluster
+sudo /usr/edb/as16/bin/edb-as-16-setup initdb
+
+# Enable and start the service
+sudo systemctl enable edb-as-16
+sudo systemctl start edb-as-16
+
+# Verify installation
+sudo systemctl status edb-as-16
+```
+
+**Method 2: Using EDB Postgres Distributed (PGD)**
+
+For multi-datacenter replication scenarios, use EDB Postgres Distributed:
+
+```bash
+# Install PGD repository
+sudo dnf install -y https://yum.enterprisedb.com/edb-repo-rpms/edb-repo-latest.noarch.rpm
+
+# Install PGD components
+sudo dnf install -y edb-pgd5
+
+# Install PostgreSQL if not already installed
+sudo dnf install -y postgresql16-server
+
+# Initialize and configure PGD
+# Follow the detailed guide at:
+# https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/
+```
+
+#### Post-Installation Configuration
+
+After installation, configure PostgreSQL for your environment:
+
+**1. Configure PostgreSQL to Listen on Network**
+
+```bash
+# Edit postgresql.conf
+sudo vi /var/lib/edb/as16/data/postgresql.conf
+
+# Update these settings:
+listen_addresses = '*'
+max_connections = 200
+shared_buffers = 256MB
+```
+
+**2. Configure Authentication**
+
+```bash
+# Edit pg_hba.conf
+sudo vi /var/lib/edb/as16/data/pg_hba.conf
+
+# Add entries for your network:
+host    all             all             10.0.0.0/8              scram-sha-256
+host    all             all             192.168.0.0/16          scram-sha-256
+```
+
+**3. Restart PostgreSQL**
+
+```bash
+sudo systemctl restart edb-as-16
+```
+
+**4. Create Database Users and Databases**
+
+```bash
+# Switch to postgres user
+sudo su - enterprisedb
+
+# Connect to PostgreSQL
+psql
+
+-- Create application user
+CREATE ROLE app_user WITH LOGIN PASSWORD 'secure_password';
+
+-- Create application database
+CREATE DATABASE app_db OWNER app_user;
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON DATABASE app_db TO app_user;
+```
+
+#### Firewall Configuration
+
+```bash
+# Allow PostgreSQL port (5432 or 5444 for EPAS)
+sudo firewall-cmd --permanent --add-port=5432/tcp
+sudo firewall-cmd --reload
+
+# Verify
+sudo firewall-cmd --list-all
+```
+
+### Installing EDB Postgres for Kubernetes
+
+For containerized deployments on OpenShift/Kubernetes (as described in this architecture), use the EDB Postgres for Kubernetes operator.
+
+#### Prerequisites for Kubernetes Installation
+
+- OpenShift 4.x or Kubernetes 1.21+
+- Cluster admin or namespace admin privileges
+- `kubectl` or `oc` CLI installed
+- Valid EDB subscription and pull secret
+
+#### Installation Steps
+
+**1. Install the EDB Postgres for Kubernetes Operator**
+
+```bash
+# Create namespace
+oc create namespace postgresql-operator-system
+
+# Create pull secret for EDB images
+oc create secret docker-registry edb-pull-secret \
+  --docker-server=docker.enterprisedb.com \
+  --docker-username=<your-username> \
+  --docker-password=<your-password> \
+  -n postgresql-operator-system
+
+# Install operator via OperatorHub (OpenShift) or Helm
+oc apply -f https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml
+```
+
+**2. Deploy a PostgreSQL Cluster**
+
+Create a cluster definition file:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: production
+spec:
+  instances: 3
+  imageName: docker.enterprisedb.com/edb/edb-postgres-advanced:16
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+  
+  storage:
+    size: 100Gi
+    storageClass: gp3
+  
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://my-backup-bucket/
+      s3Credentials:
+        accessKeyId:
+          name: aws-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: aws-creds
+          key: ACCESS_SECRET_KEY
+```
+
+Apply the cluster:
+
+```bash
+oc apply -f postgres-cluster.yaml
+```
+
+**3. Verify Installation**
+
+```bash
+# Check operator status
+oc get pods -n postgresql-operator-system
+
+# Check cluster status
+oc get cluster -n production
+
+# Check pods
+oc get pods -n production
+```
+
+### Quick Start Resources
+
+For detailed installation guides and quick start tutorials:
+
+- **EDB Postgres Distributed Quickstart**: [https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/](https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/)
+- **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
+- **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
+
+### Next Steps
+
+After installation:
+
+1. **Configure High Availability**: Set up replication and failover (see [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture))
+2. **Set Up Monitoring**: Deploy monitoring tools (Prometheus, Grafana)
+3. **Configure Backups**: Set up automated backup schedules
+4. **Implement Security**: Configure TLS, authentication, and network policies
+5. **Deploy AAP**: Install Ansible Automation Platform for cluster management (see [AAP Deployment Architecture](#aap-deployment-architecture))
 
 ## Architecture Diagram
 
