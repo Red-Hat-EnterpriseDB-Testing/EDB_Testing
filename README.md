@@ -4,10 +4,14 @@
 
 This document describes the architecture of EnterpriseDB Postgres for Kubernetes deployed across two OpenShift clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
 
+## Architecture Diagram
+
+![EDB Postgres Multi-Datacenter Architecture](images/AAP_EDB.drawio.png)
+
 ## Table of Contents
 
-- [Installation](#installation)
 - [Architecture Diagram](#architecture-diagram)
+- [Installation](#installation)
 - [Component Details](#component-details)
 - [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture)
 - [Network Connectivity](#network-connectivity)
@@ -248,10 +252,6 @@ After installation:
 3. **Configure Backups**: Set up automated backup schedules
 4. **Implement Security**: Configure TLS, authentication, and network policies
 5. **Deploy AAP**: Install Ansible Automation Platform for cluster management (see [AAP Deployment Architecture](#aap-deployment-architecture))
-
-## Architecture Diagram
-
-![EDB Postgres Multi-Datacenter Architecture](images/AAP_EDB.drawio.png)
 
 ## Component Details
 
