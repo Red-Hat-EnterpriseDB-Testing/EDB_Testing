@@ -170,13 +170,6 @@ For containerized deployments on OpenShift/Kubernetes (as described in this arch
 # Create namespace
 oc create namespace postgresql-operator-system
 
-# Create pull secret for EDB images
-oc create secret docker-registry edb-pull-secret \
-  --docker-server=docker.enterprisedb.com \
-  --docker-username=<your-username> \
-  --docker-password=<your-password> \
-  -n postgresql-operator-system
-
 # Install operator via OperatorHub (OpenShift) or Helm
 oc apply -f https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml
 ```
