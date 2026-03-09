@@ -1,8 +1,8 @@
-# EDB Postgres Multi-Datacenter Architecture
+# AAP with EDB Postgres Multi-Datacenter Architecture
 
 ## Overview
 
-This document describes the architecture of EnterpriseDB Postgres deployed across two clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
+This document describes the architecture of EnterpriseDB Postgres deployed Active/Passive across two clusters in different datacenters with in datacenter replication for the  Ansible Automation Platform (AAP). This will acheive a **NEAR** HA type architecture, especially for failover to the databases synching in region/datacenter. A DR scenario should be exactly for if there is a catastrophic failure. Failing to a in site database should cause little to no intervention needed at the application layer. The main thing to note is for a DR failover any running jobs will be lost, however if it fails in site, the jobs should continue to run UNLESS the controller has a failure.
 
 ## Architecture Diagram
 
