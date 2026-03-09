@@ -53,7 +53,7 @@ The `edb.postgres_operations` collection now includes comprehensive AAP cluster 
 ```bash
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
   -e 'manage_aap_cluster_action=scale_up' \
-  -e 'manage_aap_cluster_context=api-chadsno2026-fteam-local:6443'
+  -e 'manage_aap_cluster_context=your-cluster-context'  # from kubeconfig: kubectl config get-contexts
 ```
 
 ### 2. Setup EFM Integration
@@ -129,7 +129,7 @@ General-purpose playbook for AAP cluster management.
 # Scale up AAP in DC2
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
   -e 'manage_aap_cluster_action=scale_up' \
-  -e 'manage_aap_cluster_context=api-chadsno2026-fteam-local:6443'
+  -e 'manage_aap_cluster_context=your-cluster-context'  # from kubeconfig: kubectl config get-contexts
 
 # Check AAP status
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
@@ -231,9 +231,10 @@ efm_integration_efm_version: "4.7"
 efm_integration_efm_cluster_name: prod-db-cluster
 efm_integration_aap_deployment_type: openshift
 efm_integration_openshift_namespace: ansible-automation-platform
+# Update to your cluster contexts from kubeconfig (kubectl config get-contexts)
 efm_integration_openshift_contexts:
-  dc1: api-crc-testing:6443
-  dc2: api-chadsno2026-fteam-local:6443
+  dc1: your-dc1-cluster-context
+  dc2: your-dc2-cluster-context
 efm_integration_script_timeout: 600
 efm_integration_use_orchestrated_failover: true
 efm_integration_enable_notifications: true
