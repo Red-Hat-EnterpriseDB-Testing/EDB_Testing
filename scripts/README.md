@@ -10,12 +10,14 @@ Scales AAP pods to zero replicas on OpenShift. Useful for conserving resources i
 
 **Usage:**
 
+Update the default cluster context in the script to match your cluster context from your kubeconfig file (`kubectl config get-contexts`).
+
 ```bash
-# Using default context
+# Using default context (set DEFAULT_CLUSTER_CONTEXT in script)
 ./scripts/scale-aap-down.sh
 
 # Specifying context explicitly
-./scripts/scale-aap-down.sh api-chadsno2026-fteam-local:6443
+./scripts/scale-aap-down.sh <your-cluster-context>
 ```
 
 **What it does:**
@@ -31,12 +33,14 @@ Restores AAP pods to operational replica counts on OpenShift.
 
 **Usage:**
 
+Update the default cluster context in the script to match your cluster context from your kubeconfig file (`kubectl config get-contexts`).
+
 ```bash
-# Using default context
+# Using default context (set DEFAULT_CLUSTER_CONTEXT in script)
 ./scripts/scale-aap-up.sh
 
 # Specifying context explicitly
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+./scripts/scale-aap-up.sh <your-cluster-context>
 ```
 
 **What it does:**
@@ -236,8 +240,8 @@ These scripts can be integrated into disaster recovery runbooks:
 ### Failover (DC1 → DC2)
 
 ```bash
-# 1. Scale up AAP in DC2
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+# 1. Scale up AAP in DC2 (use your DC2 cluster context from kubeconfig)
+./scripts/scale-aap-up.sh <dc2-cluster-context>
 
 # 2. Wait for pods to be ready (script does this automatically)
 
@@ -251,15 +255,15 @@ curl -k https://$AAP_URL/api/v2/ping/
 ### Failback (DC2 → DC1)
 
 ```bash
-# 1. Scale up AAP in DC1
-./scripts/scale-aap-up.sh api-crc-testing:6443
+# 1. Scale up AAP in DC1 (use your DC1 cluster context from kubeconfig)
+./scripts/scale-aap-up.sh <dc1-cluster-context>
 
 # 2. Verify AAP in DC1 is healthy
 
 # 3. Update global load balancer to point to DC1
 
 # 4. Scale down AAP in DC2 (conserve resources)
-./scripts/scale-aap-down.sh api-chadsno2026-fteam-local:6443
+./scripts/scale-aap-down.sh <dc2-cluster-context>
 ```
 
 ## Monitoring
