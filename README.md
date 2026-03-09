@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the architecture of EnterpriseDB Postgres for Kubernetes deployed across two OpenShift clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
+This document describes the architecture of EnterpriseDB Postgres deployed across two clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
 
 ## Architecture Diagram
 
@@ -21,7 +21,7 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Scaling Considerations](#scaling-considerations)
 
-## Installation
+## RHEL Installation
 
 This section provides guidance for installing EDB Postgres on RHEL systems for traditional VM-based deployments, as well as EDB Postgres for Kubernetes for container-based deployments.
 
@@ -43,33 +43,7 @@ Before installing EDB Postgres on RHEL, ensure you have:
 
 #### Installation Methods
 
-**Method 1: Using EDB Repository (Recommended)**
-
-```bash
-# Install the EDB repository configuration
-sudo dnf install -y https://yum.enterprisedb.com/edb-repo-rpms/edb-repo-latest.noarch.rpm
-
-# Configure your EDB subscription token
-sudo bash -c 'echo "username:password" > /etc/yum.repos.d/edb.repo'
-# Replace username:password with your EDB credentials
-
-# Install EDB Postgres Advanced Server (EPAS) or PostgreSQL
-sudo dnf install -y edb-as16-server  # For EPAS 16
-# OR
-sudo dnf install -y postgresql16-server  # For PostgreSQL 16
-
-# Initialize the database cluster
-sudo /usr/edb/as16/bin/edb-as-16-setup initdb
-
-# Enable and start the service
-sudo systemctl enable edb-as-16
-sudo systemctl start edb-as-16
-
-# Verify installation
-sudo systemctl status edb-as-16
-```
-
-**Method 2: Using EDB Postgres Distributed (PGD)**
+Using EDB Postgres Distributed (PGD)**
 
 For multi-datacenter replication scenarios, use EDB Postgres Distributed:
 
@@ -100,7 +74,7 @@ sudo vi /var/lib/edb/as16/data/postgresql.conf
 
 # Update these settings:
 listen_addresses = '*'
-max_connections = 200
+max_connections = 500
 shared_buffers = 256MB
 ```
 
@@ -110,7 +84,7 @@ shared_buffers = 256MB
 # Edit pg_hba.conf
 sudo vi /var/lib/edb/as16/data/pg_hba.conf
 
-# Add entries for your network:
+# Add entries for your network(change to your cidr):
 host    all             all             10.0.0.0/8              scram-sha-256
 host    all             all             192.168.0.0/16          scram-sha-256
 ```
@@ -164,7 +138,7 @@ For containerized deployments on OpenShift/Kubernetes (as described in this arch
 
 #### Installation Steps
 
-**1. Install the EDB Postgres for Kubernetes Operator**
+**1. Install the EDB Postgres for OpenShift Operator**
 
 ```bash
 # Create namespace
@@ -262,7 +236,7 @@ The global load balancer provides a single entry point for AAP access:
 
 ### Ansible Automation Platform (AAP)
 
-AAP is deployed on **both OpenShift clusters** for high availability and geographic distribution:
+For OpenShift AAP is deployed on **Sepearate OpenShift clusters** for high availability and geographic distribution. For RHEL you can do a single install across datacenters however you **MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
 
 #### Datacenter 1 - AAP Instance
 - **Namespace**: `ansible-automation-platform`
