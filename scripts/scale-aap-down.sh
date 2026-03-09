@@ -23,7 +23,10 @@ set -e
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
-CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+# Default cluster context - update to your cluster context from your kubeconfig file.
+# Run 'kubectl config get-contexts' to list available contexts. Pass context as $1 to override.
+DEFAULT_CLUSTER_CONTEXT="your-cluster-context"
+CLUSTER_CONTEXT="${1:-$DEFAULT_CLUSTER_CONTEXT}"
 
 echo "==================================="
 echo "AAP Scale Down Script"

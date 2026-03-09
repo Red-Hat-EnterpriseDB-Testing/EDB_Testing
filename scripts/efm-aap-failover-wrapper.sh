@@ -31,6 +31,11 @@ NODE_TYPE="$2"
 NODE_ADDRESS="$3"
 VIP_ADDRESS="${4:-}"
 
+# Cluster contexts for OpenShift - update these to your cluster context from your kubeconfig file.
+# Run 'kubectl config get-contexts' to list available contexts.
+DC1_CLUSTER_CONTEXT="your-dc1-cluster-context"
+DC2_CLUSTER_CONTEXT="your-dc2-cluster-context"
+
 LOGFILE="/var/log/efm-aap-failover.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
@@ -51,10 +56,10 @@ log_message "========================================"
 DATACENTER=""
 if [[ "$NODE_ADDRESS" == *"dc1"* ]] || [[ "$NODE_ADDRESS" == *"ocp1"* ]]; then
     DATACENTER="DC1"
-    CLUSTER_CONTEXT="api-crc-testing:6443"
+    CLUSTER_CONTEXT="$DC1_CLUSTER_CONTEXT"
 elif [[ "$NODE_ADDRESS" == *"dc2"* ]] || [[ "$NODE_ADDRESS" == *"ocp2"* ]]; then
     DATACENTER="DC2"
-    CLUSTER_CONTEXT="api-chadsno2026-fteam-local:6443"
+    CLUSTER_CONTEXT="$DC2_CLUSTER_CONTEXT"
 else
     log_message "ERROR: Unable to determine datacenter from node address"
     exit 1

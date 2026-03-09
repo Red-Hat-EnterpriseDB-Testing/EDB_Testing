@@ -22,6 +22,10 @@ set -e
 
 LOGFILE="/var/log/efm-orchestrated-failover.log"
 
+# AAP API URL for readiness check - update to your AAP route/host from your cluster.
+# Example: https://aap.example.com or https://aap-dc2.apps.ocp2.example.com
+AAP_API_URL="${AAP_API_URL:-https://your-aap-route.example.com}"
+
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
 }
@@ -47,8 +51,8 @@ ELAPSED=0
 AAP_READY=false
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-    # Check if we can reach AAP API (adjust URL based on your environment)
-    if curl -k -s -o /dev/null -w "%{http_code}" https://aap-dc2.apps.ocp2.example.com/api/v2/ping/ | grep -q "200"; then
+    # Check if we can reach AAP API
+    if curl -k -s -o /dev/null -w "%{http_code}" "${AAP_API_URL%/}/api/v2/ping/" | grep -q "200"; then
         log_message "✓ AAP API is responding"
         AAP_READY=true
         break
