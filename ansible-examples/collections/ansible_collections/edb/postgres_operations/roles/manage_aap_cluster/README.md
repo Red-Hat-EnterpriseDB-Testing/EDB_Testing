@@ -83,7 +83,7 @@ None
   roles:
     - role: edb.postgres_operations.manage_aap_cluster
       manage_aap_cluster_action: scale_up
-      manage_aap_cluster_context: api-chadsno2026-fteam-local:6443
+      manage_aap_cluster_context: your-cluster-context  # from kubeconfig: kubectl config get-contexts
 ```
 
 ### Scale Down AAP in OpenShift (Failback Scenario)
@@ -96,7 +96,7 @@ None
   roles:
     - role: edb.postgres_operations.manage_aap_cluster
       manage_aap_cluster_action: scale_down
-      manage_aap_cluster_context: api-chadsno2026-fteam-local:6443
+      manage_aap_cluster_context: your-cluster-context  # from kubeconfig: kubectl config get-contexts
 ```
 
 ### Start AAP Services on RHEL

@@ -26,10 +26,10 @@
     source_dc: "{{ failover_source_dc | default('dc1') }}"
     target_dc: "{{ failover_target_dc | default('dc2') }}"
     
-    # OpenShift contexts
+    # OpenShift contexts - override with your cluster contexts from kubeconfig
     dc_contexts:
-      dc1: api-crc-testing:6443
-      dc2: api-chadsno2026-fteam-local:6443
+      dc1: "{{ efm_integration_openshift_contexts.dc1 | default('your-dc1-cluster-context') }}"
+      dc2: "{{ efm_integration_openshift_contexts.dc2 | default('your-dc2-cluster-context') }}"
     
     # AAP configuration
     aap_namespace: ansible-automation-platform

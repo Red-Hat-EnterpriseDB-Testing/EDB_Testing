@@ -31,9 +31,10 @@ efm_integration_aap_deployment_type: openshift
 
 # OpenShift configuration
 efm_integration_openshift_namespace: ansible-automation-platform
+# Update to your cluster contexts from kubeconfig (kubectl config get-contexts)
 efm_integration_openshift_contexts:
-  dc1: api-crc-testing:6443
-  dc2: api-chadsno2026-fteam-local:6443
+  dc1: your-dc1-cluster-context
+  dc2: your-dc2-cluster-context
 
 # Kubeconfig for efm user (OpenShift only)
 efm_integration_kubeconfig_source: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"

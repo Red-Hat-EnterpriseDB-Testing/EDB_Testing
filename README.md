@@ -37,9 +37,9 @@ Before installing EDB Postgres on RHEL, ensure you have:
 - **EDB Repository Access**: Valid EDB subscription credentials
 - **Network Access**: Connection to EDB repositories
 - **Minimum Resources**:
-  - 2 CPU cores (4+ recommended for production)
-  - 4 GB RAM (8+ GB recommended for production)
-  - 50 GB disk space (more for production databases)
+  - 4 CPU cores (8+ recommended for production)
+  - 16 GB RAM (32+ GB recommended for production)
+  - 50 GB disk space (200+ more for production databases)
 
 #### Installation Methods
 
