@@ -74,7 +74,7 @@ sudo vi /var/lib/edb/as16/data/postgresql.conf
 
 # Update these settings:
 listen_addresses = '*'
-max_connections = 500
+max_connections = 1500
 shared_buffers = 256MB
 ```
 
@@ -164,7 +164,7 @@ spec:
   
   postgresql:
     parameters:
-      max_connections: "200"
+      max_connections: "1500"
       shared_buffers: "256MB"
   
   storage:
