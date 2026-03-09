@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the architecture of EnterpriseDB Postgres for Kubernetes deployed across two OpenShift clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
+This document describes the architecture of EnterpriseDB Postgres deployed across two clusters in different datacenters, with Ansible Automation Platform (AAP) providing centralized management and automation.
 
 ## Architecture Diagram
 
@@ -21,7 +21,7 @@ This document describes the architecture of EnterpriseDB Postgres for Kubernetes
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Scaling Considerations](#scaling-considerations)
 
-## Installation
+## RHEL Installation
 
 This section provides guidance for installing EDB Postgres on RHEL systems for traditional VM-based deployments, as well as EDB Postgres for Kubernetes for container-based deployments.
 
@@ -43,33 +43,7 @@ Before installing EDB Postgres on RHEL, ensure you have:
 
 #### Installation Methods
 
-**Method 1: Using EDB Repository (Recommended)**
-
-```bash
-# Install the EDB repository configuration
-sudo dnf install -y https://yum.enterprisedb.com/edb-repo-rpms/edb-repo-latest.noarch.rpm
-
-# Configure your EDB subscription token
-sudo bash -c 'echo "username:password" > /etc/yum.repos.d/edb.repo'
-# Replace username:password with your EDB credentials
-
-# Install EDB Postgres Advanced Server (EPAS) or PostgreSQL
-sudo dnf install -y edb-as16-server  # For EPAS 16
-# OR
-sudo dnf install -y postgresql16-server  # For PostgreSQL 16
-
-# Initialize the database cluster
-sudo /usr/edb/as16/bin/edb-as-16-setup initdb
-
-# Enable and start the service
-sudo systemctl enable edb-as-16
-sudo systemctl start edb-as-16
-
-# Verify installation
-sudo systemctl status edb-as-16
-```
-
-**Method 2: Using EDB Postgres Distributed (PGD)**
+Using EDB Postgres Distributed (PGD)**
 
 For multi-datacenter replication scenarios, use EDB Postgres Distributed:
 
@@ -100,7 +74,7 @@ sudo vi /var/lib/edb/as16/data/postgresql.conf
 
 # Update these settings:
 listen_addresses = '*'
-max_connections = 200
+max_connections = 500
 shared_buffers = 256MB
 ```
 
@@ -110,7 +84,7 @@ shared_buffers = 256MB
 # Edit pg_hba.conf
 sudo vi /var/lib/edb/as16/data/pg_hba.conf
 
-# Add entries for your network:
+# Add entries for your network(change to your cidr):
 host    all             all             10.0.0.0/8              scram-sha-256
 host    all             all             192.168.0.0/16          scram-sha-256
 ```
@@ -164,7 +138,7 @@ For containerized deployments on OpenShift/Kubernetes (as described in this arch
 
 #### Installation Steps
 
-**1. Install the EDB Postgres for Kubernetes Operator**
+**1. Install the EDB Postgres for OpenShift Operator**
 
 ```bash
 # Create namespace
@@ -262,7 +236,7 @@ The global load balancer provides a single entry point for AAP access:
 
 ### Ansible Automation Platform (AAP)
 
-AAP is deployed on **both OpenShift clusters** for high availability and geographic distribution:
+For OpenShift AAP is deployed on **Sepearate OpenShift clusters** for high availability and geographic distribution. For RHEL you can do a single install across datacenters however you **MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
 
 #### Datacenter 1 - AAP Instance
 - **Namespace**: `ansible-automation-platform`
@@ -671,7 +645,7 @@ For OpenShift-based AAP deployments, you can scale pods to zero to conserve reso
 
 ```bash
 # Set kubeconfig for the target cluster
-export KUBECONFIG=~/.kube/chadsnoconfig
+export KUBECONFIG=~/.kube/kubeconfig
 
 # Switch to AAP namespace
 oc project ansible-automation-platform
@@ -707,7 +681,7 @@ set -e
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
-CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+CLUSTER_CONTEXT="${1:-api-changeme-local:6443}"
 
 echo "==================================="
 echo "AAP Scale Down Script"
@@ -802,7 +776,7 @@ set -e
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
-CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+CLUSTER_CONTEXT="${1:-api-changeme:6443}"
 
 echo "==================================="
 echo "AAP Scale Up Script"
@@ -917,19 +891,11 @@ chmod +x scripts/scale-aap-up.sh
 # Using default context
 ./scripts/scale-aap-down.sh
 
-# Specifying context explicitly
-./scripts/scale-aap-down.sh api-chadsno2026-fteam-local:6443
-```
-
 **Scale up AAP in DC2:**
 
 ```bash
 # Using default context
 ./scripts/scale-aap-up.sh
-
-# Specifying context explicitly
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
-```
 
 **Verify scaling operations:**
 
@@ -1086,7 +1052,7 @@ if [[ "$NODE_ADDRESS" == *"dc1"* ]] || [[ "$NODE_ADDRESS" == *"ocp1"* ]]; then
     CLUSTER_CONTEXT="api-crc-testing:6443"
 elif [[ "$NODE_ADDRESS" == *"dc2"* ]] || [[ "$NODE_ADDRESS" == *"ocp2"* ]]; then
     DATACENTER="DC2"
-    CLUSTER_CONTEXT="api-chadsno2026-fteam-local:6443"
+    CLUSTER_CONTEXT="api-changeme:6443"
 else
     log_message "ERROR: Unable to determine datacenter from node address"
     exit 1
@@ -1352,7 +1318,7 @@ sudo systemctl restart edb-efm-4.x
 ```bash
 # Ensure efm user has access to kubeconfig
 sudo mkdir -p /var/lib/efm/.kube
-sudo cp ~/.kube/chadsnoconfig /var/lib/efm/.kube/config
+sudo cp ~/.kube/kubeconfig /var/lib/efm/.kube/config
 sudo chown -R efm:efm /var/lib/efm/.kube
 
 # Update wrapper script to use correct kubeconfig
@@ -1369,7 +1335,7 @@ sudo -u efm oc --kubeconfig=/var/lib/efm/.kube/config get nodes
 sudo firewall-cmd --list-all
 
 # Verify DNS resolution
-sudo -u efm nslookup api.chadsno2026.fteam.local
+sudo -u efm nslookup api.youropenshiftapi
 ```
 
 #### Rollback Procedures
@@ -1381,7 +1347,7 @@ If AAP fails to start during EFM failover:
 sudo tail -100 /var/log/efm-aap-failover.log
 
 # 2. Manually scale up AAP
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+./scripts/scale-aap-up.sh api-changeme:6443
 
 # 3. Or for RHEL deployments
 sudo systemctl start aap-cluster.service
@@ -1471,7 +1437,7 @@ Manages AAP cluster operations for both OpenShift and RHEL deployments.
   roles:
     - role: edb.postgres_operations.manage_aap_cluster
       manage_aap_cluster_action: scale_up
-      manage_aap_cluster_context: api-chadsno2026-fteam-local:6443
+      manage_aap_cluster_context: api-changeme-com:6443
 ```
 
 #### efm_integration Role
@@ -1509,7 +1475,7 @@ General-purpose playbook for AAP cluster management operations.
 # Scale up AAP
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
   -e 'manage_aap_cluster_action=scale_up' \
-  -e 'manage_aap_cluster_context=api-chadsno2026-fteam-local:6443'
+  -e 'manage_aap_cluster_context=api-changeme-com:6443'
 
 # Check status
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
