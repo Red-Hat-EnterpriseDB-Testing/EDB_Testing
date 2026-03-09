@@ -645,7 +645,7 @@ For OpenShift-based AAP deployments, you can scale pods to zero to conserve reso
 
 ```bash
 # Set kubeconfig for the target cluster
-export KUBECONFIG=~/.kube/chadsnoconfig
+export KUBECONFIG=~/.kube/kubeconfig
 
 # Switch to AAP namespace
 oc project ansible-automation-platform
@@ -681,7 +681,7 @@ set -e
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
-CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+CLUSTER_CONTEXT="${1:-api-changeme-local:6443}"
 
 echo "==================================="
 echo "AAP Scale Down Script"
@@ -776,7 +776,7 @@ set -e
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
-CLUSTER_CONTEXT="${1:-api-chadsno2026-fteam-local:6443}"
+CLUSTER_CONTEXT="${1:-api-changeme:6443}"
 
 echo "==================================="
 echo "AAP Scale Up Script"
@@ -891,19 +891,11 @@ chmod +x scripts/scale-aap-up.sh
 # Using default context
 ./scripts/scale-aap-down.sh
 
-# Specifying context explicitly
-./scripts/scale-aap-down.sh api-chadsno2026-fteam-local:6443
-```
-
 **Scale up AAP in DC2:**
 
 ```bash
 # Using default context
 ./scripts/scale-aap-up.sh
-
-# Specifying context explicitly
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
-```
 
 **Verify scaling operations:**
 
@@ -1060,7 +1052,7 @@ if [[ "$NODE_ADDRESS" == *"dc1"* ]] || [[ "$NODE_ADDRESS" == *"ocp1"* ]]; then
     CLUSTER_CONTEXT="api-crc-testing:6443"
 elif [[ "$NODE_ADDRESS" == *"dc2"* ]] || [[ "$NODE_ADDRESS" == *"ocp2"* ]]; then
     DATACENTER="DC2"
-    CLUSTER_CONTEXT="api-chadsno2026-fteam-local:6443"
+    CLUSTER_CONTEXT="api-changeme:6443"
 else
     log_message "ERROR: Unable to determine datacenter from node address"
     exit 1
@@ -1326,7 +1318,7 @@ sudo systemctl restart edb-efm-4.x
 ```bash
 # Ensure efm user has access to kubeconfig
 sudo mkdir -p /var/lib/efm/.kube
-sudo cp ~/.kube/chadsnoconfig /var/lib/efm/.kube/config
+sudo cp ~/.kube/kubeconfig /var/lib/efm/.kube/config
 sudo chown -R efm:efm /var/lib/efm/.kube
 
 # Update wrapper script to use correct kubeconfig
@@ -1343,7 +1335,7 @@ sudo -u efm oc --kubeconfig=/var/lib/efm/.kube/config get nodes
 sudo firewall-cmd --list-all
 
 # Verify DNS resolution
-sudo -u efm nslookup api.chadsno2026.fteam.local
+sudo -u efm nslookup api.youropenshiftapi
 ```
 
 #### Rollback Procedures
@@ -1355,7 +1347,7 @@ If AAP fails to start during EFM failover:
 sudo tail -100 /var/log/efm-aap-failover.log
 
 # 2. Manually scale up AAP
-./scripts/scale-aap-up.sh api-chadsno2026-fteam-local:6443
+./scripts/scale-aap-up.sh api-changeme:6443
 
 # 3. Or for RHEL deployments
 sudo systemctl start aap-cluster.service
@@ -1445,7 +1437,7 @@ Manages AAP cluster operations for both OpenShift and RHEL deployments.
   roles:
     - role: edb.postgres_operations.manage_aap_cluster
       manage_aap_cluster_action: scale_up
-      manage_aap_cluster_context: api-chadsno2026-fteam-local:6443
+      manage_aap_cluster_context: api-changeme-com:6443
 ```
 
 #### efm_integration Role
@@ -1483,7 +1475,7 @@ General-purpose playbook for AAP cluster management operations.
 # Scale up AAP
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
   -e 'manage_aap_cluster_action=scale_up' \
-  -e 'manage_aap_cluster_context=api-chadsno2026-fteam-local:6443'
+  -e 'manage_aap_cluster_context=api-changeme-com:6443'
 
 # Check status
 ansible-playbook edb.postgres_operations.manage-aap-cluster \
