@@ -12,7 +12,61 @@ This role automates the deployment of PostgreSQL clusters using the EDB Postgres
 - `kubernetes.core` collection
 - `community.postgresql` collection
 - Valid kubeconfig for target OpenShift cluster
-- EDB subscription credentials
+- EDB subscription credentials and pull secret (see below)
+
+## EDB Pull Secret
+
+The role pulls PostgreSQL images from EDB’s private registry (`docker.enterprisedb.com`). You must provide a Kubernetes pull secret (or a Docker config file the role can turn into one).
+
+### 1. Get your EDB account token
+
+- Access requires an EDB account and a valid [subscription plan](https://www.enterprisedb.com/products/plans-comparison#selfmanagedenterpriseplan).
+- Get your **EDB account token** from the [EDB portal: Get your token](https://www.enterprisedb.com/docs/repos/getting_started/with_web/get_your_token/).
+- Store it in an environment variable, e.g. `EDB_SUBSCRIPTION_TOKEN`.
+
+### 2. Create a Docker config file for the role
+
+The role uses `edb_pull_secret_file` to read a Docker config JSON and create a `kubernetes.io/dockerconfigjson` secret. Create that file as follows.
+
+**Option A – using Docker login (recommended)**
+
+```bash
+# Log in to EDB registry (writes ~/.docker/config.json)
+docker login docker.enterprisedb.com \
+  --username k8s \
+  --password-stdin <<< "$EDB_SUBSCRIPTION_TOKEN"
+
+# Copy only the EDB registry entry to a file for the role
+# Create secrets/ (or your chosen path) and then:
+jq '{"auths": {"docker.enterprisedb.com": .auths["docker.enterprisedb.com"]}}' \
+  ~/.docker/config.json > secrets/edb-dockerconfig.json
+```
+
+**Option B – create the JSON manually**
+
+Create `secrets/edb-dockerconfig.json` with:
+
+```json
+{
+  "auths": {
+    "docker.enterprisedb.com": {
+      "username": "k8s",
+      "password": "YOUR_EDB_ACCOUNT_TOKEN",
+      "auth": "<base64 of 'k8s:YOUR_EDB_ACCOUNT_TOKEN'>"
+    }
+  }
+}
+```
+
+Replace `YOUR_EDB_ACCOUNT_TOKEN` with your token. The `auth` field is the Base64 encoding of `k8s:<token>` (e.g. `echo -n "k8s:YOUR_TOKEN" | base64`).
+
+### 3. Use the file in the role
+
+- Set `edb_pull_secret_file` to the path of that JSON (default: `secrets/edb-dockerconfig.json`).
+- Optionally set `edb_pull_secret_name` if you want a different Kubernetes secret name (default: `edb-pull-secret`).
+- Keep the JSON out of version control (e.g. add `secrets/` to `.gitignore`) and use Ansible Vault or a secrets manager for automation.
+
+**Reference:** [EDB private container registry](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/private_edb_registries/)
 
 ## Role Variables
 
@@ -34,6 +88,8 @@ This role automates the deployment of PostgreSQL clusters using the EDB Postgres
 | `storage_size` | `10Gi` | Storage size for data |
 | `storage_class` | `local-path` | Storage class name |
 | `monitoring_enabled` | `true` | Enable monitoring |
+| `edb_pull_secret_name` | `edb-pull-secret` | Kubernetes secret name for the EDB registry pull secret |
+| `edb_pull_secret_file` | `secrets/edb-dockerconfig.json` | Path to Docker config JSON for EDB registry (see [EDB Pull Secret](#edb-pull-secret)) |
 
 See [defaults/main.yml](defaults/main.yml) for all available variables.
 

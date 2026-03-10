@@ -42,6 +42,7 @@ backup_wal_compression: "gzip"
 backup_wal_encryption: "AES256"
 
 # Secret Configuration
+edb_pull_secret: "edb-pull-secret"
 edb_pull_secret_file: "secrets/edb-dockerconfig.json"
 create_app_user_secret: true
 
