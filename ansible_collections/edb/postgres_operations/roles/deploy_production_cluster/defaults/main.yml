@@ -1,0 +1,50 @@
+---
+# Production-oriented defaults for PostgreSQL cluster deployment
+# Override at playbook or host level as needed
+
+# Cluster identification
+cluster_name: prod-db
+namespace: production
+environment: production
+
+# High availability
+instances: 5
+min_available_instances: 2
+enable_pod_disruption_budget: true
+
+# Storage
+storage_size: 500Gi
+storage_class: fast-ssd
+storage_wal_size: 100Gi
+
+# PostgreSQL version
+postgres_version: "16.8"
+
+# Resources
+resource_requests_memory: 4Gi
+resource_requests_cpu: 2000m
+resource_limits_memory: 8Gi
+resource_limits_cpu: 4000m
+
+# PostgreSQL tuning
+pg_max_connections: "500"
+pg_shared_buffers: "2GB"
+pg_work_mem: "16MB"
+pg_maintenance_work_mem: "512MB"
+pg_effective_cache_size: "4GB"
+
+# Monitoring
+monitoring_enabled: true
+monitoring_pod_monitor: true
+
+# Backup
+backup_enabled: true
+backup_bucket: s3://my-company-backups/postgres/prod-db
+backup_retention_days: 90
+backup_wal_compression: gzip
+backup_wal_encryption: AES256
+
+# Wait
+wait_for_cluster_ready: true
+wait_timeout: 600
+wait_retries: 60

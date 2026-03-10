@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: health_monitoring_aggregate
+  author: EDB Engineering Team
+  description: Aggregate health reports from openshift_clusters and optionally send AAP webhook
+  company: EnterpriseDB
+  license: Apache-2.0
+  min_ansible_version: "2.14"
+  galaxy_tags:
+    - postgresql
+    - monitoring
+    - health
+    - edb
+
+dependencies: []

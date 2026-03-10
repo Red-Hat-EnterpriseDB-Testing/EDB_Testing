@@ -1,0 +1,9 @@
+---
+# Deploy production PostgreSQL cluster (uses deploy_production_cluster role)
+# Usage: ansible-playbook playbooks/examples/deploy-production-cluster.yml -i inventory/example-multi-datacenter.yml
+
+- name: Deploy Production PostgreSQL Cluster
+  hosts: datacenter1
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.deploy_production_cluster

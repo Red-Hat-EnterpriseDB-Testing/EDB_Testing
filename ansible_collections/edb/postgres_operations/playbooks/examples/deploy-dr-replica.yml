@@ -1,0 +1,9 @@
+---
+# Deploy DR replica cluster (uses deploy_dr_replica role)
+# Usage: ansible-playbook playbooks/examples/deploy-dr-replica.yml -i inventory/replica-example.yml
+
+- name: Deploy DR Replica Cluster in Datacenter 2
+  hosts: dc2_clusters
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.deploy_dr_replica

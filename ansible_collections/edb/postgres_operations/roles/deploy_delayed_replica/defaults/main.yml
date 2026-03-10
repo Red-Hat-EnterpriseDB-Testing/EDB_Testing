@@ -1,0 +1,45 @@
+---
+# Delayed replica: recovery window for accidental data changes
+
+production_cluster: prod-db
+delayed_cluster: prod-db-delayed
+namespace: production
+
+replica_cluster_name: "{{ delayed_cluster }}"
+replica_namespace: "{{ namespace }}"
+replica_datacenter: dc1
+replica_instances: 1
+replica_postgres_version: "16.8"
+
+source_cluster_name: "{{ production_cluster }}"
+source_namespace: "{{ namespace }}"
+
+replica_strategy: standalone
+standalone_enabled: true
+enable_delayed_replica: true
+replica_min_apply_delay: "8h"
+
+bootstrap_method: pg_basebackup
+enable_streaming_replication: true
+enable_wal_archive_replication: true
+
+replica_storage_size: 50Gi
+replica_storage_class: gp3-csi
+
+replica_resource_requests_memory: 2Gi
+replica_resource_requests_cpu: "1"
+replica_resource_limits_memory: 4Gi
+replica_resource_limits_cpu: "2"
+
+replica_pg_max_connections: "100"
+replica_pg_shared_buffers: "512MB"
+replica_pg_work_mem: "4MB"
+replica_pg_maintenance_work_mem: "128MB"
+replica_pg_effective_cache_size: "1GB"
+
+replica_monitoring_enabled: true
+replica_monitoring_pod_monitor: true
+replica_backup_enabled: false
+enable_pod_disruption_budget: false
+
+sync_secrets_from_source: true

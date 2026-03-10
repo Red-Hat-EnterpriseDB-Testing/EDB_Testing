@@ -1,0 +1,50 @@
+---
+# Analytics replica: read-only, bootstrap from object store, analytics-optimized resources
+
+production_cluster: prod-db
+production_namespace: production
+analytics_cluster: analytics-db
+analytics_namespace: analytics
+
+replica_cluster_name: "{{ analytics_cluster }}"
+replica_namespace: "{{ analytics_namespace }}"
+replica_datacenter: dc1
+replica_instances: 5
+replica_postgres_version: "16.8"
+
+source_cluster_name: "{{ production_cluster }}"
+source_namespace: "{{ production_namespace }}"
+
+replica_strategy: standalone
+standalone_enabled: true
+enable_delayed_replica: false
+
+bootstrap_method: recovery_object_store
+barman_destination_path: s3://prod-backups/prod-db/
+barman_object_name: "{{ production_cluster }}"
+barman_server_name: "{{ production_cluster }}"
+
+enable_streaming_replication: true
+enable_wal_archive_replication: true
+
+replica_storage_size: 200Gi
+replica_storage_class: gp3-csi
+
+replica_resource_requests_memory: 8Gi
+replica_resource_requests_cpu: "4"
+replica_resource_limits_memory: 16Gi
+replica_resource_limits_cpu: "8"
+
+replica_pg_max_connections: "300"
+replica_pg_shared_buffers: "2GB"
+replica_pg_work_mem: "32MB"
+replica_pg_maintenance_work_mem: "512MB"
+replica_pg_effective_cache_size: "6GB"
+
+replica_monitoring_enabled: true
+replica_monitoring_pod_monitor: true
+replica_backup_enabled: false
+
+enable_pod_disruption_budget: true
+min_available_instances: 2
+sync_secrets_from_source: true
