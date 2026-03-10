@@ -4,11 +4,12 @@
 - MicroShift cluster is running
 - EDB Postgres operator is installed (v1.28.0)
 - `kubectl` or `oc` CLI is configured
+- EDB pull secret (see [Obtaining the EDB pull secret](#obtaining-the-edb-pull-secret) below)
 
 ## Set Up Environment
 
 ```bash
-export KUBECONFIG=~/.aap/kubeconfig.microshift
+export KUBECONFIG=~/.aap/kubeconfig
 ```
 
 ## Create Your First PostgreSQL Cluster
@@ -22,9 +23,28 @@ The `example-postgres-cluster.yaml` file contains a basic PostgreSQL cluster con
 - Basic authentication
 - Resource limits
 
+### Obtaining the EDB pull secret
+
+Access to EDB container images (`docker.enterprisedb.com`) requires an EDB account and a valid [subscription plan](https://www.enterprisedb.com/products/plans-comparison#selfmanagedenterpriseplan).
+
+1. **Get your EDB account token** from the [EDB portal: Get your token](https://www.enterprisedb.com/docs/repos/getting_started/with_web/get_your_token/).
+2. **Create a Kubernetes pull secret** (replace `<namespace>` and use your token):
+
+   ```bash
+   kubectl create secret docker-registry edb-pull-secret \
+     -n <namespace> \
+     --docker-server=docker.enterprisedb.com \
+     --docker-username=k8s \
+     --docker-password="YOUR_EDB_ACCOUNT_TOKEN"
+   ```
+
+   Or copy an existing secret from the operator namespace (e.g. after installing the operator with Helm and a pull secret) as in Step 2 below.
+
+For more options (Docker config file, Ansible role usage), see the [deploy_cluster role README](ansible-examples/collections/ansible_collections/edb/postgres_operations/roles/deploy_cluster/README.md#edb-pull-secret) and [EDB private container registry](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/private_edb_registries/).
+
 ### Step 2: Copy Pull Secret to Default Namespace
 
-The example cluster uses the default namespace, so we need to copy the pull secret:
+The example cluster uses the default namespace, so we need to copy the pull secret (if you already have it in the operator namespace):
 
 ```bash
 kubectl get secret edb-pull-secret -n postgresql-operator-system -o yaml | \

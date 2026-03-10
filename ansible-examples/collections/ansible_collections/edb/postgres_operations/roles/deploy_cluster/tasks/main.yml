@@ -32,7 +32,7 @@
       apiVersion: v1
       kind: Secret
       metadata:
-        name: edb-pull-secret
+        name: "{{ edb_pull_secret_name }}"
         namespace: "{{ namespace }}"
       type: kubernetes.io/dockerconfigjson
       data:
@@ -103,7 +103,7 @@
           storageClass: "{{ storage_class }}"
         
         imagePullSecrets:
-          - name: edb-pull-secret
+          - name: "{{ edb_pull_secret }}"
         
         resources:
           requests:
