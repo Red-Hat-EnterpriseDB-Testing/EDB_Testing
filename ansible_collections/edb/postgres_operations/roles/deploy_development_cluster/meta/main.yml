@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: deploy_development_cluster
+  author: EDB Engineering Team
+  description: Deploy a development PostgreSQL cluster with minimal defaults
+  company: EnterpriseDB
+  license: Apache-2.0
+  min_ansible_version: "2.14"
+  galaxy_tags:
+    - postgresql
+    - development
+    - kubernetes
+    - openshift
+    - edb
+
+dependencies: []

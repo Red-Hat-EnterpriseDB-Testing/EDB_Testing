@@ -1,0 +1,9 @@
+---
+# Deploy delayed replica for data protection (uses deploy_delayed_replica role)
+# Usage: ansible-playbook playbooks/examples/deploy-delayed-replica.yml -i inventory/example-multi-datacenter.yml
+
+- name: Deploy Delayed Replica for Data Protection
+  hosts: openshift_clusters
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.deploy_delayed_replica

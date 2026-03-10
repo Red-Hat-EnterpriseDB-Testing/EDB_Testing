@@ -1,0 +1,19 @@
+---
+# Galaxy requirements for the execution environment (AAP).
+# Includes dependency collections and the local edb.postgres_operations collection.
+# Build the collection tarball first: ansible-galaxy collection build . (from this directory).
+# Then uncomment the edb.postgres_operations entry below and set path to the tarball.
+
+collections:
+  - name: kubernetes.core
+    version: ">=2.3.0"
+  - name: community.postgresql
+    version: ">=2.0.0"
+  - name: ansible.posix
+    version: ">=1.4.0"
+  - name: community.general
+    version: ">=5.0.0"
+  # Local collection: uncomment after building with `ansible-galaxy collection build .`
+  # - name: edb.postgres_operations
+  #   type: file
+  #   path: edb-postgres_operations-1.1.0.tar.gz

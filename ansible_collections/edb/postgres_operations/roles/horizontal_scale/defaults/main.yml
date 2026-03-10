@@ -1,0 +1,18 @@
+---
+# Horizontal scaling defaults
+# Scale AAP controller and/or EDB PostgreSQL clusters by increasing replicas/instances
+
+# AAP Controller scaling (set scale_aap_controller: true to run)
+scale_aap_controller: false
+aap_deployment_name: automation-controller
+aap_namespace: ansible-automation-platform
+aap_replicas: 5
+
+# EDB PostgreSQL cluster scaling (set scale_postgres_cluster: true to run)
+scale_postgres_cluster: false
+# cluster_name, namespace come from inventory or -e when scaling Postgres
+postgres_instances: 5
+
+# EDB Cluster CRD (CloudNativePG / EDB Postgres for Kubernetes)
+postgres_cluster_api_group: postgresql.cnpg.io
+postgres_cluster_kind: Cluster

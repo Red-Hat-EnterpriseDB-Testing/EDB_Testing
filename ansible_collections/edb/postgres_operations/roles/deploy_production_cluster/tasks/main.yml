@@ -1,0 +1,15 @@
+---
+- name: Deploy production PostgreSQL cluster
+  ansible.builtin.include_role:
+    name: edb.postgres_operations.deploy_cluster
+
+- name: Verify deployment
+  ansible.builtin.debug:
+    msg:
+      - "Production cluster deployed successfully!"
+      - "Cluster: {{ cluster_name }}"
+      - "Namespace: {{ namespace }}"
+      - "Instances: {{ instances }}"
+      - "Primary: {{ cluster_primary | default('N/A') }}"
+      - "RW Service: {{ cluster_rw_service | default('N/A') }}"
+      - "RO Service: {{ cluster_ro_service | default('N/A') }}"

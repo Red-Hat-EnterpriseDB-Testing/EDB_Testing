@@ -1,0 +1,4 @@
+---
+- name: Run health monitoring checks
+  ansible.builtin.include_role:
+    name: edb.postgres_operations.check_health

@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: deploy_analytics_replica
+  author: EDB Engineering Team
+  description: Deploy a standalone read-only replica for analytics workloads
+  company: EnterpriseDB
+  license: Apache-2.0
+  min_ansible_version: "2.14"
+  galaxy_tags:
+    - postgresql
+    - replica
+    - analytics
+    - openshift
+    - edb
+
+dependencies: []

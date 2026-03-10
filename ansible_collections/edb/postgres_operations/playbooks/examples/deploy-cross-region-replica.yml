@@ -1,0 +1,9 @@
+---
+# Deploy cross-region replica from volume snapshot (uses deploy_cross_region_replica role)
+# Usage: ansible-playbook playbooks/examples/deploy-cross-region-replica.yml -i inventory/... -e "snapshot_name=..."
+
+- name: Deploy Cross-Region Replica from Volume Snapshot
+  hosts: region_west
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.deploy_cross_region_replica

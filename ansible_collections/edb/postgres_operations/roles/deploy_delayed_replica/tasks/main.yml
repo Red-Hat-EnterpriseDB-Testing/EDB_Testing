@@ -1,0 +1,4 @@
+---
+- name: Deploy delayed replica cluster
+  ansible.builtin.include_role:
+    name: edb.postgres_operations.deploy_replica_cluster

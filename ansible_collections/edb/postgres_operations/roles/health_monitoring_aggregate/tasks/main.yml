@@ -1,0 +1,40 @@
+---
+- name: Collect all health reports
+  ansible.builtin.set_fact:
+    all_health_results: "{{ groups[openshift_clusters_group] | default([]) | map('extract', hostvars, 'health_report') | list }}"
+  when: groups[openshift_clusters_group] is defined and groups[openshift_clusters_group] | length > 0
+
+- name: Count unhealthy datacenters
+  ansible.builtin.set_fact:
+    unhealthy_count: "{{ all_health_results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 'UNHEALTHY') | list | length }}"
+  when: all_health_results is defined
+
+- name: Display summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════"
+      - "Multi-Datacenter Health Summary"
+      - "═══════════════════════════════════════════════════════"
+      - "Total Datacenters: {{ groups[openshift_clusters_group] | default([]) | length }}"
+      - "Unhealthy Datacenters: {{ unhealthy_count | default(0) }}"
+      - "Status: {{ 'ALL HEALTHY' if unhealthy_count | default(0) | int == 0 else 'ISSUES DETECTED' }}"
+      - "═══════════════════════════════════════════════════════"
+  when: all_health_results is defined
+
+- name: Send aggregated alert
+  ansible.builtin.uri:
+    url: "{{ aap_webhook_url }}"
+    method: POST
+    body_format: json
+    body:
+      summary: "Multi-datacenter health check completed"
+      total_datacenters: "{{ groups[openshift_clusters_group] | default([]) | length }}"
+      unhealthy_count: "{{ unhealthy_count | default(0) }}"
+      details: "{{ all_health_results | default([]) }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+    status_code: [200, 201, 204]
+  when:
+    - enable_aap_notifications | bool
+    - aap_webhook_url != ""
+    - unhealthy_count | default(0) | int > 0
+  ignore_errors: true

@@ -1,0 +1,16 @@
+---
+# Scheduled health monitoring with aggregate report (uses scheduled_health_monitoring + health_monitoring_aggregate roles)
+# Usage: ansible-playbook playbooks/examples/scheduled-health-monitoring.yml -i inventory/example-multi-datacenter.yml
+# Recommended: Schedule in AAP to run every 5 minutes
+
+- name: PostgreSQL Health Monitoring
+  hosts: openshift_clusters
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.scheduled_health_monitoring
+
+- name: Aggregate and Report
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: edb.postgres_operations.health_monitoring_aggregate
