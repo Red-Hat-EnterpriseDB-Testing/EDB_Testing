@@ -5,9 +5,9 @@
 - [Overview](#overview)
 - [Installation](#installation)
   - [RHEL with Ansible (recommended)](docs/install-rhel-ansible.md)
-  - [Kubernetes with Ansible (recommended)](docs/install-kubernetes-ansible.md)
+  - [OpenShift with Ansible (recommended)](docs/install-kubernetes-ansible.md)
   - [RHEL manual installation](docs/install-rhel-manual.md)
-  - [Kubernetes manual installation](docs/install-kubernetes-manual.md)
+  - [OpenShift manual installation](docs/install-kubernetes-manual.md)
 - [Architecture Diagram](#architecture-diagram)
 - [Component Details](#component-details)
   - [Global Load Balancer](#global-load-balancer)
@@ -40,8 +40,8 @@
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
   - [Full scenarios doc](docs/dr-scenarios.md)
 - [Scaling Considerations](#scaling-considerations)
-  - [Horizontal & vertical scaling (Kubernetes)](docs/install-kubernetes-manual.md#scaling-considerations)
-- [EDB Postgres for Kubernetes Architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture)
+  - [Horizontal & vertical scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations)
+- [EDB Postgres on OpenShift Architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture)
 
 ## Overview
 
@@ -54,9 +54,9 @@ This document describes the architecture of EnterpriseDB Postgres deployed Activ
 | Deployment | Description | Guide |
 |------------|-------------|--------|
 | **RHEL with Ansible** *(recommended)* | Install EDB Postgres on RHEL 8/9 using the collection playbook and `install_postgres_rhel` role | [RHEL — Ansible](docs/install-rhel-ansible.md) |
-| **Kubernetes with Ansible** *(recommended)* | Deploy PostgreSQL clusters on OpenShift/Kubernetes using the collection playbooks and `deploy_cluster` role | [Kubernetes — Ansible](docs/install-kubernetes-ansible.md) |
+| **OpenShift with Ansible** *(recommended)* | Deploy PostgreSQL clusters on OpenShift using the collection playbooks and `deploy_cluster` role | [OpenShift — Ansible](docs/install-kubernetes-ansible.md) |
 | RHEL (manual) | Traditional VM-based (systemd, PGD, EPAS); manual install and repo steps | [RHEL — Manual](docs/install-rhel-manual.md) |
-| Kubernetes (manual) | Container-based; install operator and apply cluster YAML manually | [Kubernetes — Manual](docs/install-kubernetes-manual.md) |
+| OpenShift (manual) | Container-based; install operator and apply cluster YAML manually | [OpenShift — Manual](docs/install-kubernetes-manual.md) |
 
 For full Ansible collection usage, variables, and execution environment (AAP), see the [collection README](ansible_collections/edb/postgres_operations/README.md) and [GETTING_STARTED](ansible_collections/edb/postgres_operations/docs/GETTING_STARTED.md).
 
@@ -136,7 +136,7 @@ Users and automation clients connect to AAP through the global load balancer:
 
 AAP can only talk to one Read Write(RW) database at a time:
 - **Protocol**: PostgreSQL wire protocol (port 5432)
-- **Access**: Via Kubernetes Services (ClusterIP within cluster, Routes/LoadBalancer for remote)
+- **Access**: Via OpenShift Services (ClusterIP within cluster, Routes/LoadBalancer for remote)
 - **Authentication**: Certificate-based or password authentication
 - **Encryption**: TLS/SSL enforced
 - **Connection Pooling**: PgBouncer for efficient connection management
@@ -153,7 +153,7 @@ AAP can only talk to one Read Write(RW) database at a time:
 - **Lag Monitoring**: Both AAP instances monitor replication lag via EDB operator metrics
 - **Alerting**: Alerts triggered if lag exceeds threshold (e.g., 30 seconds)
 - **Automatic Service Updates**: EDB operator automatically updates `-rw` service during failover
-- **Cross-Cluster Limitation**: Automated failover across Kubernetes clusters must be handled externally (via AAP or higher-level orchestration)
+- **Cross-Cluster Limitation**: Automated failover across OpenShift clusters must be handled externally (via AAP or higher-level orchestration)
 
 ### Write Operations (Normal State)
 
@@ -207,12 +207,12 @@ Comprehensive documentation is available:
 - **Collection GETTING_STARTED**: [ansible_collections/edb/postgres_operations/docs/GETTING_STARTED.md](ansible_collections/edb/postgres_operations/docs/GETTING_STARTED.md)
 - **AAP Management Guide**: [ansible_collections/edb/postgres_operations/playbooks/AAP_MANAGEMENT.md](ansible_collections/edb/postgres_operations/playbooks/AAP_MANAGEMENT.md)
 - **Role READMEs**: Individual README files in each role directory
-- **Installation**: [RHEL (Ansible / manual)](docs/install-rhel.md) · [Kubernetes (Ansible / manual)](docs/install-kubernetes.md)
+- **Installation**: [RHEL (Ansible / manual)](docs/install-rhel.md) · [OpenShift (Ansible / manual)](docs/install-kubernetes.md)
 - **RHEL AAP**: [docs/rhel-aap-architecture.md](docs/rhel-aap-architecture.md) · **OpenShift AAP**: [docs/openshift-aap-architecture.md](docs/openshift-aap-architecture.md)
 - **Disaster Recovery Scenarios**: [docs/dr-scenarios.md](docs/dr-scenarios.md)
 - **EFM Integration**: [docs/enterprisefailovermanager.md](docs/enterprisefailovermanager.md)
 - **Troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md)
 - **Manual Scripts**: [docs/manual-scripts-doc.md](docs/manual-scripts-doc.md)
-- **Kubernetes Architecture**: [docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture)
+- **OpenShift Architecture**: [docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture)
 
 
