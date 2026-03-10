@@ -77,3 +77,4 @@ curl -k https://aap-dc2.apps.ocp2.example.com/api/v2/ping/
 # 5. If still failing, failback to original primary
 sudo /usr/edb/efm-4.x/bin/efm promote efm-cluster -switchover
 ```
+
