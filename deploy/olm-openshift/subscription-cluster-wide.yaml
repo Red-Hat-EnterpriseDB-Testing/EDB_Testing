@@ -1,0 +1,15 @@
+# Cluster-wide EDB Postgres for Kubernetes via OLM (OpenShift OperatorHub).
+# Requires: default global OperatorGroup in openshift-operators (OpenShift default).
+# Prerequisites: EDB pull secret in openshift-operators — see README in this folder.
+#
+# Reference: https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/openshift/#cluster-wide-installation-with-oc
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cloud-native-postgresql
+  namespace: openshift-operators
+spec:
+  channel: fast
+  name: cloud-native-postgresql
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
