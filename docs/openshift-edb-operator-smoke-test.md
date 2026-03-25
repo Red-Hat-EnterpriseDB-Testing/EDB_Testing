@@ -2,7 +2,7 @@
 
 Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (`demo-postgres`, storage class, passwords) with your own values.
 
-[← Manual install guide](install-kubernetes-manual.md)
+[← Manual install guide](install-kubernetes-manual.md) · [Kustomize manifests (`deploy/`)](../deploy/README.md)
 
 ## Prerequisites
 
@@ -63,10 +63,20 @@ DEMO_STORAGE_CLASS="your-storage-class-here"
 
 ## 4. Demo namespace, app secret, and cluster
 
-Use a generic workload namespace and cluster name. For a **non-production** check without an EDB registry login, you can use a public PostgreSQL image from the CloudNativePG project; switch `imageName` to an EDB-supported image and add pull secrets when you move to a subscribed deployment.
+Use a generic workload namespace and cluster name.
+
+- **Public image (no registry login):** uses the CloudNativePG community image below.
+- **Subscribed EDB image:** create your EDB registry pull secret in `demo-postgres`, set `imageName` to your `docker.enterprisedb.com/...` image, and set `spec.imagePullSecrets` to that secret’s name (example: `edb-pull-subscription`).
 
 ```bash
 kubectl create namespace demo-postgres
+
+# Optional: only if you use docker.enterprisedb.com images (skip for the public ghcr.io image below).
+kubectl create secret docker-registry edb-pull-subscription \
+  --docker-server=docker.enterprisedb.com \
+  --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
+  --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
+  -n demo-postgres
 
 kubectl apply -f - <<EOF
 apiVersion: v1
@@ -87,6 +97,9 @@ metadata:
 spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  # When using an EDB image from docker.enterprisedb.com, uncomment and match your secret name:
+  # imagePullSecrets:
+  #   - name: edb-pull-subscription
   bootstrap:
     initdb:
       database: app

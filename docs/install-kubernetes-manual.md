@@ -23,6 +23,22 @@ oc apply -f https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml
 
 ## 2. Deploy a PostgreSQL cluster (manual)
 
+### Registry pull secret (EDB images)
+
+Pods need credentials to pull from `docker.enterprisedb.com`. Create a `kubernetes.io/dockerconfigjson` secret in the **same namespace** as the cluster (use your EDB subscription username and token; the name can be whatever you already use—replace `edb-pull-secret` below if yours differs):
+
+```bash
+oc create secret docker-registry edb-pull-secret \
+  --docker-server=docker.enterprisedb.com \
+  --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
+  --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
+  -n production
+```
+
+If you already created this secret under another name in that namespace, reference that name in `spec.imagePullSecrets` instead.
+
+### Cluster manifest
+
 Create a cluster definition file:
 
 ```yaml
@@ -34,6 +50,8 @@ metadata:
 spec:
   instances: 3
   imageName: docker.enterprisedb.com/edb/edb-postgres-advanced:16
+  imagePullSecrets:
+    - name: edb-pull-secret
   
   postgresql:
     parameters:
@@ -77,6 +95,7 @@ oc get pods -n production
 
 ## Quick start resources
 
+- **Git-ready manifests (Kustomize)**: [deploy/README.md](../deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `deploy/sample-cluster/`
 - **OpenShift smoke test (anonymized)**: [openshift-edb-operator-smoke-test.md](openshift-edb-operator-smoke-test.md) — operator install, SCC, demo `Cluster`, verification (`KUBECONFIG` example: `${HOME}/kube.kubeconfig`)
 - **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
