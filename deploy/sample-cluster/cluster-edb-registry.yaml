@@ -1,0 +1,30 @@
+# Alternative Cluster manifest when pulling PostgreSQL images from docker.enterprisedb.com.
+# 1. Create the pull secret in edb-pg-demo (do not commit real credentials).
+# 2. In kustomization.yaml, replace cluster.yaml with this file in resources:, or apply directly:
+#    kubectl apply -f cluster-edb-registry.yaml
+#
+# Example secret:
+#   kubectl create secret docker-registry edb-pull-secret \
+#     --docker-server=docker.enterprisedb.com \
+#     --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
+#     --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
+#     -n edb-pg-demo
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: demo-pg
+  namespace: edb-pg-demo
+spec:
+  instances: 1
+  imageName: docker.enterprisedb.com/edb/edb-postgres-advanced:16
+  imagePullSecrets:
+    - name: edb-pull-secret
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: app-db-credentials
+  storage:
+    size: 10Gi
+    # storageClass: your-storage-class

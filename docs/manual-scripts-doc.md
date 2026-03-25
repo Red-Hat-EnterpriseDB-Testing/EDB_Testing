@@ -551,25 +551,22 @@ The Ansible playbooks can be integrated into AAP Workflow Templates for complete
 
 ### Testing Ansible Automation
 
+Use playbooks from **your** AAP project, **[TPA](https://github.com/EnterpriseDB/tpa)**, or other collections—this repository no longer ships `edb.postgres_operations`. Example pattern:
+
 ```bash
-# Test in check mode (no changes)
-ansible-playbook edb.postgres_operations.disaster-recovery-failover \
+# Example: your DR playbook in check mode (adjust path and FQCN)
+ansible-playbook playbooks/disaster-recovery-failover.yml \
   -e 'failover_source_dc=dc1' \
   -e 'failover_target_dc=dc2' \
   --check
 
-# Test with increased verbosity
-ansible-playbook edb.postgres_operations.manage-aap-cluster \
+# Example: verbose status run
+ansible-playbook playbooks/manage-aap-cluster.yml \
   -e 'manage_aap_cluster_action=status' \
   -vvv
-
-# Test specific tags
-ansible-playbook edb.postgres_operations.setup-efm-integration \
-  -i inventory \
-  -l efm_nodes \
-  --tags test
 ```
-or OpenShift-based AAP deployments, you can scale pods to zero to conserve resources in the standby datacenter, then scale them back up during failover or testing.
+
+For **OpenShift-based** AAP deployments, you can scale pods to zero to conserve resources in the standby datacenter, then scale them back up during failover or testing.
 
 #### Scaling AAP Pods to Zero
 

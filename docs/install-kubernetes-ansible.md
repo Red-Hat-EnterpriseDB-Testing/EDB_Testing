@@ -1,66 +1,23 @@
-# EDB Postgres for Kubernetes — Ansible Installation
+# EDB Postgres for Kubernetes / OpenShift — operator & manual automation
 
-Deploy PostgreSQL clusters on OpenShift or Kubernetes using the `edb.postgres_operations` Ansible collection. This approach is recommended for repeatable, multi-datacenter deployments and integration with AAP.
+**EDB Postgres for Kubernetes** (operator + CRs) on OpenShift is installed and upgraded via the **operator** and **manual or GitOps manifests**, as in the manual guide. This repository does not ship a vendored Ansible collection for that path.
 
-[← Back to main README](../README.md#installation) · [Manual installation](install-kubernetes-manual.md)
+[← Back to main README](../README.md#installation) · **[Manual OpenShift / Kubernetes install](install-kubernetes-manual.md)** · **[Kustomize manifests in `deploy/`](../deploy/README.md)**
 
-## Prerequisites
+## Recommended path
 
-- **EDB Postgres for Kubernetes operator** installed on the cluster (see [Manual installation](install-kubernetes-manual.md#1-install-the-edb-postgres-for-openshift-operator)).
-- **Inventory and kubeconfig** for your OpenShift/Kubernetes cluster(s).
-- **EDB pull secret**: Docker config file or existing Kubernetes secret. See [EDB pull secret](../ansible_collections/edb/postgres_operations/roles/deploy_cluster/README.md#edb-pull-secret).
+1. Install the **EDB Postgres for Kubernetes** operator (OperatorHub, CLI, or your supported install method)—see [Manual installation](install-kubernetes-manual.md#1-install-the-edb-postgres-for-openshift-operator). This repository includes a Kustomize base that pulls the pinned manifest from `get.enterprisedb.io`: [**`deploy/operator`**](../deploy/README.md#install-operator) ([full `deploy/` layout](../deploy/README.md)).
+2. Apply **`Cluster`** and related CRs (pull secrets, backups, replica clusters) per [EDB Postgres for Kubernetes documentation](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). A minimal sample workload lives in [**`deploy/sample-cluster/`**](../deploy/README.md#apply-sample-cluster). For EDB registry images, create a `docker-registry` secret in the workload namespace and list it under `spec.imagePullSecrets` on the `Cluster`—see [Manual installation, section 2](install-kubernetes-manual.md#2-deploy-a-postgresql-cluster-manual).
+3. For multi-cluster active/passive topologies (replica cluster, promotion tokens), follow the architecture sections in [install-kubernetes-manual.md](install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture) and the main [README](../README.md).
 
-## 1. Install the collection
+## Ansible and AAP without the in-repo collection
 
-```bash
-# From project root
-ansible-galaxy collection install ./ansible_collections/edb/postgres_operations
-```
+You may drive `kubernetes.core.k8s` / `oc` from **your own** playbooks or from **Ansible Validated / certified** content, using an execution environment that contains `kubernetes.core` and a valid kubeconfig.
 
-Install dependencies if needed:
+## Trusted Postgres Architect (TPA)
 
-```bash
-ansible-galaxy collection install -r ansible_collections/edb/postgres_operations/requirements.yml
-```
+**[TPA](https://github.com/EnterpriseDB/tpa)** provisions Postgres on **hosts** (VMs, bare metal, Docker for testing)—not as the Kubernetes operator workload. For Postgres **on OpenShift pods**, use the operator path above. For Postgres **on RHEL instances outside/around the cluster**, use **[install-tpa.md](install-tpa.md)**.
 
-## 2. Configure inventory
+## Ansible Navigator and execution environments
 
-Use the example inventory or your own. Ensure each host has `kubeconfig_path`, `datacenter`, and (for deploy) `cluster_name`, `namespace` as needed.
-
-Example location: `ansible_collections/edb/postgres_operations/inventory/example-multi-datacenter.yml`. Edit with your clusters and kubeconfig paths.
-
-## 3. Deploy a PostgreSQL cluster
-
-From project root:
-
-```bash
-# Deploy a cluster (set edb_pull_secret_file if not using default path)
-ansible-playbook -i ansible_collections/edb/postgres_operations/inventory/example-multi-datacenter.yml \
-  ansible_collections/edb/postgres_operations/playbooks/deploy-cluster.yml \
-  -e "cluster_name=prod-db" \
-  -e "namespace=production" \
-  -e "instances=3" \
-  -e "storage_size=100Gi" \
-  -e "postgres_version=16.8"
-```
-
-## Other playbooks
-
-| Playbook | Purpose |
-|----------|---------|
-| [deploy-replica-cluster.yml](../ansible_collections/edb/postgres_operations/playbooks/deploy-replica-cluster.yml) | Deploy a replica cluster in a second datacenter |
-| [check-health.yml](../ansible_collections/edb/postgres_operations/playbooks/check-health.yml) | Verify cluster health and replication |
-| [execute-sql.yml](../ansible_collections/edb/postgres_operations/playbooks/execute-sql.yml) | Run ad-hoc or file-based SQL |
-| [playbooks/examples/](../ansible_collections/edb/postgres_operations/playbooks/examples/) | Example playbooks (production, migration, monitoring, replica types) |
-
-## Full collection documentation
-
-- **Setup, inventory, variables**: [Collection README](../ansible_collections/edb/postgres_operations/README.md)
-- **Quick start**: [GETTING_STARTED](../ansible_collections/edb/postgres_operations/docs/GETTING_STARTED.md)
-- **Execution environment (AAP)**: See “Execution environment (AAP)” in the collection README.
-
-Inventory, example playbooks, and EE build files live under `ansible_collections/edb/postgres_operations/`.
-
-## Architecture reference
-
-For distributed topology, primary/replica clusters, and services, see [EDB Postgres for Kubernetes Architecture](install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture) in the manual installation guide.
+For AAP or local runs, use an execution environment that matches **your** playbooks and collections, or TPA’s **`tpa-ee`** assets in the [TPA repository](https://github.com/EnterpriseDB/tpa/tree/main/tpa-ee).

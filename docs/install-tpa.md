@@ -1,0 +1,41 @@
+# EDB Postgres — Trusted Postgres Architecture (TPA)
+
+Deploy and manage PostgreSQL using **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)**—EnterpriseDB’s open source (GPLv3) orchestration toolchain built on Ansible.
+
+[← Back to main README](../README.md#installation) · [TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/) · [OpenShift / operator path](install-kubernetes-manual.md) (separate from TPA)
+
+## When to use TPA
+
+TPA is the **supported EDB approach** for defining, provisioning, and deploying Postgres clusters on infrastructure it drives: **bare metal**, **cloud instances (AWS, Azure, …)**, **`tpaexec`/SSH targets**, and **[Docker](https://www.enterprisedb.com/docs/tpa/latest/platform-docker/)** for lab-style testing (not production).
+
+TPA does **not** replace **EDB Postgres for Kubernetes** on OpenShift: operator install, `Cluster` CRs, and cross-cluster replica topologies stay on the [manual OpenShift guide](install-kubernetes-manual.md) and [EDB Postgres for Kubernetes documentation](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). If you need Postgres **inside** the cluster as pods, use the operator; if you need Postgres **on VMs or hosts** that front your platform, use TPA (or manual RHEL install).
+
+## Quick start
+
+1. **Clone TPA** (or install per [open source TPA](https://www.enterprisedb.com/docs/tpa/latest/opensourcetpa/)):
+
+   ```bash
+   git clone https://github.com/EnterpriseDB/tpa.git
+   cd tpa
+   ```
+
+2. **Install dependencies** for the control host as described in TPA’s docs (Python, Ansible, etc.).
+
+3. **Configure a cluster** (platform and topology depend on your environment). Typical flow:
+
+   ```bash
+   tpaexec configure mycluster --platform <bare|docker|...> [...]
+   tpaexec provision mycluster
+   tpaexec deploy mycluster
+   ```
+
+   Exact flags (HA, PGD, EDB Postgres Advanced, location of instances) are covered in the **[official TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/)**.
+
+## Active / passive and multi-site
+
+For standby replicas, witness nodes, and multi-datacenter patterns, use the **architecture and cluster options** documented in TPA (for example PGD or physical replicas, depending on product and version). Align that design with this repo’s high-level [README](../README.md) network and DR narrative for AAP.
+
+## Ansible Automation Platform
+
+TPA ships **execution-environment** material under its own repo (for example `tpa-ee/` paths in [EnterpriseDB/tpa](https://github.com/EnterpriseDB/tpa)). Use that for AAP job templates that run `tpaexec` or TPA playbooks.
+

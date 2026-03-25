@@ -1,0 +1,6 @@
+# EDB Postgres for Kubernetes (CloudNativePG-based) operator install.
+# Version pin — update when you upgrade: https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml

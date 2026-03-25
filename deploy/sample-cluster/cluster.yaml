@@ -1,0 +1,20 @@
+# Sample Cluster for EDB Postgres for Kubernetes.
+# - Default image is public (no EDB registry login). For docker.enterprisedb.com images,
+#   create a docker-registry Secret and set spec.imagePullSecrets (see kustomization patch).
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: demo-pg
+  namespace: edb-pg-demo
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: app-db-credentials
+  storage:
+    size: 10Gi
+    # storageClass: your-storage-class

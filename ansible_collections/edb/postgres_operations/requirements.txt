@@ -1,7 +1,0 @@
-# Python dependencies for execution environment (AAP).
-# Used by ansible-builder when building the EE image.
-# Add any pip packages required by collection roles (e.g. kubernetes, psycopg2).
-
-kubernetes>=28.0.0
-openshift>=0.13.0
-psycopg2-binary>=2.9.0
