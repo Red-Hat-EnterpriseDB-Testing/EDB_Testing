@@ -1,9 +1,0 @@
----
-# Deploy analytics replica cluster (uses deploy_analytics_replica role)
-# Usage: ansible-playbook playbooks/examples/deploy-analytics-replica.yml -i inventory/replica-example.yml
-
-- name: Deploy Analytics Replica Cluster
-  hosts: analytics_clusters
-  gather_facts: false
-  roles:
-    - role: edb.postgres_operations.deploy_analytics_replica

@@ -1,9 +1,0 @@
----
-# Deploy development PostgreSQL cluster (uses deploy_development_cluster role)
-# Usage: ansible-playbook playbooks/examples/deploy-development-cluster.yml -i inventory/example-multi-datacenter.yml
-
-- name: Deploy Development PostgreSQL Cluster
-  hosts: datacenter1
-  gather_facts: false
-  roles:
-    - role: edb.postgres_operations.deploy_development_cluster

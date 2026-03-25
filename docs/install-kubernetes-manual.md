@@ -77,6 +77,7 @@ oc get pods -n production
 
 ## Quick start resources
 
+- **OpenShift smoke test (anonymized)**: [openshift-edb-operator-smoke-test.md](openshift-edb-operator-smoke-test.md) — operator install, SCC, demo `Cluster`, verification (`KUBECONFIG` example: `${HOME}/kube.kubeconfig`)
 - **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
 

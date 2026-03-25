@@ -1,6 +1,6 @@
 ---
 name: ansible-redhat-cop-practices
-description: Applies Red Hat Community of Practice (redhat-cop) Ansible good practices when writing or reviewing roles, playbooks, collections, inventories, and plugins in this project. Use when working with Ansible in EDB_Testing, editing roles or playbooks under ansible_collections/edb/postgres_operations or when the user references redhat-cop, GPA, or Ansible best practices.
+description: Applies Red Hat Community of Practice (redhat-cop) Ansible good practices when writing or reviewing roles, playbooks, collections, inventories, and plugins in this project. Use when working with Ansible in EDB_Testing, Trusted Postgres Architect (TPA), redhat-cop, GPA, or Ansible best practices.
 ---
 
 # Red Hat COP Ansible Good Practices
@@ -60,7 +60,7 @@ Use roles for actual logic; keep playbooks as a list of roles. Avoid mixing `rol
 
 ### Other role rules
 
-- Use Galaxy-compatible skeleton; semantic versioning for tags (0.y.z until stable). Use FQCN in examples (e.g. `edb.postgres_operations.install_postgres_rhel`).
+- Use Galaxy-compatible skeleton; semantic versioning for tags (0.y.z until stable). Use FQCN in examples (e.g. `kubernetes.core.k8s`, `ansible.posix.synchronize`).
 - README: purpose, required/optional arguments, idempotent (Y/N), capabilities, example playbooks, rollback if applicable.
 - Sub-task files: prefix task names with a short hint, e.g. `sub | Some task description`.
 - From Ansible 2.11+: use `meta/argument_specs.yml` for role argument validation.
@@ -114,9 +114,8 @@ Use roles for actual logic; keep playbooks as a list of roles. Avoid mixing `rol
 
 ## Project context (EDB_Testing)
 
-- Collection namespace: `edb.postgres_operations`. Roles: `deploy_cluster`, `deploy_replica_cluster`, `install_postgres_rhel`, `manage_aap_cluster`, `efm_integration`, `check_health`, `execute_sql`.
-- Playbooks live under `ansible_collections/edb/postgres_operations/playbooks/` (at project root). Keep them as thin wrappers that call roles with optional vars.
-- When adding or changing roles, follow the variable-prefix rule (e.g. `install_postgres_rhel_app_password`, `deploy_cluster_edb_pull_secret_name`).
+- **Postgres automation:** Prefer **[TPA](https://github.com/EnterpriseDB/tpa)** for host-based clusters ([docs/install-tpa.md](../../../docs/install-tpa.md)). **OpenShift:** operator + manual/GitOps ([docs/install-kubernetes-manual.md](../../../docs/install-kubernetes-manual.md)); custom Ansible playbooks live in your own project or AAP SCM, not a vendored collection here.
+- When authoring roles or playbooks for this repo’s **docs/scripts** only, follow the variable-prefix and structure rules in this skill.
 
 ## Additional resources
 

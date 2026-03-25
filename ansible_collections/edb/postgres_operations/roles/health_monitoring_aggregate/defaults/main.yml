@@ -1,6 +1,0 @@
----
-# Aggregate report defaults (used when running on localhost after health checks)
-
-enable_aap_notifications: true
-aap_webhook_url: "{{ lookup('env', 'AAP_WEBHOOK_URL') | default('') }}"
-openshift_clusters_group: openshift_clusters
