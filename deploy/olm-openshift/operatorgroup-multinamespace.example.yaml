@@ -1,0 +1,28 @@
+# Example: OLM install in `my-operators` watching listed projects.
+# Create the operator namespace and target namespaces first; replace names to match your environment.
+# Do not apply alongside subscription-cluster-wide.yaml (pick one install mode).
+#
+# Reference: https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/openshift/#installation-via-the-oc-cli
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cloud-native-postgresql
+  namespace: my-operators
+spec:
+  targetNamespaces:
+    - web-staging
+    - web-prod
+    - bi-staging
+    - bi-prod
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cloud-native-postgresql
+  namespace: my-operators
+spec:
+  channel: fast
+  name: cloud-native-postgresql
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
