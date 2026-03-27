@@ -1,13 +1,13 @@
-# AAP 2.6 operator on OpenShift — external Postgres in `edb-pg-demo`
+# AAP 2.6 operator on OpenShift — external Postgres (`edb-postgres` / `postgresql`)
 
-This flow installs the **Ansible Automation Platform operator** (`stable-2.6`) and an **`AnsibleAutomationPlatform`** instance that uses the CloudNativePG / EDB **`demo-pg`** read-write Service **`demo-pg-rw.edb-pg-demo.svc.cluster.local`** as a single PostgreSQL server with **four databases** (gateway, controller, hub, EDA).
+This flow installs the **Ansible Automation Platform operator** (`stable-2.6`) and an **`AnsibleAutomationPlatform`** instance that uses the CloudNativePG / EDB **`postgresql`** read-write Service **`postgresql-rw.edb-postgres.svc.cluster.local`** (adjust if you use different namespace or `Cluster` names) as a single PostgreSQL server with **four databases** (gateway, controller, hub, EDA).
 
 Confirm fields and prerequisites in [Installing on OpenShift Container Platform 2.6](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/installing_on_openshift_container_platform/index).
 
 ## Prerequisites
 
 1. **Cluster:** OpenShift with `redhat-operators` / `openshift-marketplace` (OperatorHub).
-2. **EDB primary:** `Cluster/demo-pg` healthy in `edb-pg-demo` ([`db-deploy/sample-cluster`](../../db-deploy/sample-cluster)).
+2. **EDB primary:** `Cluster/postgresql` healthy in `edb-postgres` ([`db-deploy/sample-cluster`](../../db-deploy/sample-cluster)).
 3. **Databases:** Create role `aap`, databases, and **`hstore`** on the hub DB — see [`../edb-bootstrap/create-aap-databases.sql`](../edb-bootstrap/create-aap-databases.sql).
 4. **Automation Hub storage:** `spec.hub.file_storage_storage_class` must be a **ReadWriteMany** `StorageClass`. The sample value `ocs-storagecluster-cephfs` suits OpenShift Data Foundation; replace with your cluster’s RWX class (`oc get storageclass`).
 5. **Password rules:** DB password for AAP unmanaged secrets must **not** contain `'`, `"`, or `\`.
@@ -25,18 +25,18 @@ oc get csv -n ansible-automation-platform -w
 
 Wait until the AAP operator CSV is **Succeeded**.
 
-### 2. PostgreSQL objects on `demo-pg`
+### 2. PostgreSQL objects on the primary
 
-Edit the password in `aap-deploy/edb-bootstrap/create-aap-databases.sql`, then run against the primary (adjust pod name if needed):
+Edit the password in `aap-deploy/edb-bootstrap/create-aap-databases.sql`, then run against the primary (adjust namespace and pod name if your `Cluster` metadata differs):
 
 ```bash
-oc exec -n edb-pg-demo -it demo-pg-1 -- psql -U postgres -v ON_ERROR_STOP=1 \
+oc exec -n edb-postgres -it postgresql-1 -- psql -U postgres -v ON_ERROR_STOP=1 \
   -c "CREATE ROLE aap LOGIN PASSWORD 'YOUR_PASSWORD';" \
   -c "CREATE DATABASE platform_gateway OWNER aap;" \
   -c "CREATE DATABASE automation_controller OWNER aap;" \
   -c "CREATE DATABASE automation_hub OWNER aap;" \
   -c "CREATE DATABASE automation_eda OWNER aap;"
-oc exec -n edb-pg-demo -it demo-pg-1 -- psql -U postgres -d automation_hub -v ON_ERROR_STOP=1 \
+oc exec -n edb-postgres -it postgresql-1 -- psql -U postgres -d automation_hub -v ON_ERROR_STOP=1 \
   -c "CREATE EXTENSION IF NOT EXISTS hstore;"
 ```
 

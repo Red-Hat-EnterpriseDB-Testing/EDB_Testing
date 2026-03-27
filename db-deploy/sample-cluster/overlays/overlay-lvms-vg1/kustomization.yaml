@@ -7,8 +7,8 @@ resources:
 patches:
   - target:
       kind: Cluster
-      name: demo-pg
-      namespace: edb-pg-demo
+      name: postgresql
+      namespace: edb-postgres
     patch: |-
       - op: add
         path: /spec/storage/storageClass

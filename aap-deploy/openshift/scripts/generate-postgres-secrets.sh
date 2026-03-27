@@ -4,7 +4,7 @@
 #   Password must not contain ', ", or \ per Red Hat AAP external DB guidance.
 #
 # Env overrides:
-#   PGHOST (default demo-pg-rw.edb-pg-demo.svc.cluster.local)
+#   PGHOST (default postgresql-rw.edb-postgres.svc.cluster.local)
 #   PGPORT (default 5432)
 #   PGUSER (default aap)
 #   SSLMODE (default prefer)
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 PASS="${1:?usage: $0 <database-password>}"
-PGHOST="${PGHOST:-demo-pg-rw.edb-pg-demo.svc.cluster.local}"
+PGHOST="${PGHOST:-postgresql-rw.edb-postgres.svc.cluster.local}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-aap}"
 SSLMODE="${SSLMODE:-prefer}"

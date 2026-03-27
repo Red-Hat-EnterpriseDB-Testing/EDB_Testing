@@ -4,14 +4,14 @@
 # The replica connects with sslmode=verify-ca when the server TLS cert is issued for in-cluster DNS
 # (the Route hostname usually will not match the certSAN; verify-full would require custom certs).
 #
-# If your primary `Cluster` name is not `demo-pg`, change `spec.to.name` to `<cluster>-rw`.
+# If your primary `Cluster` name is not `postgresql`, change `spec.to.name` to `<cluster>-rw`.
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: demo-pg-replication
-  namespace: edb-pg-demo
+  name: postgresql-replication
+  namespace: edb-postgres
   labels:
-    app.kubernetes.io/name: demo-pg
+    app.kubernetes.io/name: postgresql
     app.kubernetes.io/component: streaming-replication
 spec:
   port:
@@ -21,6 +21,6 @@ spec:
     insecureEdgeTerminationPolicy: None
   to:
     kind: Service
-    name: demo-pg-rw
+    name: postgresql-rw
     weight: 100
   wildcardPolicy: None

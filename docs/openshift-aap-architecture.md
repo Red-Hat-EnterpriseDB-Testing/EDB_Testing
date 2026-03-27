@@ -2,12 +2,12 @@
 
 This page summarizes how **AAP** is positioned on **OpenShift** in this repository’s reference design: multiple clusters, external EDB Postgres, and passive standby sites.
 
-[← Main README — AAP section](../README.md#ansible-automation-platform-aap) · [Operator install (single cluster + `edb-pg-demo`)](../aap-deploy/openshift/README.md) · [Two-site operator + DR plan](../aap-deploy/README.md)
+[← Main README — AAP section](../README.md#ansible-automation-platform-aap) · [Operator install (single cluster + external Postgres)](../aap-deploy/openshift/README.md) · [Two-site operator + DR plan](../aap-deploy/README.md)
 
 ## Topology (summary)
 
 - **One AAP footprint per OpenShift cluster** you treat as a site (typical namespace: `ansible-automation-platform`).
-- **Postgres for AAP workloads** can be the **EDB Postgres for Kubernetes** `Cluster` (e.g. `edb-pg` in `edb-pg`) or another supported external database per Red Hat guidance.
+- **Postgres for AAP workloads** can be the **EDB Postgres for Kubernetes** `Cluster` (e.g. `postgresql` in namespace `edb-postgres`) or another supported external database per Red Hat guidance.
 - **Active / passive between sites**: only one site should run production AAP against the **read-write** database primary; the other site keeps **workloads off** or scaled down until DR.
 
 ## Day-0 install (this repo)
