@@ -23,7 +23,7 @@ flowchart TB
       C1[Controller]
       X1[Execution]
     end
-    PP[(Primary Postgres\nedb-pg-demo / demo-pg-rw)]
+    PP[(Replica Postgres\nread-only until promotion)]
   end
 
   subgraph Site1[Site 1 — Primary]
@@ -32,7 +32,7 @@ flowchart TB
       C2[Controller]
       X2[Execution]
     end
-    RP[(Replica Postgres\nread-only until promotion)]
+    RP[(Primary Postgres\nedb-pg-demo / demo-pg-rw)]
   end
 
   EDA --> PAAP
