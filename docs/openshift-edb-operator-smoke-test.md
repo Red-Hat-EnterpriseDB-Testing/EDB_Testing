@@ -1,6 +1,6 @@
 # OpenShift — EDB Postgres for Kubernetes operator (smoke test)
 
-Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (`demo-postgres`, storage class, passwords) with your own values.
+Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (namespace, cluster name, storage class, passwords) with your own values.
 
 [← Manual install guide](install-kubernetes-manual.md) · [Kustomize manifests (`db-deploy/`)](../db-deploy/README.md)
 
@@ -58,32 +58,32 @@ kubectl get storageclass
 Set a shell variable for the next steps, for example:
 
 ```bash
-DEMO_STORAGE_CLASS="your-storage-class-here"
+PG_STORAGE_CLASS="your-storage-class-here"
 ```
 
-## 4. Demo namespace, app secret, and cluster
+## 4. Example namespace, app secret, and cluster
 
-Use a generic workload namespace and cluster name.
+Use a dedicated workload namespace and cluster name (below matches [`db-deploy/sample-cluster`](../db-deploy/sample-cluster) defaults for consistency).
 
 - **Public image (no registry login):** uses the CloudNativePG community image below.
-- **Subscribed EDB image:** create your EDB registry pull secret in `demo-postgres`, set `imageName` to your `docker.enterprisedb.com/...` image, and set `spec.imagePullSecrets` to that secret’s name (example: `edb-pull-subscription`).
+- **Subscribed EDB image:** create your EDB registry pull secret in that namespace, set `imageName` to your `docker.enterprisedb.com/...` image, and set `spec.imagePullSecrets` to that secret’s name (example: `edb-pull-subscription`).
 
 ```bash
-kubectl create namespace demo-postgres
+kubectl create namespace edb-postgres
 
 # Optional: only if you use docker.enterprisedb.com images (skip for the public ghcr.io image below).
 kubectl create secret docker-registry edb-pull-subscription \
   --docker-server=docker.enterprisedb.com \
   --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
   --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
-  -n demo-postgres
+  -n edb-postgres
 
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: demo-app-secret
-  namespace: demo-postgres
+  name: app-db-credentials
+  namespace: edb-postgres
 type: kubernetes.io/basic-auth
 stringData:
   username: app
@@ -92,8 +92,8 @@ stringData:
 apiVersion: postgresql.k8s.enterprisedb.io/v1
 kind: Cluster
 metadata:
-  name: demo-pg
-  namespace: demo-postgres
+  name: postgresql
+  namespace: edb-postgres
 spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:16.6
@@ -105,42 +105,42 @@ spec:
       database: app
       owner: app
       secret:
-        name: demo-app-secret
+        name: app-db-credentials
   storage:
     size: 5Gi
-    storageClass: ${DEMO_STORAGE_CLASS}
+    storageClass: ${PG_STORAGE_CLASS}
 EOF
 ```
 
 ## 5. Wait and verify
 
 ```bash
-kubectl get cluster,pvc,pods -n demo-postgres -w
+kubectl get cluster,pvc,pods -n edb-postgres -w
 # Ctrl-C when the cluster phase is healthy
 
-kubectl get cluster demo-pg -n demo-postgres \
+kubectl get cluster postgresql -n edb-postgres \
   -o jsonpath='{.status.phase}{"\n"}'
 ```
 
 Run one query from inside the primary pod (pod name follows the instance name):
 
 ```bash
-PRIMARY_POD="$(kubectl get pods -n demo-postgres \
-  -l k8s.enterprisedb.io/cluster=demo-pg \
+PRIMARY_POD="$(kubectl get pods -n edb-postgres \
+  -l k8s.enterprisedb.io/cluster=postgresql \
   -o jsonpath='{.items[0].metadata.name}')"
-PASS="$(kubectl get secret demo-app-secret -n demo-postgres -o jsonpath='{.data.password}' | base64 -d)"
-kubectl exec -n demo-postgres pod/"${PRIMARY_POD}" -- \
+PASS="$(kubectl get secret app-db-credentials -n edb-postgres -o jsonpath='{.data.password}' | base64 -d)"
+kubectl exec -n edb-postgres pod/"${PRIMARY_POD}" -- \
   env PGPASSWORD="${PASS}" psql -h 127.0.0.1 -U app -d app \
   -c 'SELECT current_database(), current_user;'
 ```
 
-Read/write service (in-cluster): `demo-pg-rw.demo-postgres.svc:5432`.
+Read/write service (in-cluster): `postgresql-rw.edb-postgres.svc:5432`.
 
 ## 6. Cleanup (optional)
 
 ```bash
-kubectl delete cluster demo-pg -n demo-postgres
-kubectl delete namespace demo-postgres
+kubectl delete cluster postgresql -n edb-postgres
+kubectl delete namespace edb-postgres
 # Operator uninstall is environment-specific; remove CRDs and
 # postgresql-operator-system only if you intend to drop the operator cluster-wide.
 ```

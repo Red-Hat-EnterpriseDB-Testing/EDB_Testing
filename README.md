@@ -76,7 +76,7 @@ The global load balancer provides a single entry point for AAP access:
 
 ### Ansible Automation Platform (AAP)
 
-**Operator install with external EDB Postgres** (`edb-pg-demo` / `demo-pg`): see **[`aap-deploy/README.md`](aap-deploy/README.md)** (overview) and **[`aap-deploy/openshift/README.md`](aap-deploy/openshift/README.md)** (subscription + `AnsibleAutomationPlatform` CR).
+**Operator install with external EDB Postgres** (sample namespace / cluster: `edb-postgres` / `postgresql`): see **[`aap-deploy/README.md`](aap-deploy/README.md)** (overview) and **[`aap-deploy/openshift/README.md`](aap-deploy/openshift/README.md)** (subscription + `AnsibleAutomationPlatform` CR).
 
 For OpenShift AAP is deployed on **Sepearate OpenShift clusters** for high availability and geographic distribution. For RHEL you can do a single install across datacenters however you **MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
 

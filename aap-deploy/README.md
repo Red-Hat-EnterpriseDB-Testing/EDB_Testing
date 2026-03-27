@@ -1,11 +1,11 @@
 # Ansible Automation Platform — operator deployment with external EDB Postgres
 
-This document describes how to deploy **Ansible Automation Platform (AAP)** using the **AAP Operator** with **`edb-pg-demo`** / **`demo-pg`** as an **external PostgreSQL** database, aligned with a two-site HA/DR pattern (primary AAP + primary Postgres at Site 1; standby AAP + replica Postgres at Site 2).
+This document describes how to deploy **Ansible Automation Platform (AAP)** using the **AAP Operator** with an **external PostgreSQL** database (this repo defaults to namespace **`edb-postgres`** and `Cluster` **`postgresql`**), aligned with a two-site HA/DR pattern (primary AAP + primary Postgres at Site 1; standby AAP + replica Postgres at Site 2). Use your own namespace and cluster names in production.
 
 Related assets in this repository:
 
 - EDB operator install: [`db-deploy/olm-openshift/`](../db-deploy/olm-openshift/), [`db-deploy/operator/`](../db-deploy/operator/)
-- Sample database namespace and `Cluster`: [`db-deploy/sample-cluster/`](../db-deploy/sample-cluster/) (namespace `edb-pg-demo`, cluster name `demo-pg` by default)
+- Sample database namespace and `Cluster`: [`db-deploy/sample-cluster/`](../db-deploy/sample-cluster/) (defaults: namespace `edb-postgres`, cluster name `postgresql`)
 - Cross-cluster passive replica: [`db-deploy/cross-cluster/`](../db-deploy/cross-cluster/)
 - Helper scripts to scale AAP: [`scripts/scale-aap-down.sh`](../scripts/scale-aap-down.sh), [`scripts/scale-aap-up.sh`](../scripts/scale-aap-up.sh)
 
@@ -32,7 +32,7 @@ flowchart TB
       C2[Controller]
       X2[Execution]
     end
-    RP[(Primary Postgres\nedb-pg-demo / demo-pg-rw)]
+    RP[(Primary Postgres\nedb-postgres / postgresql-rw)]
   end
 
   EDA --> PAAP
@@ -55,7 +55,7 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 |--------|----------------|
 | Primary AAP (Gateway, Controller, execution) | AAP Operator CRs on Site 1 (e.g. `AutomationController`, **Automation Gateway** CR if used, execution capacity per CR/spec) |
 | Standby AAP | Same CR shapes on Site 2, **identical cryptographic secrets** as Site 1; workloads **off** or unexposed until DR |
-| Primary Postgres | EDB Postgres for Kubernetes `Cluster` in `edb-pg-demo` (e.g. `demo-pg`), RW service (e.g. `demo-pg-rw`) |
+| Primary Postgres | EDB Postgres for Kubernetes `Cluster` in `edb-postgres` (e.g. `postgresql`), RW service (e.g. `postgresql-rw`) |
 | Replica Postgres | Optional passive replica on Site 2 using the pattern in [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md); **read-only** until promotion |
 | EDA | `AutomationEDA` (rulebooks) monitoring Site 1 health; expand to failover automation only after tested runbooks |
 
@@ -64,9 +64,9 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 ## 2. Prerequisites
 
 1. **EDB Postgres for Kubernetes** installed on each cluster that runs an EDB `Cluster`, with a **compatible operator version** on both sides if you use cross-cluster replication.
-2. **Primary** `Cluster` healthy in `edb-pg-demo` (see [`db-deploy/sample-cluster/base/cluster.yaml`](../db-deploy/sample-cluster/base/cluster.yaml)); adjust storage via an overlay under [`db-deploy/sample-cluster/overlays/`](../db-deploy/sample-cluster/overlays/).
+2. **Primary** `Cluster` healthy in `edb-postgres` (see [`db-deploy/sample-cluster/base/cluster.yaml`](../db-deploy/sample-cluster/base/cluster.yaml)); adjust storage via an overlay under [`db-deploy/sample-cluster/overlays/`](../db-deploy/sample-cluster/overlays/).
 3. **AAP Operator** installed on Site 1 and Site 2; **same AAP component versions** on both sites for standby parity.
-4. **Database for AAP**: create a dedicated database and role per Red Hat documentation. The sample `app` database from the demo `Cluster` bootstrap is an example only; provision what AAP requires (privileges, extensions, encoding).
+4. **Database for AAP**: create a dedicated database and role per Red Hat documentation. The sample `app` database from the sample `Cluster` bootstrap is optional; provision what AAP requires (privileges, extensions, encoding).
 5. **Networking**: AAP pods must resolve and reach Postgres **read-write** endpoints during normal operation. For cross-site DR, decide whether you use a **global DNS/LB**, or **update** the Postgres connection secret after replica promotion.
 
 ---
@@ -75,7 +75,7 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 
 ### 3.1 Prepare external PostgreSQL
 
-1. Ensure `demo-pg` (or your chosen cluster name) is **Running** and the RW service is available inside the cluster.
+1. Ensure your EDB `Cluster` (e.g. `postgresql` from the sample manifests, or your chosen name) is **Running** and the RW service is available inside the cluster.
 2. Create the AAP database user and database; grant required privileges and install required extensions per RHAAP docs for your version.
 3. If TLS is required, align `sslmode` with how clients verify the EDB server cert (see TLS notes in [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md) for hostname vs `verify-ca` trade-offs).
 
@@ -125,7 +125,7 @@ Do not run both sites against one RW Postgres primary for production workloads.
 ## 5. Postgres replication (Site 1 → Site 2)
 
 1. Expose replication from the primary cluster as required (e.g. OpenShift Route for streaming — see [`db-deploy/cross-cluster/primary-site/route-replication.yaml`](../db-deploy/cross-cluster/primary-site/route-replication.yaml)).
-2. Copy TLS material and deploy the passive replica cluster using [`db-deploy/cross-cluster/scripts/sync-passive-replica.sh`](../db-deploy/cross-cluster/scripts/sync-passive-replica.sh) with `PRIMARY_CONTEXT`, `REPLICA_CONTEXT`, and `NS=edb-pg-demo` (defaults documented in that README).
+2. Copy TLS material and deploy the passive replica cluster using [`db-deploy/cross-cluster/scripts/sync-passive-replica.sh`](../db-deploy/cross-cluster/scripts/sync-passive-replica.sh) with `PRIMARY_CONTEXT`, `REPLICA_CONTEXT`, and `NS=edb-postgres` (defaults documented in that README).
 3. Keep the replica **read-only** until a controlled promotion during DR.
 
 ---
@@ -150,9 +150,9 @@ Always use explicit **`--context`** / kubeconfig when operating two clusters so 
 
 ---
 
-## 8. OpenShift operator install (single cluster, external `edb-pg-demo`)
+## 8. OpenShift operator install (single cluster, external Postgres)
 
-To install **AAP 2.6** with the operator on **one** OpenShift cluster and use **`demo-pg-rw.edb-pg-demo.svc`** as the database server, follow **[`openshift/README.md`](openshift/README.md)**:
+To install **AAP 2.6** with the operator on **one** OpenShift cluster and use **`postgresql-rw.edb-postgres.svc`** (or your cluster’s RW Service DNS name) as the database server, follow **[`openshift/README.md`](openshift/README.md)**:
 
 1. `oc apply -k openshift/` — operator subscription in `ansible-automation-platform`
 2. Run SQL on the EDB primary — `edb-bootstrap/create-aap-databases.sql`
@@ -166,7 +166,7 @@ Adjust `spec.hub.file_storage_storage_class` to a **ReadWriteMany** `StorageClas
 | Path | Purpose |
 |------|---------|
 | `README.md` | This deployment plan |
-| `openshift/README.md` | Step-by-step operator + `AnsibleAutomationPlatform` against `edb-pg-demo` |
+| `openshift/README.md` | Step-by-step operator + `AnsibleAutomationPlatform` with external Postgres (sample: `edb-postgres` / `postgresql`) |
 | `openshift/` | Namespace, subscription, parent CR |
 | `edb-bootstrap/create-aap-databases.sql` | Databases + `hstore` for Hub |
 | `openshift/postgres-configuration-secret.example.yaml` | Single-secret structural example (placeholders only) |

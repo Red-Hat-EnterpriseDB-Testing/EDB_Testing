@@ -8,8 +8,8 @@ All names, kubeconfig paths, and DNS examples below are **placeholders** — rep
 
 | Site | Purpose | Objects (example names) |
 |------|---------|---------------------------|
-| Primary OpenShift | Serves reads/writes; in-cluster HA can use multiple instances. | Existing `Cluster` (e.g. `demo-pg`), Service `<cluster>-rw`, optional `Route` from `primary-site/route-replication.yaml` |
-| Replica cluster | Continuous recovery: read-only until promoted (see EDB docs). | `Cluster` (e.g. `demo-pg-replica`), TLS secrets copied from primary, PVCs on replica storage class |
+| Primary OpenShift | Serves reads/writes; in-cluster HA can use multiple instances. | Existing `Cluster` (e.g. `postgresql`), Service `<cluster>-rw`, optional `Route` from `primary-site/route-replication.yaml` |
+| Replica cluster | Continuous recovery: read-only until promoted (see EDB docs). | `Cluster` (e.g. `postgresql-replica`), TLS secrets copied from primary, PVCs on replica storage class |
 
 The replica uses the **standalone replica cluster** pattern: `spec.bootstrap.pg_basebackup` and `spec.replica.enabled: true` with an entry in `spec.externalClusters`. See the official guide: [Replica clusters](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/).
 
@@ -62,12 +62,12 @@ db-deploy/cross-cluster/scripts/sync-passive-replica.sh
 | `REPLICA_KUBECONFIG` | same as primary | Kubeconfig file for replica |
 | `PRIMARY_CONTEXT` | *(required)* | Context name for primary |
 | `REPLICA_CONTEXT` | *(required)* | Context name for replica |
-| `NS` | `edb-pg-demo` | Namespace on **both** clusters |
-| `PRIMARY_CLUSTER_NAME` | `demo-pg` | Primary `Cluster` name (drives secret names `<name>-replication` / `-ca`) |
-| `REPLICA_CLUSTER_NAME` | `demo-pg-replica` | Passive replica `Cluster` name |
-| `ROUTE_NAME` | `demo-pg-replication` | Must match `metadata.name` in `primary-site/route-replication.yaml` |
+| `NS` | `edb-postgres` | Namespace on **both** clusters |
+| `PRIMARY_CLUSTER_NAME` | `postgresql` | Primary `Cluster` name (drives secret names `<name>-replication` / `-ca`) |
+| `REPLICA_CLUSTER_NAME` | `postgresql-replica` | Passive replica `Cluster` name |
+| `ROUTE_NAME` | `postgresql-replication` | Must match `metadata.name` in `primary-site/route-replication.yaml` |
 
-If your primary name is **not** `demo-pg`, update:
+If your primary name is **not** `postgresql`, update:
 
 - `primary-site/route-replication.yaml` (`spec.to.name` → `<primary>-rw`, and optionally `metadata.name` + `ROUTE_NAME`), and
 - TLS secret references in `replica-site/replica-cluster.template.yaml`.
@@ -80,7 +80,7 @@ If streaming fails with connection or TLS errors, try adjusting `port` under `co
 
 ## Anonymity and documentation
 
-- Example workload and namespace names (`demo-pg`, `edb-pg-demo`) are **generic**; rename them for your standards.
+- Example workload and namespace names (`postgresql`, `edb-postgres`) are defaults only; rename them for your standards.
 - Do not paste real **Route hosts**, **tokens**, or **kubeconfig** fragments into issues or commits.
 - For a minimal operator smoke test with a **single** anonymous kubeconfig path pattern, see `docs/openshift-edb-operator-smoke-test.md`.
 
@@ -89,7 +89,7 @@ If streaming fails with connection or TLS errors, try adjusting `port` under `co
 ```
 cross-cluster/
   primary-site/
-    route-replication.yaml    # OpenShift Route → primary Service (edit if not demo-pg)
+    route-replication.yaml    # OpenShift Route → primary Service (edit if not postgresql)
   replica-site/
     replica-cluster.template.yaml   # Passive replica; host placeholder filled by script
   scripts/
@@ -98,6 +98,6 @@ cross-cluster/
 
 ## Files in this repository (related)
 
-- `db-deploy/sample-cluster/` — primary-style single-cluster demo (`initdb`, two instances optional).
+- `db-deploy/sample-cluster/` — primary-style single-cluster example (`initdb`, two instances optional).
 - `db-deploy/olm-openshift/` — OperatorHub subscription on full OpenShift.
 - `db-deploy/operator/` — Manifest install when OLM is unavailable (e.g. some compact clusters).

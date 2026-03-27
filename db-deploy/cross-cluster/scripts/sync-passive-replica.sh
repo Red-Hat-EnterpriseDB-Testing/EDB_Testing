@@ -16,11 +16,11 @@ REPLICA_KUBECONFIG="${REPLICA_KUBECONFIG:-${KUBECONFIG:-$HOME/.kube/config}}"
 : "${PRIMARY_CONTEXT:?Set PRIMARY_CONTEXT to the context name for the primary OpenShift cluster (oc config get-contexts)}"
 : "${REPLICA_CONTEXT:?Set REPLICA_CONTEXT to the context name for the replica OpenShift/Kubernetes cluster}"
 
-NS="${NS:-edb-pg-demo}"
-PRIMARY_CLUSTER_NAME="${PRIMARY_CLUSTER_NAME:-demo-pg}"
-REPLICA_CLUSTER_NAME="${REPLICA_CLUSTER_NAME:-demo-pg-replica}"
+NS="${NS:-edb-postgres}"
+PRIMARY_CLUSTER_NAME="${PRIMARY_CLUSTER_NAME:-postgresql}"
+REPLICA_CLUSTER_NAME="${REPLICA_CLUSTER_NAME:-postgresql-replica}"
 # Must match metadata.name in cross-cluster/primary-site/route-replication.yaml unless you templating the Route.
-ROUTE_NAME="${ROUTE_NAME:-demo-pg-replication}"
+ROUTE_NAME="${ROUTE_NAME:-postgresql-replication}"
 SECRET_REPLICATION="${PRIMARY_CLUSTER_NAME}-replication"
 SECRET_CA="${PRIMARY_CLUSTER_NAME}-ca"
 
@@ -83,8 +83,6 @@ if replica_oc get cluster "$PRIMARY_CLUSTER_NAME" -n "$NS" &>/dev/null; then
 fi
 
 delete_cluster_wait "$REPLICA_CLUSTER_NAME"
-# Legacy name from earlier revisions of this repo
-delete_cluster_wait "demo-pg-lab"
 
 echo "Creating passive replica Cluster $REPLICA_CLUSTER_NAME..."
 export REPO_ROOT_FOR_PY="$REPO_ROOT"
@@ -101,7 +99,7 @@ placeholder = "${PRIMARY_REPLICATION_HOST}"
 if placeholder not in text:
     raise SystemExit(f"template missing {placeholder}")
 text = text.replace(placeholder, host)
-text = re.sub(r"(?m)^  name: demo-pg-replica$", f"  name: {name}", text, count=1)
+text = re.sub(r"(?m)^  name: postgresql-replica$", f"  name: {name}", text, count=1)
 print(text)
 PY
 

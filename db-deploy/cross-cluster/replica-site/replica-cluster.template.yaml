@@ -9,8 +9,8 @@
 apiVersion: postgresql.k8s.enterprisedb.io/v1
 kind: Cluster
 metadata:
-  name: demo-pg-replica
-  namespace: edb-pg-demo
+  name: postgresql-replica
+  namespace: edb-postgres
 spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:16.6
@@ -32,11 +32,11 @@ spec:
         sslmode: verify-ca
         dbname: postgres
       sslKey:
-        name: demo-pg-replication
+        name: postgresql-replication
         key: tls.key
       sslCert:
-        name: demo-pg-replication
+        name: postgresql-replication
         key: tls.crt
       sslRootCert:
-        name: demo-pg-ca
+        name: postgresql-ca
         key: ca.crt

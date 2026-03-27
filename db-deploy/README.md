@@ -10,7 +10,7 @@ On **Red Hat OpenShift**, prefer **Operator Lifecycle Manager (OLM)** via `db-de
 |------|---------|
 | `olm-openshift/` | **Preferred on OpenShift:** OLM `Subscription` (cluster-wide) and an example `OperatorGroup` + `Subscription` for scoped installs — [EDB OpenShift / oc CLI](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/openshift/#installation-via-the-oc-cli). See [olm-openshift/README.md](olm-openshift/README.md). |
 | `operator/kustomization.yaml` | **Kubernetes (or non-OLM):** pinned operator manifest from `get.enterprisedb.io` (creates `postgresql-operator-system` and CRDs). |
-| `sample-cluster/` | Demo namespace, app credentials secret, and `Cluster` CR (`edb-pg-demo` / `demo-pg`). |
+| `sample-cluster/` | Example namespace, app credentials secret, and `Cluster` CR (`edb-postgres` / `postgresql`). |
 | `cross-cluster/` | **Passive replica (streaming)** across two clusters: Route on primary + replica `Cluster` + script — see [cross-cluster/README.md](cross-cluster/README.md). |
 
 ## Prerequisites
@@ -48,13 +48,13 @@ For **EDB registry images**, create `edb-pull-secret` (or your name) and either 
 
 ## Apply sample cluster
 
-Apply after the operator install is healthy (`Cluster` CRD available). The sample **`demo-pg`** cluster uses **`spec.instances: 2`** (primary + one hot standby in the same OpenShift cluster).
+Apply after the operator install is healthy (`Cluster` CRD available). The sample **`postgresql`** cluster uses **`spec.instances: 2`** (primary + one hot standby in the same OpenShift cluster).
 
 **Base** (omit `storageClass` and rely on the cluster default `StorageClass`):
 
 ```bash
 kubectl apply -k db-deploy/sample-cluster
-kubectl get cluster,pods -n edb-pg-demo -w
+kubectl get cluster,pods -n edb-postgres -w
 ```
 
 **Overlays** (set `spec.storage.storageClass` for clusters without a suitable default). Kustomize’s default **load restrictor** blocks `kubectl apply -k` on these paths because they reference `../../base`. Build with **`LoadRestrictionsNone`**, then apply:
