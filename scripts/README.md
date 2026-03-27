@@ -449,7 +449,7 @@ sudo chmod +x /usr/edb/efm-4.x/bin/efm-*.sh
 sudo mkdir -p /var/lib/efm/.kube
 
 # Copy kubeconfig
-sudo cp ~/.kube/chadsnoconfig /var/lib/efm/.kube/config
+sudo cp /path/to/your/kubeconfig /var/lib/efm/.kube/config
 
 # Set ownership
 sudo chown -R efm:efm /var/lib/efm/.kube

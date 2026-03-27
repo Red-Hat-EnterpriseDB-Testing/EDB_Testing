@@ -36,7 +36,7 @@ If the `Subscription` already exists, patch the operator’s service account or 
 Uses the default **global** `OperatorGroup` in `openshift-operators`—only the `Subscription` is applied:
 
 ```bash
-oc apply -k deploy/olm-openshift
+oc apply -k db-deploy/olm-openshift
 ```
 
 Then watch the install:
@@ -51,12 +51,33 @@ oc get pods -n openshift-operators -l name=postgresql-operator-manager
 Do **not** apply the kustomization in this folder if you use a dedicated `OperatorGroup`. Edit **`operatorgroup-multinamespace.example.yaml`** (namespaces, channel if you pin to `stable` / `stable-vX.Y`), create **`my-operators`** and target projects, then:
 
 ```bash
-oc apply -f deploy/olm-openshift/operatorgroup-multinamespace.example.yaml
+oc apply -f db-deploy/olm-openshift/operatorgroup-multinamespace.example.yaml
 ```
 
 ## 5. Sample `Cluster` workload
 
-After the operator CSV is **Succeeded**, apply the demo database from [`../sample-cluster`](../sample-cluster) (image and pull secrets per your license/registry choice).
+After the operator CSV is **Succeeded**, apply the demo database from [`../sample-cluster`](../sample-cluster) (image and pull secrets per your license/registry choice). The sample uses **`spec.instances: 2`** (two Postgres instances: primary + in-cluster replica).
+
+Pick the kustomize overlay that matches each cluster’s storage (see [`../README.md`](../README.md)); examples:
+
+```bash
+# Overlays pull in ../../base; kustomize’s default root-only load policy blocks plain `oc apply -k` here.
+oc kustomize --load-restrictor LoadRestrictionsNone db-deploy/sample-cluster/overlays/overlay-lvms-vg1 | oc apply -f -
+
+oc kustomize --load-restrictor LoadRestrictionsNone db-deploy/sample-cluster/overlays/overlay-topolvm-provisioner | oc apply -f -
+```
+
+Use **explicit** `--kubeconfig` and `--context` (or separate terminal `KUBECONFIG` files) so each `oc apply` targets the correct API server. Do **not** rely on a shared shell `KUBECONFIG` if it points at the wrong cluster.
+
+## 6. Same OLM subscription on two OpenShift clusters
+
+Repeat **§3** on each cluster after `oc login` (or `kubectl` with the right kubeconfig):
+
+```bash
+oc apply -k db-deploy/olm-openshift
+```
+
+On each cluster, wait until the CSV shows **Succeeded** in `openshift-operators`, then apply the sample workload overlay for that cluster’s storage class (§5 above).
 
 ## Upgrades
 

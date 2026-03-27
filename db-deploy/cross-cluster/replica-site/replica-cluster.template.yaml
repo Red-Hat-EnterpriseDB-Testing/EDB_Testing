@@ -1,0 +1,42 @@
+# Passive replica (standalone replica cluster) using streaming pg_basebackup + continuous recovery.
+# Placeholder ${PRIMARY_REPLICATION_HOST} is replaced by db-deploy/cross-cluster/scripts/sync-passive-replica.sh
+# (OpenShift Route hostname for the primary read/write Service).
+#
+# Prerequisites on the replica cluster: operator installed; namespace exists; TLS secrets copied from primary
+# (`<primary-cluster>-replication`, `<primary-cluster>-ca`). Edit storage.storageClass to match the replica cluster.
+#
+# Reference: https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: demo-pg-replica
+  namespace: edb-pg-demo
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  bootstrap:
+    pg_basebackup:
+      source: source-primary
+  replica:
+    enabled: true
+    source: source-primary
+  storage:
+    size: 10Gi
+    storageClass: topolvm-provisioner
+  externalClusters:
+    - name: source-primary
+      connectionParameters:
+        host: ${PRIMARY_REPLICATION_HOST}
+        port: "443"
+        user: streaming_replica
+        sslmode: verify-ca
+        dbname: postgres
+      sslKey:
+        name: demo-pg-replication
+        key: tls.key
+      sslCert:
+        name: demo-pg-replication
+        key: tls.crt
+      sslRootCert:
+        name: demo-pg-ca
+        key: ca.crt

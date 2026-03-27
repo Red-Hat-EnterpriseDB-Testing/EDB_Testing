@@ -95,7 +95,8 @@ oc get pods -n production
 
 ## Quick start resources
 
-- **Git-ready manifests (Kustomize)**: [deploy/README.md](../deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `deploy/sample-cluster/`
+- **Git-ready manifests (Kustomize)**: [db-deploy/README.md](../db-deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `db-deploy/sample-cluster/`
+- **Cross-cluster passive replica (anonymized placeholders)**: [db-deploy/cross-cluster/README.md](../db-deploy/cross-cluster/README.md) — Route + TLS secret sync + replica `Cluster` between two kube contexts
 - **OpenShift smoke test (anonymized)**: [openshift-edb-operator-smoke-test.md](openshift-edb-operator-smoke-test.md) — operator install, SCC, demo `Cluster`, verification (`KUBECONFIG` example: `${HOME}/kube.kubeconfig`)
 - **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
