@@ -18,7 +18,7 @@ flowchart TB
   EDA[AutomationEDA]
 
   subgraph Site2[Site 2 — Standby]
-    subgraph PAAP[Primary AAP — operator CRs]
+    subgraph PAAP[Standby AAP — CRs parity, workloads off until DR]
       G1[Gateway]
       C1[Controller]
       X1[Execution]
@@ -27,7 +27,7 @@ flowchart TB
   end
 
   subgraph Site1[Site 1 — Primary]
-    subgraph SAAP[Standby AAP — CRs parity, workloads off until DR]
+    subgraph SAAP[Primary AAP — operator CRs]
       G2[Gateway]
       C2[Controller]
       X2[Execution]
