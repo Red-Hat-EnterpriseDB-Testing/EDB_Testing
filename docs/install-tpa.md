@@ -4,6 +4,14 @@ Deploy and manage PostgreSQL using **[Trusted Postgres Architect (TPA)](https://
 
 [← Back to main README](../README.md#installation) · [TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/) · [OpenShift / operator path](install-kubernetes-manual.md) (separate from TPA)
 
+<a id="rhel-tpa-ansible"></a>
+
+## RHEL entry: Ansible on the control host (TPA)
+
+Use **[TPA](https://github.com/EnterpriseDB/tpa)** on a **control node** to configure, provision, and deploy PostgreSQL on **RHEL** (or another [TPA-supported distribution](https://www.enterprisedb.com/docs/tpa/latest/reference/distributions/)) using EDB’s recommended practices. Follow **§ Quick start** below for `tpaexec configure`, `provision`, and `deploy`, and the **[official TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/)** for topology and flags.
+
+This repository **removed** a previously bundled `edb.postgres_operations` Ansible collection; use **TPA** (or your own playbooks) for host-based Postgres automation.
+
 ## When to use TPA
 
 TPA is the **supported EDB approach** for defining, provisioning, and deploying Postgres clusters on infrastructure it drives: **bare metal**, **cloud instances (AWS, Azure, …)**, **`tpaexec`/SSH targets**, and **[Docker](https://www.enterprisedb.com/docs/tpa/latest/platform-docker/)** for lab-style testing (not production).

@@ -2,7 +2,7 @@
 
 This guide covers installing EDB Postgres on RHEL manually (repository, packages, PGD, and post-install configuration) for traditional VM-based deployments.
 
-[← Back to main README](../README.md#installation) · [Ansible installation](install-rhel-ansible.md)
+[← Back to main README](../README.md#installation) · [TPA on RHEL (recommended)](install-tpa.md#rhel-tpa-ansible)
 
 ## Prerequisites
 

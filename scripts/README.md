@@ -2,6 +2,8 @@
 
 This directory contains scripts for managing Ansible Automation Platform (AAP) clusters in both RHEL-based and OpenShift-based deployments.
 
+For a short **runbook** (when to scale, DR cautions), see **[`docs/manual-scripts-doc.md`](../docs/manual-scripts-doc.md)**.
+
 ## OpenShift Scripts
 
 ### scale-aap-down.sh
