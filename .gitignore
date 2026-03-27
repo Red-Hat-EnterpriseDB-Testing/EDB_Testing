@@ -1,0 +1,7 @@
+# Local credentials and overrides — do not commit
+.env
+.env.*
+!.env.example
+**/kubeconfig
+**/kubeconfig-*
+*.pem

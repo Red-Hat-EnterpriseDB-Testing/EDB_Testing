@@ -2,6 +2,8 @@
 
 This directory contains scripts for managing Ansible Automation Platform (AAP) clusters in both RHEL-based and OpenShift-based deployments.
 
+For a short **runbook** (when to scale, DR cautions), see **[`docs/manual-scripts-doc.md`](../docs/manual-scripts-doc.md)**.
+
 ## OpenShift Scripts
 
 ### scale-aap-down.sh
@@ -449,7 +451,7 @@ sudo chmod +x /usr/edb/efm-4.x/bin/efm-*.sh
 sudo mkdir -p /var/lib/efm/.kube
 
 # Copy kubeconfig
-sudo cp ~/.kube/chadsnoconfig /var/lib/efm/.kube/config
+sudo cp /path/to/your/kubeconfig /var/lib/efm/.kube/config
 
 # Set ownership
 sudo chown -R efm:efm /var/lib/efm/.kube

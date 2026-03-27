@@ -1,0 +1,15 @@
+# Overlay: StorageClass topolvm-provisioner (common default on CRC-style clusters).
+# kubectl/oc apply -k cannot load ../../base (load restrictor). Build then apply — see db-deploy/README.md
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: Cluster
+      name: demo-pg
+      namespace: edb-pg-demo
+    patch: |-
+      - op: add
+        path: /spec/storage/storageClass
+        value: topolvm-provisioner

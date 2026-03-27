@@ -2,7 +2,7 @@
 
 Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (`demo-postgres`, storage class, passwords) with your own values.
 
-[← Manual install guide](install-kubernetes-manual.md) · [Kustomize manifests (`deploy/`)](../deploy/README.md)
+[← Manual install guide](install-kubernetes-manual.md) · [Kustomize manifests (`db-deploy/`)](../db-deploy/README.md)
 
 ## Prerequisites
 

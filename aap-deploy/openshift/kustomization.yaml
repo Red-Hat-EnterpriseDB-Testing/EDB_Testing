@@ -1,0 +1,7 @@
+# Apply operator subscription first; wait for CSV Succeeded, then create Postgres secrets and apply ansibleautomationplatform.yaml — see README in this folder.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - operatorgroup.yaml
+  - subscription.yaml

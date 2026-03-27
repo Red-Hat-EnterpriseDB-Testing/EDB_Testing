@@ -15,7 +15,7 @@ metadata:
   name: demo-pg
   namespace: edb-pg-demo
 spec:
-  instances: 1
+  instances: 2
   imageName: docker.enterprisedb.com/edb/edb-postgres-advanced:16
   imagePullSecrets:
     - name: edb-pull-secret

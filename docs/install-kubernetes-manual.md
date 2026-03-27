@@ -1,8 +1,22 @@
 # EDB Postgres for Kubernetes — Manual Installation
 
-This guide covers installing the EDB Postgres for Kubernetes operator and deploying clusters manually (YAML/oc apply) on OpenShift or Kubernetes.
+This guide covers installing the **EDB Postgres for Kubernetes** operator and deploying **`Cluster`** resources manually (`oc` / `kubectl`, YAML, or GitOps) on OpenShift or Kubernetes. Manifest examples use the EDB API group **`postgresql.k8s.enterprisedb.io`** (same family as CloudNativePG; confirm exact `apiVersion`/`kind` for your installed operator).
 
-[← Back to main README](../README.md#installation) · [Ansible installation](install-kubernetes-ansible.md)
+[← Back to main README](../README.md#installation)
+
+<a id="ansible-gitops"></a>
+
+## Ansible and GitOps
+
+This repository does **not** ship a vendored Ansible collection for the EDB Kubernetes operator. You can apply the same objects with **`kubernetes.core.k8s`**, **`kubernetes.core.k8s_info`**, or `oc`/`kubectl` from **your** playbooks or **Ansible Automation Platform**, using an execution environment that includes `kubernetes.core` and a valid kubeconfig.
+
+Suggested automation flow:
+
+1. **Install the operator** — [§1](#1-install-the-edb-postgres-for-openshift-operator) below, or Kustomize: [`db-deploy/operator`](../db-deploy/README.md#install-operator).
+2. **Apply `Cluster` and related CRs** — [§2](#2-deploy-a-postgresql-cluster-manual); samples: [`db-deploy/sample-cluster/`](../db-deploy/README.md#apply-sample-cluster).
+3. **Passive streaming replica across clusters** — [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md).
+
+For **Postgres on hosts** (VMs / bare metal), use **[TPA](install-tpa.md)** — not the in-cluster operator. For execution environments tailored to TPA, see the [TPA repo `tpa-ee/`](https://github.com/EnterpriseDB/tpa/tree/main/tpa-ee).
 
 ## Prerequisites
 
@@ -42,7 +56,7 @@ If you already created this secret under another name in that namespace, referen
 Create a cluster definition file:
 
 ```yaml
-apiVersion: postgresql.cnpg.io/v1
+apiVersion: postgresql.k8s.enterprisedb.io/v1
 kind: Cluster
 metadata:
   name: postgres-cluster
@@ -52,16 +66,13 @@ spec:
   imageName: docker.enterprisedb.com/edb/edb-postgres-advanced:16
   imagePullSecrets:
     - name: edb-pull-secret
-  
   postgresql:
     parameters:
       max_connections: "1500"
       shared_buffers: "256MB"
-  
   storage:
     size: 100Gi
     storageClass: gp3
-  
   backup:
     barmanObjectStore:
       destinationPath: s3://my-backup-bucket/
@@ -95,7 +106,8 @@ oc get pods -n production
 
 ## Quick start resources
 
-- **Git-ready manifests (Kustomize)**: [deploy/README.md](../deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `deploy/sample-cluster/`
+- **Git-ready manifests (Kustomize)**: [db-deploy/README.md](../db-deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `db-deploy/sample-cluster/`
+- **Cross-cluster passive replica (anonymized placeholders)**: [db-deploy/cross-cluster/README.md](../db-deploy/cross-cluster/README.md) — Route + TLS secret sync + replica `Cluster` between two kube contexts
 - **OpenShift smoke test (anonymized)**: [openshift-edb-operator-smoke-test.md](openshift-edb-operator-smoke-test.md) — operator install, SCC, demo `Cluster`, verification (`KUBECONFIG` example: `${HOME}/kube.kubeconfig`)
 - **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
