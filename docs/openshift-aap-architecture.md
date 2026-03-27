@@ -7,7 +7,7 @@ This page summarizes how **AAP** is positioned on **OpenShift** in this reposito
 ## Topology (summary)
 
 - **One AAP footprint per OpenShift cluster** you treat as a site (typical namespace: `ansible-automation-platform`).
-- **Postgres for AAP workloads** can be the **EDB Postgres for Kubernetes** `Cluster` (e.g. `demo-pg` in `edb-pg-demo`) or another supported external database per Red Hat guidance.
+- **Postgres for AAP workloads** can be the **EDB Postgres for Kubernetes** `Cluster` (e.g. `edb-pg` in `edb-pg`) or another supported external database per Red Hat guidance.
 - **Active / passive between sites**: only one site should run production AAP against the **read-write** database primary; the other site keeps **workloads off** or scaled down until DR.
 
 ## Day-0 install (this repo)
@@ -24,5 +24,6 @@ This page summarizes how **AAP** is positioned on **OpenShift** in this reposito
 
 - Scale AAP on the standby site: **[`scripts/README.md`](../scripts/README.md)** (e.g. `scale-aap-down.sh` / `scale-aap-up.sh`) and **[`docs/manual-scripts-doc.md`](manual-scripts-doc.md)** (short runbook).
 - Failover orchestration with EDB **EFM** and custom hooks: **[`docs/enterprisefailovermanager.md`](enterprisefailovermanager.md)**.
+- You must have the same execution nodes if you try and add different ones you will have conflict with mesh
 
 Product-specific sizing, routes, and licensing remain in **Red Hat AAP 2.6 OpenShift documentation**.
