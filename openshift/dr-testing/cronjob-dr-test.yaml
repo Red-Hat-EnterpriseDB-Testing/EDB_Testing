@@ -44,10 +44,10 @@ spec:
 
               env:
                 - name: DC1_CONTEXT
-              valueFrom:
-                configMapKeyRef:
-                  name: dr-test-config
-                  key: dc1-context
+                  valueFrom:
+                    configMapKeyRef:
+                      name: dr-test-config
+                      key: dc1-context
 
                 - name: DC2_CONTEXT
                   valueFrom:
