@@ -9,8 +9,8 @@
 #     only RWO; use a suitable class (NFS, ODF, etc.) or the install may fail on Hub PVC.
 #
 # Usage:
-#   export AAP_DB_PASSWORD='your-strong-password'   # no ', ", or \ in the password
-#   export HUB_STORAGE_CLASS='your-rwx-storageclass' # required on most clusters
+#   export AAP_DB_PASSWORD=<your-password-here>     # no ', ", or \ in the password
+#   export HUB_STORAGE_CLASS=<your-rwx-storageclass> # required on most clusters
 #   ./deploy-aap-lab-external-pg.sh
 #
 # Optional env:

@@ -39,40 +39,40 @@ spec:
           restartPolicy: Never
 
           containers:
-          - name: dr-test
-            image: registry.redhat.io/openshift4/ose-cli:latest
+            - name: dr-test
+              image: registry.redhat.io/openshift4/ose-cli:latest
 
-            env:
-            - name: DC1_CONTEXT
+              env:
+                - name: DC1_CONTEXT
               valueFrom:
                 configMapKeyRef:
                   name: dr-test-config
                   key: dc1-context
 
-            - name: DC2_CONTEXT
-              valueFrom:
-                configMapKeyRef:
-                  name: dr-test-config
-                  key: dc2-context
+                - name: DC2_CONTEXT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: dr-test-config
+                      key: dc2-context
 
-            - name: SLACK_WEBHOOK_URL
-              valueFrom:
-                secretKeyRef:
-                  name: dr-test-secrets
-                  key: slack-webhook-url
-                  optional: true
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: dr-test-secrets
+                      key: slack-webhook-url
+                      optional: true
 
-            - name: PAGERDUTY_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: dr-test-secrets
-                  key: pagerduty-token
-                  optional: true
+                - name: PAGERDUTY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: dr-test-secrets
+                      key: pagerduty-token
+                      optional: true
 
-            command:
-            - /bin/bash
-            - -c
-            - |
+              command:
+                - /bin/bash
+                - -c
+                - |
               set -e
 
               echo "============================================="
@@ -145,18 +145,18 @@ spec:
               echo "Test complete with exit code: $TEST_EXIT_CODE"
               exit $TEST_EXIT_CODE
 
-            volumeMounts:
-            - name: scripts
-              mountPath: /scripts
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
 
-            - name: test-results
-              mountPath: /tmp/dr-test-results
+                - name: test-results
+                  mountPath: /tmp/dr-test-results
 
-            - name: kubeconfig
-              mountPath: /root/.kube
-              readOnly: true
+                - name: kubeconfig
+                  mountPath: /root/.kube
+                  readOnly: true
 
-            resources:
+              resources:
               requests:
                 cpu: 100m
                 memory: 256Mi
@@ -165,16 +165,16 @@ spec:
                 memory: 512Mi
 
           volumes:
-          - name: scripts
-            configMap:
-              name: dr-test-scripts
-              defaultMode: 0755
+            - name: scripts
+              configMap:
+                name: dr-test-scripts
+                defaultMode: 0755
 
-          - name: test-results
-            persistentVolumeClaim:
-              claimName: dr-test-results-pvc
+            - name: test-results
+              persistentVolumeClaim:
+                claimName: dr-test-results-pvc
 
-          - name: kubeconfig
-            secret:
-              secretName: dr-test-kubeconfig
-              defaultMode: 0600
+            - name: kubeconfig
+              secret:
+                secretName: dr-test-kubeconfig
+                defaultMode: 0600

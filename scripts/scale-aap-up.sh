@@ -92,7 +92,7 @@ if [ "$IN_RECOVERY" = "t" ]; then
     echo "ACTION REQUIRED:"
     echo "  1. Verify this is the correct datacenter/cluster"
     echo "  2. If failover is needed, promote this replica to primary first:"
-    echo "     oc annotate cluster $DB_CLUSTER -n $DB_NAMESPACE --overwrite \\
+    echo "     oc annotate cluster $DB_CLUSTER -n $DB_NAMESPACE --overwrite \\"
     echo "       cnpg.io/reconciliationLoop=disabled"
     echo "  3. Then re-run this script"
     echo ""

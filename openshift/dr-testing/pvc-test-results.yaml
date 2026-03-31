@@ -9,8 +9,7 @@ metadata:
     component: storage
 spec:
   accessModes:
-  - ReadWriteOnce
-
+    - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi

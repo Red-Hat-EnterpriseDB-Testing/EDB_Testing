@@ -121,9 +121,9 @@ get_aap_token() {
 # Function: Call AAP API
 call_aap_api() {
     local endpoint="$1"
-    local token="$2"
+    local auth_token="$2"
 
-    curl -k -s -H "Authorization: Bearer $token" \
+    curl -k -s -H "Authorization: Bearer $auth_token" \
         "$AAP_URL/api/v2/$endpoint" 2>/dev/null || echo "{}"
 }
 
