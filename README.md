@@ -8,50 +8,49 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Quick Links](#quick-links)
 - [Installation](#installation)
-  - [RHEL / hosts — Trusted Postgres Architect (TPA) (recommended)](docs/install-tpa.md)
-  - [OpenShift — EDB operator & manual](docs/install-kubernetes-manual.md)
-  - [OpenShift — Kustomize manifests (`db-deploy/`)](db-deploy/README.md)
-  - [OpenShift — AAP operator with external Postgres (`aap-deploy/`)](aap-deploy/README.md)
-  - [RHEL manual installation](docs/install-rhel-manual.md)
-  - [OpenShift manual installation](docs/install-kubernetes-manual.md)
 - [Architecture](#architecture)
-- [Component Details](#component-details)
-  - [Global Load Balancer](#global-load-balancer)
-  - [Ansible Automation Platform (AAP)](#ansible-automation-platform-aap)
-- [Network Connectivity](#network-connectivity)
-  - [User to AAP (via Global Load Balancer)](#user-to-aap-via-global-load-balancer)
-  - [AAP to PostgreSQL Databases](#aap-to-postgresql-databases)
-  - [Inter-Datacenter Replication](#inter-datacenter-replication)
-  - [Write Operations (Normal State)](#write-operations-normal-state)
-  - [Read Operations](#read-operations)
-  - [Backup Flow](#backup-flow)
-- [AAP Deployment Architecture](#aap-deployment-architecture)
-  - [RHEL AAP Architecture](docs/rhel-aap-architecture.md)
-  - [OpenShift AAP Architecture](docs/openshift-aap-architecture.md)
-- [AAP Cluster Management](#aap-cluster-management)
-  - [Integration with EDB EFM (Enterprise Failover Manager)](#integration-with-edb-efm-enterprise-failover-manager)
-- [AAP cluster management — runbook](docs/manual-scripts-doc.md)
-  - [AAP cluster scripts (`scripts/README.md`)](scripts/README.md)
-- [EFM Integration (EDB Failover Manager)](docs/enterprisefailovermanager.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
-  - [Full scenarios doc](docs/dr-scenarios.md)
-- [Scaling Considerations](#scaling-considerations)
-  - [Horizontal & vertical scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations)
-- [EDB Postgres on OpenShift Architecture](docs/install-kubernetes-manual.md#edb-postgres-on-openshift-architecture)
+- [Operations](#operations)
+- [Contributing](#contributing)
 
 ## Overview
 
-This document describes the architecture of EnterpriseDB Postgres deployed Active/Passive
-across two clusters in different datacenters with in datacenter replication for the
-Ansible Automation Platform (AAP). This will achieve a **NEAR** HA type architecture,
-especially for failover to the databases syncing in region/datacenter.
+This repository provides a complete solution for deploying Ansible Automation Platform (AAP) with
+EnterpriseDB PostgreSQL in a multi-datacenter Active/Passive configuration. The architecture
+achieves **near-HA** with automatic failover within datacenters and orchestrated failover across
+datacenters.
 
-A DR scenario should be exactly for if there is a catastrophic failure. Failing to an
-in-site database should cause little to no intervention needed at the application layer.
-The main thing to note is for a DR failover any running jobs will be lost, however if
-it fails in site, the jobs should continue to run UNLESS the controller has a failure.
+**Key Features:**
+- ✅ **Multi-datacenter HA/DR** - Active-Passive across two datacenters
+- ✅ **Automatic failover** - In-datacenter failover <1 minute
+- ✅ **PostgreSQL replication** - Physical streaming + WAL archiving
+- ✅ **AAP orchestration** - Automated scaling during failover
+- ✅ **Comprehensive testing** - Automated DR testing framework
+- ✅ **Production-ready** - Security, monitoring, backup strategies
+
+**Target RTO/RPO:**
+- **In-datacenter failover:** RTO <1 minute, RPO <5 seconds
+- **Cross-datacenter failover:** RTO <5 minutes, RPO <5 seconds
+
+## Quick Links
+
+### Getting Started
+- **[🚀 Quick Start Guide](docs/quick-start-guide.md)** - Deploy in 15-30 minutes
+- **[📚 Documentation Index](docs/INDEX.md)** - Complete documentation organized by topic
+- **[🏗️ Architecture Details](docs/architecture.md)** - Comprehensive architecture documentation
+
+### Deployment
+- **[OpenShift Deployment](docs/install-kubernetes-manual.md)** - Operator-based deployment
+- **[RHEL with TPA](docs/install-tpa.md)** - Automated deployment with Trusted Postgres Architect
+- **[Database Deploy (Kustomize)](db-deploy/README.md)** - GitOps-friendly manifests
+- **[AAP Deploy (Kustomize)](aap-deploy/README.md)** - AAP operator deployment
+
+### Operations
+- **[Operations Runbook](docs/manual-scripts-doc.md)** - Day-to-day operational procedures
+- **[Scripts Reference](scripts/README.md)** - All automation scripts documented
+- **[DR Testing Guide](docs/dr-testing-guide.md)** - Complete DR testing framework
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ## Installation
 
@@ -61,6 +60,16 @@ from EnterpriseDB for Postgres on **bare metal, cloud instances, or SSH-managed 
 
 TPA does **not** deploy the **EDB Postgres on OpenShift** operator; for Postgres **on OpenShift
 as pods**, use the operator and manual/GitOps steps in this repo.
+
+### Installation Quick Reference
+
+| Platform | Time | Guide |
+|----------|------|-------|
+| **OpenShift** | 15 min | [Quick Start - OpenShift](docs/quick-start-guide.md#quick-start-openshift-15-minutes) |
+| **RHEL with TPA** | 20 min | [Quick Start - RHEL](docs/quick-start-guide.md#quick-start-rhel-with-tpa-20-minutes) |
+| **Local CRC** | 30 min | [Quick Start - CRC](docs/quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes) |
+
+### Detailed Installation Guides
 
 | Area | Description | Guide |
 |------|-------------|--------|
@@ -74,147 +83,123 @@ as pods**, use the operator and manual/GitOps steps in this repo.
 | **Troubleshooting** | Diagnostics and issue resolution | [Troubleshooting](docs/troubleshooting.md) |
 | **AAP cluster scripts & runbook** | Automation and operational procedures | [Scripts](scripts/README.md)<br>[Runbook](docs/manual-scripts-doc.md) |
 
-## Architecture 
+## Architecture
+
+### Architecture Overview
+
+The solution implements a **multi-datacenter Active/Passive architecture** with:
+
+- **Two datacenters:** DC1 (active), DC2 (passive/DR)
+- **PostgreSQL replication:** Physical streaming replication + WAL archiving to S3
+- **AAP deployment:** Separate clusters in each datacenter, scaled based on active/passive state
+- **Failover orchestration:** EDB Failover Manager (EFM) integration with AAP scaling scripts
+- **Global load balancer:** Routes traffic to active datacenter
 
 ![EDB Postgres Multi-Datacenter Architecture](images/AAP_EDB.drawio.png)
 
-## Component Details
+### Key Components
 
-### Global Load Balancer
+1. **Global Load Balancer** - Single entry point with health check-based routing
+2. **Ansible Automation Platform (AAP)** - Deployed in both datacenters
+3. **PostgreSQL Clusters** - EDB Postgres Advanced with CloudNativePG operator
+4. **Replication** - Streaming replication DC1→DC2 with S3 WAL archive fallback
+5. **Backup** - Barman Cloud to S3 with 30-day retention and PITR capability
 
-The global load balancer provides a single entry point for AAP access:
+### Architecture Documentation
 
-- **DNS**: `aap.example.com`
-- **Type**: Active-Passive (DC1 primary, DC2 standby)
-- **Health Checks**: Monitors AAP Controller availability in both datacenters
-- **Failover**: Automatic failover to DC2 if DC1 becomes unavailable
-- **Routing**: Priority-based routing (100% traffic to DC1 when healthy)
-- **Failback**: Automatic or manual failback to DC1 when it recovers
-- **Protocols**: HTTPS (port 443), WebSocket support for real-time job updates
+**📖 [Complete Architecture Documentation](docs/architecture.md)**
 
-### Ansible Automation Platform (AAP)
+Detailed documentation includes:
+- Component details (GLB, AAP, PostgreSQL)
+- Network connectivity and data flow
+- Replication topology and configuration
+- Backup and restore strategies
+- Scaling considerations
+- Deployment architecture for RHEL and OpenShift
 
-**Operator install with external EDB Postgres** (sample namespace / cluster: `edb-postgres` / `postgresql`):
-- See **[`aap-deploy/README.md`](aap-deploy/README.md)** (overview)
-- See **[`aap-deploy/openshift/README.md`](aap-deploy/openshift/README.md)** (subscription + `AnsibleAutomationPlatform` CR)
+**Platform-Specific Architecture:**
+- **[RHEL AAP Architecture](docs/rhel-aap-architecture.md)** - Systemd services, HAProxy, manual orchestration
+- **[OpenShift AAP Architecture](docs/openshift-aap-architecture.md)** - Operators, native services, automated orchestration
 
-For OpenShift, AAP is deployed on **separate OpenShift clusters** for high availability and
-geographic distribution. For RHEL you can do a single install across datacenters however you
-**MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
+## Operations
 
-#### Datacenter 1 - AAP Instance
-- **Namespace**: `ansible-automation-platform`
-- **AAP Gateway**: 3 replicas for HA
-- **AAP Controller**: 3 replicas for HA
-- **Automation Hub**: 2 replicas
-- **Database**: PostgreSQL cluster (1 primary + 2 replicas) managed by EDB operator
-- **Route**: `aap-dc1.apps.ocp1.example.com`
+### Day-to-Day Operations
 
-#### Datacenter 2 - AAP Instance (scaled down)
-- **Namespace**: `ansible-automation-platform`
-- **AAP Gateway**: 3 replicas for HA
-- **AAP Controller**: 3 replicas for HA
-- **Automation Hub**: 2 replicas  
-- **Database**: PostgreSQL cluster (1 primary + 2 replicas) managed by EDB operator
-- **Route**: `aap-dc2.apps.ocp2.example.com`
+- **[Operations Runbook](docs/manual-scripts-doc.md)** - Step-by-step operational procedures
+- **[Script Reference](scripts/README.md)** - All automation scripts with usage examples
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and diagnostics
 
-#### AAP Database Replication
+### Disaster Recovery
 
-The AAP databases are replicated from active to passive datacenter:
-- **Method**: PostgreSQL logical replication (Active → Passive) - *Note: AAP's internal database uses logical replication for flexibility*
-- **Direction**: DC1 (Active) → DC2 (Passive)
-- **Mode**: Asynchronous replication with minimal lag
-- **Shared Data**: Job templates, inventory, credentials, execution history
-- **Failover**: DC2 database promoted to read-write during failover
-- **Failback**: Data synchronized back to DC1 when it recovers
+- **[DR Scenarios](docs/dr-scenarios.md)** - 6 documented failure scenarios with procedures
+- **[DR Testing Guide](docs/dr-testing-guide.md)** - Complete testing framework with quarterly drills
+- **[Split-Brain Prevention](docs/split-brain-prevention.md)** - Database role validation and fencing
+- **[EDB Failover Manager](docs/enterprisefailovermanager.md)** - EFM integration and configuration
 
-#### EDB-Managed PostgreSQL Cluster Replication
+### Automation Scripts
 
-EDB-managed application database clusters use physical replication:
-- **Method**: PostgreSQL physical replication via streaming replication and WAL shipping
-- **Primary Method**: Streaming replication from Primary to Designated Primary
-- **Fallback Method**: WAL shipping via S3/object store (continuous WAL archiving)
-- **Within Cluster**: Hot standby replicas use streaming replication from primary/designated primary
-- **Mode**: Asynchronous streaming with optional synchronous mode
-- **Benefits**: Block-level replication, faster failover, exact byte-for-byte replica
+Located in [`scripts/`](scripts/):
 
-## Network Connectivity
+**AAP Management:**
+- `scale-aap-up.sh` - Scale AAP to operational state
+- `scale-aap-down.sh` - Scale AAP to zero (maintenance/DR)
 
-### User to AAP (via Global Load Balancer)
+**DR Orchestration:**
+- `efm-orchestrated-failover.sh` - Full automated failover
+- `dr-failover-test.sh` - DR testing automation
+- `validate-aap-data.sh` - Post-failover validation
+- `measure-rto-rpo.sh` - RTO/RPO measurement
+- `generate-dr-report.sh` - Automated DR test reporting
 
-Users and automation clients connect to AAP through the global load balancer:
-- **URL**: `https://aap.example.com`
-- **Protocol**: HTTPS/443 with WebSocket support
-- **Load Balancing**: Active-Passive (priority-based)
-- **Active Target**: DC1 AAP (100% traffic when healthy)
-- **Passive Target**: DC2 AAP (standby, only receives traffic during failover)
-- **Health Checks**: Layer 7 health checks to AAP Controller endpoints
-- **Session Affinity**: Sticky sessions for long-running jobs
-- **TLS Termination**: At load balancer or end-to-end encryption
+**Pre-commit Hooks:**
+- `hooks/check-script-permissions.sh` - Verify executable permissions
+- `hooks/validate-openshift-manifests.sh` - Validate YAML manifests
 
-### AAP to PostgreSQL Databases
+## Contributing
 
-AAP can only talk to one Read Write(RW) database at a time:
-- **Protocol**: PostgreSQL wire protocol (port 5432)
-- **Access**: Via OpenShift Services (ClusterIP within cluster, Routes/LoadBalancer for remote)
-- **Authentication**: Certificate-based or password authentication
-- **Encryption**: TLS/SSL enforced
-- **Connection Pooling**: PgBouncer for efficient connection management
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
-### Inter-Datacenter Replication
+- Documentation standards
+- Code standards (shell scripts, YAML)
+- Testing requirements
+- Pull request process
+- Commit message guidelines
 
-#### EDB-Managed Application Database Replication
-- **Method**: PostgreSQL physical replication (streaming + WAL shipping)
-- **Primary Mechanism**: Streaming replication from Primary to Designated Secondaries
-- **Fallback Mechanism**: WAL shipping via S3/object store
-- **Direction**: DC1 (Primary Cluster) → DC2 (Replica Cluster)
-- **Network**: Encrypted tunnel (VPN/Direct Connect/WAN) for streaming replication
-- **Replication Type**: Asynchronous (default) or synchronous (configurable)
-- **Lag Monitoring**: Both AAP instances monitor replication lag via EDB operator metrics
-- **Alerting**: Alerts triggered if lag exceeds threshold (e.g., 30 seconds)
-- **Automatic Service Updates**: EDB operator automatically updates `-rw` service during failover
-- **Cross-Cluster Limitation**: Automated failover across OpenShift clusters must be handled externally (via AAP or higher-level orchestration)
+### Documentation
 
-### Write Operations (Normal State)
+All documentation is in [`docs/`](docs/):
 
-**For EDB-Managed Application Databases:**
-1. Application → AAP Controller
-2. AAP Controller → DC1 Primary Database (via `-rw` service)
-3. DC1 Primary → DC1 Hot Standby Replicas (streaming replication within cluster)
-4. DC1 Primary → DC2 Designated Primary (streaming replication across clusters)
-5. DC1 Primary → S3/Object Store (continuous WAL archiving - fallback)
-6. DC2 Designated Primary → DC2 Hot Standby Replicas (streaming replication within cluster)
+- **[Documentation Index](docs/INDEX.md)** - Complete documentation organized by topic
+- **[Quick Start Guide](docs/quick-start-guide.md)** - 15-30 minute deployment paths
+- **[Architecture](docs/architecture.md)** - Comprehensive architecture documentation
 
-### Read Operations
+### Repository Structure
 
-**EDB-Managed Clusters:**
-- **DC1 Primary Cluster**: 
-  - Write operations via `prod-db-rw` service (routes to primary)
-  - Read operations via `prod-db-ro` service (routes to hot standby replicas)
-  - Read operations via `prod-db-r` service (routes to any instance)
-- **DC2 Replica Cluster**: 
-  - Read operations only via `prod-db-replica-ro` service (routes to designated primary or replicas)
-  - Cannot accept writes unless promoted
-- **Load Balancing**: EDB operator manages service routing automatically
+```
+EDB_Testing/
+├── docs/                    # All documentation
+│   ├── INDEX.md            # Documentation index
+│   ├── quick-start-guide.md # Quick start (15-30 min)
+│   ├── architecture.md     # Architecture details
+│   ├── dr-testing-guide.md # DR testing framework
+│   └── ...                 # Additional guides
+├── db-deploy/              # PostgreSQL deployment manifests
+│   ├── operator/           # CloudNativePG operator
+│   ├── sample-cluster/     # Base cluster manifests
+│   └── cross-cluster/      # DC1→DC2 replication
+├── aap-deploy/             # AAP deployment
+│   ├── openshift/          # OpenShift manifests
+│   └── edb-bootstrap/      # Database initialization
+├── scripts/                # Automation scripts
+│   ├── scale-aap-*.sh      # AAP scaling
+│   ├── dr-*.sh             # DR orchestration
+│   └── validate-*.sh       # Validation scripts
+├── openshift/              # OpenShift-specific configs
+│   └── dr-testing/         # DR testing CronJob
+└── .github/                # CI/CD workflows
+    └── workflows/          # GitHub Actions
+```
 
-**Service Behavior During Failover:**
-- EDB operator automatically updates `-rw` service to point to newly promoted primary
-- Applications experience seamless redirection without connection string changes
+---
 
-### Backup Flow
-
-**EDB-Managed PostgreSQL Backups:**
-1. Scheduled backup job (initiated by AAP or CronJob via EDB operator)
-2. Backup pod created by EDB operator
-3. Database backup streamed to S3/object store (using Barman Cloud)
-4. WAL files continuously archived to S3 (automatic by EDB operator)
-5. WAL archiving serves dual purpose:
-   - Point-in-time recovery (PITR)
-   - Fallback replication mechanism for replica clusters
-6. Replica clusters can recover from WAL archive if streaming replication fails
-7. AAP monitors backup completion via operator metrics
-8. Alerts sent if backup fails
-
-**Backup Strategy per Datacenter:**
-- **DC1**: Full backups + continuous WAL archiving to S3 bucket (primary region)
-- **DC2**: Independent backups to separate S3 bucket (DR region) for redundancy
+**Questions?** See [docs/INDEX.md](docs/INDEX.md) for complete documentation or open an issue.

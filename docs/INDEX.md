@@ -52,16 +52,27 @@
 
 **Understanding the system:**
 
-- **[Main Architecture](../README.md#architecture)** - High-level overview with diagram
-- **[RHEL AAP Architecture](rhel-aap-architecture.md)** - AAP on RHEL with systemd services
-- **[OpenShift AAP Architecture](openshift-aap-architecture.md)** - AAP on OpenShift with operator
+| Document | Description | Read Time |
+|----------|-------------|-----------|
+| **[Architecture Overview](architecture.md)** ⭐ **COMPREHENSIVE** | Complete architecture documentation | 45 min |
+| **[Main README Architecture](../README.md#architecture)** | High-level overview with diagram | 5 min |
+| **[RHEL AAP Architecture](rhel-aap-architecture.md)** | AAP on RHEL with systemd services | 10 min |
+| **[OpenShift AAP Architecture](openshift-aap-architecture.md)** | AAP on OpenShift with operator | 10 min |
+
+**[Architecture Overview](architecture.md)** covers:
+- Component details (GLB, AAP, PostgreSQL clusters)
+- Network connectivity and data flow (writes, reads, backups)
+- Replication topology (streaming + WAL archiving)
+- Datacenter configurations (DC1 active, DC2 passive)
+- Scaling strategies (horizontal, vertical, geographic)
+- Backup and restore architecture
 
 **Architecture Decisions:**
 - Active-Passive topology (DC1 primary, DC2 standby)
-- Physical streaming replication + WAL archiving
-- CloudNativePG operator for database lifecycle
-- EDB Failover Manager (EFM) for automated failover
-- Global Load Balancer for traffic management
+- Physical streaming replication + WAL archiving to S3
+- CloudNativePG operator for database lifecycle management
+- EDB Failover Manager (EFM) for automated database failover
+- Global Load Balancer for traffic management and health-based routing
 
 ---
 
