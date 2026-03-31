@@ -1,5 +1,7 @@
 # AAP with EDB Postgres Multi-Datacenter Architecture
 
+**📚 [Complete Documentation Index](docs/INDEX.md)** - Navigate all documentation by topic, deployment type, or audience
+
 ## Table of Contents
 
 - [Overview](#overview)
