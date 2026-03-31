@@ -92,28 +92,45 @@ git clone https://github.com/Red-Hat-EnterpriseDB-Testing/EDB_Testing.git
 cd EDB_Testing
 ```
 
-### Step 2: Deploy EDB Postgres Operator (2 minutes)
+### Step 2: (Optional) Create EDB Registry Pull Secret
+
+**Only required if using EDB subscription images from `docker.enterprisedb.com`**
 
 ```bash
-# Deploy CloudNativePG operator
-oc apply -k db-deploy/operator/
+# Create pull secret for EDB registry
+oc create secret docker-registry edb-pull-secret \
+  --docker-server=docker.enterprisedb.com \
+  --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
+  --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
+  -n edb-postgres
+```
+
+**Note:** This quick start uses the community CloudNativePG operator image, so this step is optional. However, if you plan to use EDB Postgres Advanced images (see [`db-deploy/sample-cluster/base/cluster-edb-registry.yaml`](../db-deploy/sample-cluster/base/cluster-edb-registry.yaml)), you'll need this pull secret.
+
+### Step 3: Deploy EDB Postgres Operator (2 minutes)
+
+```bash
+# Deploy CloudNativePG operator with server-side apply for large CRDs
+oc apply --server-side --force-conflicts -k db-deploy/operator/
 
 # Wait for operator to be ready
 oc wait --for=condition=Ready pod \
   -l app.kubernetes.io/name=cloudnativepg \
-  -n cnpg-system \
+  -n postgresql-operator-system \
   --timeout=120s
 ```
 
 **Expected output:**
 ```
-namespace/cnpg-system created
-customresourcedefinition.apiextensions.k8s.io/clusters.postgresql.cnpg.io created
-deployment.apps/cnpg-controller-manager created
-pod/cnpg-controller-manager-xxxxxxxxx-xxxxx condition met
+namespace/postgresql-operator-system created
+customresourcedefinition.apiextensions.k8s.io/clusters.postgresql.k8s.enterprisedb.io created
+deployment.apps/postgresql-operator-controller-manager created
+pod/postgresql-operator-controller-manager-xxxxxxxxx-xxxxx condition met
 ```
 
-### Step 3: Deploy PostgreSQL Cluster (5 minutes)
+**Note:** The `--server-side --force-conflicts` flags are required because the CRDs are large and may exceed annotation size limits.
+
+### Step 4: Deploy PostgreSQL Cluster (5 minutes)
 
 ```bash
 # Create namespace and cluster
@@ -133,7 +150,7 @@ postgresql   3m    2           2       Cluster in healthy state   postgresql-1
 
 Press `Ctrl+C` when `READY` shows `2`.
 
-### Step 4: Verify PostgreSQL (2 minutes)
+### Step 5: Verify PostgreSQL (2 minutes)
 
 ```bash
 # Check cluster status
@@ -146,7 +163,7 @@ oc exec -n edb-postgres postgresql-1 -- \
 
 **Expected:** PostgreSQL version output showing EDB Postgres Advanced.
 
-### Step 5: Deploy AAP (5 minutes)
+### Step 6: Deploy AAP (5 minutes)
 
 ```bash
 # Set required environment variables
@@ -168,7 +185,7 @@ cd aap-deploy/openshift
 oc get pods -n ansible-automation-platform -w
 ```
 
-### Step 6: Access AAP (1 minute)
+### Step 7: Access AAP (1 minute)
 
 ```bash
 # Get AAP route
@@ -342,13 +359,20 @@ cd EDB_Testing
 eval $(crc oc-env)
 oc login -u kubeadmin https://api.crc.testing:6443
 
-# Deploy operator
-oc apply -k db-deploy/operator/
+# (Optional) Create EDB pull secret if using EDB images
+# oc create secret docker-registry edb-pull-secret \
+#   --docker-server=docker.enterprisedb.com \
+#   --docker-username='YOUR_EDB_SUBSCRIPTION_USER' \
+#   --docker-password='YOUR_EDB_TOKEN_OR_PASSWORD' \
+#   -n edb-postgres
+
+# Deploy operator with server-side apply for large CRDs
+oc apply --server-side --force-conflicts -k db-deploy/operator/
 
 # Wait for operator
 oc wait --for=condition=Ready pod \
   -l app.kubernetes.io/name=cloudnativepg \
-  -n cnpg-system \
+  -n postgresql-operator-system \
   --timeout=300s
 
 # Deploy cluster (use CRC storage class)
@@ -677,7 +701,7 @@ Before going to production, complete:
 oc describe pod postgresql-1 -n edb-postgres
 
 # Check operator logs
-oc logs -n cnpg-system -l app.kubernetes.io/name=cloudnativepg --tail=100
+oc logs -n postgresql-operator-system -l app.kubernetes.io/name=cloudnativepg --tail=100
 ```
 
 **Common causes:**
