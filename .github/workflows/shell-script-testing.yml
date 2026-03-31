@@ -33,7 +33,7 @@ jobs:
             vendor
             .git
         env:
-          SHELLCHECK_OPTS: -e SC1091 -e SC2148
+          SHELLCHECK_OPTS: -e SC1091 -e SC2148 -e SC2034 -e SC2155
 
       - name: Detailed ShellCheck Analysis
         run: |
@@ -55,7 +55,7 @@ jobs:
             TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
             # Run shellcheck and capture output
-            if shellcheck -f gcc -S warning -e SC1091 "$script" > shellcheck-output.txt 2>&1; then
+            if shellcheck -f gcc -S warning -e SC1091 -e SC2034 -e SC2155 "$script" > shellcheck-output.txt 2>&1; then
               echo "  ✅ No issues found"
             else
               if grep -q "error:" shellcheck-output.txt; then

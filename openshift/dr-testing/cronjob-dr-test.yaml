@@ -73,77 +73,77 @@ spec:
                 - /bin/bash
                 - -c
                 - |
-              set -e
+                  set -e
 
-              echo "============================================="
-              echo "Automated DR Test - Quarterly Drill"
-              echo "============================================="
-              echo "Start: $(date)"
-              echo ""
+                  echo "============================================="
+                  echo "Automated DR Test - Quarterly Drill"
+                  echo "============================================="
+                  echo "Start: $(date)"
+                  echo ""
 
-              # Generate test ID
-              TEST_ID="auto-dr-test-$(date +%Y%m%d-%H%M%S)"
+                  # Generate test ID
+                  TEST_ID="auto-dr-test-$(date +%Y%m%d-%H%M%S)"
 
-              # Send start notification
-              if [ -n "$SLACK_WEBHOOK_URL" ]; then
-                curl -X POST "$SLACK_WEBHOOK_URL" \
-                  -H 'Content-Type: application/json' \
-                  -d "{\"text\":\"🧪 DR Test Started: $TEST_ID\"}" || true
-              fi
+                  # Send start notification
+                  if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                    curl -X POST "$SLACK_WEBHOOK_URL" \
+                      -H 'Content-Type: application/json' \
+                      -d "{\"text\":\"🧪 DR Test Started: $TEST_ID\"}" || true
+                  fi
 
-              # Run DR test
-              /scripts/dr-failover-test.sh \
-                --test-id "$TEST_ID" \
-                --dc1-context "$DC1_CONTEXT" \
-                --dc2-context "$DC2_CONTEXT" \
-                --skip-failback \
-                2>&1 | tee /tmp/dr-test.log
+                  # Run DR test
+                  /scripts/dr-failover-test.sh \
+                    --test-id "$TEST_ID" \
+                    --dc1-context "$DC1_CONTEXT" \
+                    --dc2-context "$DC2_CONTEXT" \
+                    --skip-failback \
+                    2>&1 | tee /tmp/dr-test.log
 
-              TEST_EXIT_CODE=${PIPEFAIL[0]}
+                  TEST_EXIT_CODE=${PIPEFAIL[0]}
 
-              # Generate report
-              /scripts/generate-dr-report.sh "$TEST_ID" || true
+                  # Generate report
+                  /scripts/generate-dr-report.sh "$TEST_ID" || true
 
-              # Send completion notification
-              if [ -n "$SLACK_WEBHOOK_URL" ]; then
-                if [ $TEST_EXIT_CODE -eq 0 ]; then
-                  STATUS_ICON="✅"
-                  STATUS_TEXT="PASSED"
-                else
-                  STATUS_ICON="❌"
-                  STATUS_TEXT="FAILED"
-                fi
+                  # Send completion notification
+                  if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                    if [ $TEST_EXIT_CODE -eq 0 ]; then
+                      STATUS_ICON="✅"
+                      STATUS_TEXT="PASSED"
+                    else
+                      STATUS_ICON="❌"
+                      STATUS_TEXT="FAILED"
+                    fi
 
-                curl -X POST "$SLACK_WEBHOOK_URL" \
-                  -H 'Content-Type: application/json' \
-                  -d "{\"text\":\"$STATUS_ICON DR Test Complete: $TEST_ID - $STATUS_TEXT\"}" || true
-              fi
+                    curl -X POST "$SLACK_WEBHOOK_URL" \
+                      -H 'Content-Type: application/json' \
+                      -d "{\"text\":\"$STATUS_ICON DR Test Complete: $TEST_ID - $STATUS_TEXT\"}" || true
+                  fi
 
-              # Alert if failed
-              if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$PAGERDUTY_TOKEN" ]; then
-                curl -X POST https://api.pagerduty.com/incidents \
-                  -H "Authorization: Token token=$PAGERDUTY_TOKEN" \
-                  -H 'Content-Type: application/json' \
-                  -d "{
-                    \"incident\": {
-                      \"type\": \"incident\",
-                      \"title\": \"DR Test Failed: $TEST_ID\",
-                      \"service\": {
-                        \"id\": \"<SERVICE_ID>\",
-                        \"type\": \"service_reference\"
-                      },
-                      \"urgency\": \"low\",
-                      \"body\": {
-                        \"type\": \"incident_body\",
-                        \"details\": \"Automated DR test failed. Review logs.\"
-                      }
-                    }
-                  }" || true
-              fi
+                  # Alert if failed
+                  if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$PAGERDUTY_TOKEN" ]; then
+                    curl -X POST https://api.pagerduty.com/incidents \
+                      -H "Authorization: Token token=$PAGERDUTY_TOKEN" \
+                      -H 'Content-Type: application/json' \
+                      -d "{
+                        \"incident\": {
+                          \"type\": \"incident\",
+                          \"title\": \"DR Test Failed: $TEST_ID\",
+                          \"service\": {
+                            \"id\": \"<SERVICE_ID>\",
+                            \"type\": \"service_reference\"
+                          },
+                          \"urgency\": \"low\",
+                          \"body\": {
+                            \"type\": \"incident_body\",
+                            \"details\": \"Automated DR test failed. Review logs.\"
+                          }
+                        }
+                      }" || true
+                  fi
 
-              echo ""
-              echo "Test complete with exit code: $TEST_EXIT_CODE"
-              exit $TEST_EXIT_CODE
+                  echo ""
+                  echo "Test complete with exit code: $TEST_EXIT_CODE"
+                  exit $TEST_EXIT_CODE
 
               volumeMounts:
                 - name: scripts
