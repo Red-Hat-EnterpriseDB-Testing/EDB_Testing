@@ -10,9 +10,15 @@
 
 **New to this repository?** Start here:
 
-1. **[Main README](../README.md)** - Architecture overview and table of contents
-2. **[Deployment Guides](#deployment-guides)** - Choose your deployment method
-3. **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework
+1. **[Quick Start Guide](quick-start-guide.md)** ⭐ **START HERE** - Get running in 15-30 minutes
+2. **[Main README](../README.md)** - Architecture overview and table of contents
+3. **[Deployment Guides](#deployment-guides)** - Detailed deployment methods
+4. **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework
+
+**Quick deployment paths:**
+- **OpenShift (15 min):** [Quick Start Guide - OpenShift](quick-start-guide.md#quick-start-openshift-15-minutes)
+- **RHEL with TPA (20 min):** [Quick Start Guide - RHEL](quick-start-guide.md#quick-start-rhel-with-tpa-20-minutes)
+- **Local testing (30 min):** [Quick Start Guide - CRC](quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes)
 
 **Need to perform a DR drill?**
 - **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework

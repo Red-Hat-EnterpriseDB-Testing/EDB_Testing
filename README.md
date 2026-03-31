@@ -2,6 +2,8 @@
 
 **📚 [Complete Documentation Index](docs/INDEX.md)** - Navigate all documentation by topic, deployment type, or audience
 
+**🚀 [Quick Start Guide](docs/quick-start-guide.md)** - Get running in 15-30 minutes (OpenShift, RHEL, or local CRC)
+
 ## Table of Contents
 
 - [Overview](#overview)
