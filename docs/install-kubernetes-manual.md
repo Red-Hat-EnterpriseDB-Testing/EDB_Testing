@@ -31,9 +31,20 @@ For **Postgres on hosts** (VMs / bare metal), use **[TPA](install-tpa.md)** — 
 # Create namespace
 oc create namespace postgresql-operator-system
 
-# Install operator via OperatorHub (OpenShift) or Helm
-oc apply -f https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml
+# Download and install operator with server-side apply (required for large CRDs)
+curl -sL -o /tmp/edb-cnp-operator.yaml \
+  "https://get.enterprisedb.io/cnp/postgresql-operator-1.23.1.yaml"
+
+oc apply --server-side --force-conflicts -f /tmp/edb-cnp-operator.yaml
+
+# Wait for operator to be ready
+oc wait --for=condition=Available deployment \
+  -l app.kubernetes.io/name=cloudnativepg \
+  -n postgresql-operator-system \
+  --timeout=300s
 ```
+
+**Note:** The `--server-side --force-conflicts` flags are required because the operator CRDs are large and may exceed annotation size limits in client-side apply.
 
 ## 2. Deploy a PostgreSQL cluster (manual)
 
