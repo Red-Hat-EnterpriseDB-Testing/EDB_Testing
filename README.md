@@ -1,5 +1,8 @@
 # AAP with EDB Postgres Multi-Datacenter Architecture
 
+> **🚀 NEW: [Quick Start Guide](docs/quick-start-guide.md)** - Deploy in 15-30 minutes
+> Choose your path: [OpenShift (15 min)](docs/quick-start-guide.md#quick-start-openshift-15-minutes) | [RHEL with TPA (20 min)](docs/quick-start-guide.md#quick-start-rhel-with-tpa-20-minutes) | [Local CRC (30 min)](docs/quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes)
+
 **📚 [Complete Documentation Index](docs/INDEX.md)** - Navigate all documentation by topic, deployment type, or audience
 
 ## Table of Contents
