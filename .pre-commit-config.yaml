@@ -1,0 +1,135 @@
+# Pre-commit hooks for EDB_Testing repository
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        args: [--markdown-linebreak-ext=md]
+
+      - id: end-of-file-fixer
+        name: Fix end of files
+        exclude: ^\.git/
+
+      - id: check-yaml
+        name: Check YAML syntax
+        args: [--allow-multiple-documents]
+        exclude: ^\.github/
+
+      - id: check-added-large-files
+        name: Check for large files
+        args: [--maxkb=1024]
+
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+
+      - id: check-case-conflict
+        name: Check for case conflicts
+
+      - id: mixed-line-ending
+        name: Check line endings
+        args: [--fix=lf]
+
+      - id: detect-private-key
+        name: Detect private keys
+
+  # Shell script validation
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        name: ShellCheck
+        args:
+          - --severity=warning
+          - --exclude=SC1091  # Not following sourced files
+          - --exclude=SC2148  # Shebang hints
+        files: \.sh$
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        name: Lint YAML files
+        args:
+          - --strict
+          - --config-data
+          - |
+            extends: default
+            rules:
+              line-length:
+                max: 120
+                level: warning
+              indentation:
+                spaces: 2
+              comments:
+                min-spaces-from-content: 1
+              document-start: disable
+              truthy:
+                allowed-values: ['true', 'false', 'on', 'off']
+        files: \.(yaml|yml)$
+        exclude: ^\.github/
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        name: Lint Markdown files
+        args:
+          - --config
+          - .markdownlint.json
+        files: \.md$
+
+  # Secret scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: ^\.git/
+
+  # Custom local hooks
+  - repo: local
+    hooks:
+      - id: bash-syntax
+        name: Bash syntax check
+        entry: bash -n
+        language: system
+        files: \.sh$
+
+      - id: openshift-manifest-validate
+        name: Validate OpenShift manifests
+        entry: scripts/hooks/validate-openshift-manifests.sh
+        language: script
+        files: \.(yaml|yml)$
+        pass_filenames: true
+        require_serial: true
+
+      - id: script-executable
+        name: Ensure scripts are executable
+        entry: scripts/hooks/check-script-permissions.sh
+        language: script
+        files: ^scripts/.*\.sh$
+        pass_filenames: true
+
+      - id: no-tabs
+        name: Check for tabs in YAML/scripts
+        entry: grep -n $'\t'
+        language: system
+        files: \.(yaml|yml|sh)$
+        exclude: ^Makefile
+
+# Global settings
+default_language_version:
+  python: python3.11
+
+fail_fast: false

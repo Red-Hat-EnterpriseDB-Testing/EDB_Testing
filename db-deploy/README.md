@@ -1,15 +1,15 @@
-# Deploy — EDB Postgres for Kubernetes (CloudNativePG)
+# Deploy — EDB Postgres on OpenShift (CloudNativePG)
 
 YAML layout to install the **EnterpriseDB** operator distribution and a small sample `Cluster`.
 
-On **Red Hat OpenShift**, prefer **Operator Lifecycle Manager (OLM)** via `db-deploy/olm-openshift/` (OperatorHub subscription flow). Use the manifest bundle under `db-deploy/operator/` for **plain Kubernetes** or when you need a pinned YAML install instead of OLM.
+On **Red Hat OpenShift**, prefer **Operator Lifecycle Manager (OLM)** via `db-deploy/olm-openshift/` (OperatorHub subscription flow). Use the manifest bundle under `db-deploy/operator/` for a **pinned YAML install without OperatorHub** when you need non-OLM deployment.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
 | `olm-openshift/` | **Preferred on OpenShift:** OLM `Subscription` (cluster-wide) and an example `OperatorGroup` + `Subscription` for scoped installs — [EDB OpenShift / oc CLI](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/openshift/#installation-via-the-oc-cli). See [olm-openshift/README.md](olm-openshift/README.md). |
-| `operator/kustomization.yaml` | **Kubernetes (or non-OLM):** pinned operator manifest from `get.enterprisedb.io` (creates `postgresql-operator-system` and CRDs). |
+| `operator/kustomization.yaml` | **Non-OLM manifest install:** pinned operator manifest from `get.enterprisedb.io` (creates `postgresql-operator-system` and CRDs). |
 | `sample-cluster/` | Example namespace, app credentials secret, and `Cluster` CR (`edb-postgres` / `postgresql`). |
 | `cross-cluster/` | **Passive replica (streaming)** across two clusters: Route on primary + replica `Cluster` + script — see [cross-cluster/README.md](cross-cluster/README.md). |
 
@@ -29,7 +29,7 @@ oc apply -k db-deploy/olm-openshift
 
 Verify and complete pull-secret / CSV approval steps in [olm-openshift/README.md](olm-openshift/README.md). For multi-namespace or single-namespace operator placement, use `olm-openshift/operatorgroup-multinamespace.example.yaml` instead of the kustomize overlay.
 
-### Kubernetes — manifest bundle
+### OpenShift / non-OLM — manifest bundle
 
 Use **server-side apply** so large CRDs apply cleanly:
 
@@ -83,4 +83,4 @@ Use **[`cross-cluster/README.md`](cross-cluster/README.md)** for prerequisites, 
 2. Export **`PRIMARY_CONTEXT`** and **`REPLICA_CONTEXT`** (and optional split kubeconfigs).
 3. Run **`db-deploy/cross-cluster/scripts/sync-passive-replica.sh`**.
 
-Official reference: [EDB — Replica clusters](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/) and [EDB Postgres for Kubernetes](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/).
+Official reference: [EDB — Replica clusters](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/) and [EDB Postgres on OpenShift (operator docs)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/).

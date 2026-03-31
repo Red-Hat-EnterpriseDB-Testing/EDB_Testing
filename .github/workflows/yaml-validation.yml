@@ -1,0 +1,212 @@
+name: YAML Validation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - '**.yaml'
+      - '**.yml'
+      - '.github/workflows/yaml-validation.yml'
+  pull_request:
+    paths:
+      - '**.yaml'
+      - '**.yml'
+      - '.github/workflows/yaml-validation.yml'
+
+jobs:
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yamllint
+        run: |
+          pip install yamllint
+
+      - name: Create yamllint config
+        run: |
+          cat > .yamllint <<EOF
+          extends: default
+
+          rules:
+            line-length:
+              max: 120
+              level: warning
+            indentation:
+              spaces: 2
+            comments:
+              min-spaces-from-content: 1
+            comments-indentation: {}
+            document-start: disable
+            truthy:
+              allowed-values: ['true', 'false', 'on', 'off']
+
+          ignore: |
+            .github/
+            node_modules/
+            vendor/
+          EOF
+
+      - name: Run yamllint
+        run: |
+          echo "Running yamllint on YAML files..."
+          yamllint -f colored . || true
+
+          # Store exit code
+          yamllint . > yamllint-results.txt 2>&1 || LINT_EXIT=$?
+
+          # Display results
+          cat yamllint-results.txt
+
+          # Exit with stored code
+          exit ${LINT_EXIT:-0}
+
+  kubeval:
+    name: OpenShift manifest validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download kubeval
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo mv kubeval /usr/local/bin
+
+      - name: Validate OpenShift manifests
+        run: |
+          echo "Validating OpenShift manifests..."
+
+          # Find all YAML files that look like API resource manifests
+          find . -type f \( -name "*.yaml" -o -name "*.yml" \) \
+            -not -path "./.git/*" \
+            -not -path "./.github/*" \
+            -not -path "./node_modules/*" \
+            -not -path "./vendor/*" \
+            -exec grep -l "apiVersion:" {} \; > openshift-manifests-list.txt
+
+          # Validate each manifest
+          FAIL_COUNT=0
+          TOTAL_COUNT=0
+
+          while IFS= read -r file; do
+            echo ""
+            echo "Validating: $file"
+            TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+            # Skip validation for certain known patterns
+            if grep -q "kind: Kustomization" "$file"; then
+              echo "  ⏭️  Skipping Kustomization file"
+              continue
+            fi
+
+            # Run kubeval with OpenShift support
+            if kubeval --strict --ignore-missing-schemas "$file"; then
+              echo "  ✅ Valid"
+            else
+              echo "  ❌ Validation failed"
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            fi
+          done < openshift-manifests-list.txt
+
+          echo ""
+          echo "============================================="
+          echo "Validation Summary:"
+          echo "Total manifests checked: $TOTAL_COUNT"
+          echo "Failed: $FAIL_COUNT"
+          echo "Passed: $((TOTAL_COUNT - FAIL_COUNT))"
+          echo "============================================="
+
+          # Exit with error if any failures
+          if [ $FAIL_COUNT -gt 0 ]; then
+            echo "❌ Some manifests failed validation"
+            exit 1
+          else
+            echo "✅ All manifests passed validation"
+            exit 0
+          fi
+
+  kustomize-build:
+    name: Kustomize Build Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Find and test Kustomize builds
+        run: |
+          echo "Finding kustomization.yaml files..."
+
+          find . -type f -name "kustomization.yaml" -o -name "kustomization.yml" > kustomizations.txt
+
+          FAIL_COUNT=0
+          SUCCESS_COUNT=0
+
+          while IFS= read -r kustomization; do
+            dir=$(dirname "$kustomization")
+            echo ""
+            echo "Testing Kustomize build: $dir"
+
+            if kustomize build "$dir" > /dev/null 2>&1; then
+              echo "  ✅ Build successful"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "  ❌ Build failed"
+              kustomize build "$dir" || true
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            fi
+          done < kustomizations.txt
+
+          echo ""
+          echo "============================================="
+          echo "Kustomize Build Summary:"
+          echo "Successful: $SUCCESS_COUNT"
+          echo "Failed: $FAIL_COUNT"
+          echo "============================================="
+
+          if [ $FAIL_COUNT -gt 0 ]; then
+            exit 1
+          fi
+
+  summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [yaml-lint, kubeval, kustomize-build]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          echo "YAML Validation Pipeline Complete"
+          echo "=================================="
+
+          if [ "${{ needs.yaml-lint.result }}" == "success" ] && \
+             [ "${{ needs.kubeval.result }}" == "success" ] && \
+             [ "${{ needs.kustomize-build.result }}" == "success" ]; then
+            echo "✅ All validation checks passed"
+            exit 0
+          else
+            echo "❌ Some validation checks failed:"
+            echo "  YAML Lint: ${{ needs.yaml-lint.result }}"
+            echo "  Kubeval: ${{ needs.kubeval.result }}"
+            echo "  Kustomize Build: ${{ needs.kustomize-build.result }}"
+            exit 1
+          fi

@@ -56,6 +56,56 @@ oc project "$NAMESPACE" || {
     exit 1
 }
 
+# CRITICAL: Verify database is in PRIMARY mode to prevent split-brain
+echo ""
+echo "Validating database role (split-brain prevention)..."
+DB_NAMESPACE="edb-postgres"
+DB_CLUSTER="postgresql"
+
+# Get the primary database pod
+DB_POD=$(oc get pods -n "$DB_NAMESPACE" -l "cnpg.io/cluster=$DB_CLUSTER,role=primary" -o name 2>/dev/null | head -1)
+
+if [ -z "$DB_POD" ]; then
+    echo "❌ ERROR: Cannot find primary database pod in namespace $DB_NAMESPACE"
+    echo "This may indicate:"
+    echo "  1. Database cluster is down"
+    echo "  2. No primary exists (cluster in replica-only mode)"
+    echo "  3. Namespace or cluster name is incorrect"
+    echo ""
+    echo "DO NOT scale AAP when database is not in PRIMARY mode!"
+    exit 1
+fi
+
+# Verify the database is not in recovery (not a replica)
+echo "Checking database pod: $DB_POD"
+IN_RECOVERY=$(oc exec -n "$DB_NAMESPACE" "$DB_POD" -- psql -U postgres -t -c "SELECT pg_is_in_recovery();" 2>/dev/null | tr -d '[:space:]')
+
+if [ "$IN_RECOVERY" = "t" ]; then
+    echo "❌ CRITICAL ERROR: Database is in RECOVERY mode (acting as a REPLICA)"
+    echo ""
+    echo "This means the database is currently a standby/replica, NOT a primary."
+    echo "Scaling AAP pods against a replica database will cause:"
+    echo "  - Connection failures (replicas are read-only)"
+    echo "  - Data integrity issues"
+    echo "  - Split-brain scenario if primary still exists elsewhere"
+    echo ""
+    echo "ACTION REQUIRED:"
+    echo "  1. Verify this is the correct datacenter/cluster"
+    echo "  2. If failover is needed, promote this replica to primary first:"
+    echo "     oc annotate cluster $DB_CLUSTER -n $DB_NAMESPACE --overwrite \\
+    echo "       cnpg.io/reconciliationLoop=disabled"
+    echo "  3. Then re-run this script"
+    echo ""
+    exit 1
+elif [ "$IN_RECOVERY" = "f" ]; then
+    echo "✅ Database is in PRIMARY mode - safe to scale AAP"
+else
+    echo "⚠ WARNING: Could not determine database recovery status"
+    echo "Response: '$IN_RECOVERY'"
+    echo "Proceeding with caution..."
+fi
+echo ""
+
 # Define AAP deployments with target replica counts
 # Format: "deployment:replicas"
 declare -A AAP_DEPLOYMENTS=(

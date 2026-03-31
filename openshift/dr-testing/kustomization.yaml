@@ -1,0 +1,32 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: edb-postgres
+
+resources:
+- serviceaccount.yaml
+- configmap-dr-scripts.yaml
+- pvc-test-results.yaml
+- cronjob-dr-test.yaml
+
+configMapGenerator:
+- name: dr-test-config
+  literals:
+  - dc1-context=dc1-cluster-context  # Replace with actual context
+  - dc2-context=dc2-cluster-context  # Replace with actual context
+
+secretGenerator:
+- name: dr-test-secrets
+  literals:
+  - slack-webhook-url=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+  - pagerduty-token=YOUR_PAGERDUTY_TOKEN
+
+# Note: In production, create dr-test-kubeconfig secret with:
+#   oc create secret generic dr-test-kubeconfig \
+#     --from-file=config=/path/to/kubeconfig \
+#     -n edb-postgres
+
+commonLabels:
+  app: dr-testing
+  managed-by: kustomize

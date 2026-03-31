@@ -1,6 +1,6 @@
 # Cross-cluster passive replica (streaming)
 
-This directory holds **example manifests** and a **helper script** for a common pattern: one **primary** EDB Postgres for Kubernetes / CloudNativePG `Cluster` on an OpenShift cluster, and a **passive replica** `Cluster` on a second Kubernetes/OpenShift cluster that streams changes over the network.
+This directory holds **example manifests** and a **helper script** for a common pattern: one **primary** EDB Postgres on OpenShift / CloudNativePG `Cluster` on an OpenShift cluster, and a **passive replica** `Cluster` on a second OpenShift cluster that streams changes over the network.
 
 All names, kubeconfig paths, and DNS examples below are **placeholders** — replace them with your environment. Do not commit real credentials, Route hostnames, or kubeconfigs.
 

@@ -1,0 +1,180 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dr-test-quarterly
+  namespace: edb-postgres
+  labels:
+    app: dr-testing
+    type: automated
+spec:
+  # Run quarterly on first Saturday at 02:00 UTC
+  # Month 1, 4, 7, 10 (Jan, Apr, Jul, Oct) on day 1-7 if Saturday
+  schedule: "0 2 1-7 1,4,7,10 6"
+
+  # Keep last 3 test runs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  # Don't run if previous test still running
+  concurrencyPolicy: Forbid
+
+  jobTemplate:
+    metadata:
+      labels:
+        app: dr-testing
+        component: quarterly-test
+    spec:
+      # Allow 2 hours for test completion
+      activeDeadlineSeconds: 7200
+
+      template:
+        metadata:
+          labels:
+            app: dr-testing
+            component: quarterly-test
+        spec:
+          serviceAccountName: dr-test-service-account
+
+          restartPolicy: Never
+
+          containers:
+          - name: dr-test
+            image: registry.redhat.io/openshift4/ose-cli:latest
+
+            env:
+            - name: DC1_CONTEXT
+              valueFrom:
+                configMapKeyRef:
+                  name: dr-test-config
+                  key: dc1-context
+
+            - name: DC2_CONTEXT
+              valueFrom:
+                configMapKeyRef:
+                  name: dr-test-config
+                  key: dc2-context
+
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dr-test-secrets
+                  key: slack-webhook-url
+                  optional: true
+
+            - name: PAGERDUTY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-test-secrets
+                  key: pagerduty-token
+                  optional: true
+
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              echo "============================================="
+              echo "Automated DR Test - Quarterly Drill"
+              echo "============================================="
+              echo "Start: $(date)"
+              echo ""
+
+              # Generate test ID
+              TEST_ID="auto-dr-test-$(date +%Y%m%d-%H%M%S)"
+
+              # Send start notification
+              if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                curl -X POST "$SLACK_WEBHOOK_URL" \
+                  -H 'Content-Type: application/json' \
+                  -d "{\"text\":\"🧪 DR Test Started: $TEST_ID\"}" || true
+              fi
+
+              # Run DR test
+              /scripts/dr-failover-test.sh \
+                --test-id "$TEST_ID" \
+                --dc1-context "$DC1_CONTEXT" \
+                --dc2-context "$DC2_CONTEXT" \
+                --skip-failback \
+                2>&1 | tee /tmp/dr-test.log
+
+              TEST_EXIT_CODE=${PIPEFAIL[0]}
+
+              # Generate report
+              /scripts/generate-dr-report.sh "$TEST_ID" || true
+
+              # Send completion notification
+              if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                if [ $TEST_EXIT_CODE -eq 0 ]; then
+                  STATUS_ICON="✅"
+                  STATUS_TEXT="PASSED"
+                else
+                  STATUS_ICON="❌"
+                  STATUS_TEXT="FAILED"
+                fi
+
+                curl -X POST "$SLACK_WEBHOOK_URL" \
+                  -H 'Content-Type: application/json' \
+                  -d "{\"text\":\"$STATUS_ICON DR Test Complete: $TEST_ID - $STATUS_TEXT\"}" || true
+              fi
+
+              # Alert if failed
+              if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$PAGERDUTY_TOKEN" ]; then
+                curl -X POST https://api.pagerduty.com/incidents \
+                  -H "Authorization: Token token=$PAGERDUTY_TOKEN" \
+                  -H 'Content-Type: application/json' \
+                  -d "{
+                    \"incident\": {
+                      \"type\": \"incident\",
+                      \"title\": \"DR Test Failed: $TEST_ID\",
+                      \"service\": {
+                        \"id\": \"<SERVICE_ID>\",
+                        \"type\": \"service_reference\"
+                      },
+                      \"urgency\": \"low\",
+                      \"body\": {
+                        \"type\": \"incident_body\",
+                        \"details\": \"Automated DR test failed. Review logs.\"
+                      }
+                    }
+                  }" || true
+              fi
+
+              echo ""
+              echo "Test complete with exit code: $TEST_EXIT_CODE"
+              exit $TEST_EXIT_CODE
+
+            volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+
+            - name: test-results
+              mountPath: /tmp/dr-test-results
+
+            - name: kubeconfig
+              mountPath: /root/.kube
+              readOnly: true
+
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+
+          volumes:
+          - name: scripts
+            configMap:
+              name: dr-test-scripts
+              defaultMode: 0755
+
+          - name: test-results
+            persistentVolumeClaim:
+              claimName: dr-test-results-pvc
+
+          - name: kubeconfig
+            secret:
+              secretName: dr-test-kubeconfig
+              defaultMode: 0600
