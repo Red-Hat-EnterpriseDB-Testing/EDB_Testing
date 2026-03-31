@@ -37,7 +37,7 @@
 6. **Both AAP Instances**: Continue operating normally
 7. **Downtime**: < 30 seconds for database failover
 
-**Important**: This is automatic failover within a single Kubernetes cluster. Cross-cluster failover (DC1 → DC2) requires external coordination.
+**Important**: This is automatic failover within a single OpenShift cluster. Cross-cluster failover (DC1 → DC2) requires external coordination.
 
 ## Scenario 4: Complete Network Partition
 

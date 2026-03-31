@@ -16,7 +16,7 @@ This repository **removed** a previously bundled `edb.postgres_operations` Ansib
 
 TPA is the **supported EDB approach** for defining, provisioning, and deploying Postgres clusters on infrastructure it drives: **bare metal**, **cloud instances (AWS, Azure, …)**, **`tpaexec`/SSH targets**, and **[Docker](https://www.enterprisedb.com/docs/tpa/latest/platform-docker/)** for lab-style testing (not production).
 
-TPA does **not** replace **EDB Postgres for Kubernetes** on OpenShift: operator install, `Cluster` CRs, and cross-cluster replica topologies stay on the [manual OpenShift guide](install-kubernetes-manual.md) and [EDB Postgres for Kubernetes documentation](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). If you need Postgres **inside** the cluster as pods, use the operator; if you need Postgres **on VMs or hosts** that front your platform, use TPA (or manual RHEL install).
+TPA does **not** replace **EDB Postgres on OpenShift**: operator install, `Cluster` CRs, and cross-cluster replica topologies stay on the [manual OpenShift guide](install-kubernetes-manual.md) and [EDB Postgres on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). If you need Postgres **inside** the cluster as pods, use the operator; if you need Postgres **on VMs or hosts** that front your platform, use TPA (or manual RHEL install).
 
 ## Quick start
 

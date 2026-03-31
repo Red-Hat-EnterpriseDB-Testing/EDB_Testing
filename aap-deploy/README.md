@@ -55,7 +55,7 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 |--------|----------------|
 | Primary AAP (Gateway, Controller, execution) | AAP Operator CRs on Site 1 (e.g. `AutomationController`, **Automation Gateway** CR if used, execution capacity per CR/spec) |
 | Standby AAP | Same CR shapes on Site 2, **identical cryptographic secrets** as Site 1; workloads **off** or unexposed until DR |
-| Primary Postgres | EDB Postgres for Kubernetes `Cluster` in `edb-postgres` (e.g. `postgresql`), RW service (e.g. `postgresql-rw`) |
+| Primary Postgres | EDB Postgres on OpenShift `Cluster` in `edb-postgres` (e.g. `postgresql`), RW service (e.g. `postgresql-rw`) |
 | Replica Postgres | Optional passive replica on Site 2 using the pattern in [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md); **read-only** until promotion |
 | EDA | `AutomationEDA` (rulebooks) monitoring Site 1 health; expand to failover automation only after tested runbooks |
 
@@ -63,7 +63,7 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 
 ## 2. Prerequisites
 
-1. **EDB Postgres for Kubernetes** installed on each cluster that runs an EDB `Cluster`, with a **compatible operator version** on both sides if you use cross-cluster replication.
+1. **EDB Postgres on OpenShift** installed on each cluster that runs an EDB `Cluster`, with a **compatible operator version** on both sides if you use cross-cluster replication.
 2. **Primary** `Cluster` healthy in `edb-postgres` (see [`db-deploy/sample-cluster/base/cluster.yaml`](../db-deploy/sample-cluster/base/cluster.yaml)); adjust storage via an overlay under [`db-deploy/sample-cluster/overlays/`](../db-deploy/sample-cluster/overlays/).
 3. **AAP Operator** installed on Site 1 and Site 2; **same AAP component versions** on both sites for standby parity.
 4. **Database for AAP**: create a dedicated database and role per Red Hat documentation. The sample `app` database from the sample `Cluster` bootstrap is optional; provision what AAP requires (privileges, extensions, encoding).

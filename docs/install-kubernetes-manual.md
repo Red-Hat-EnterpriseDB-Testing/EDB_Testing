@@ -1,6 +1,6 @@
-# EDB Postgres for Kubernetes — Manual Installation
+# EDB Postgres on OpenShift — Manual Installation
 
-This guide covers installing the **EDB Postgres for Kubernetes** operator and deploying **`Cluster`** resources manually (`oc` / `kubectl`, YAML, or GitOps) on OpenShift or Kubernetes. Manifest examples use the EDB API group **`postgresql.k8s.enterprisedb.io`** (same family as CloudNativePG; confirm exact `apiVersion`/`kind` for your installed operator).
+This guide covers installing the **EDB Postgres on OpenShift** operator and deploying **`Cluster`** resources manually (`oc` / `kubectl`, YAML, or GitOps) on **OpenShift**. Manifest examples use the EDB API group **`postgresql.k8s.enterprisedb.io`** (same family as CloudNativePG; confirm exact `apiVersion`/`kind` for your installed operator).
 
 [← Back to main README](../README.md#installation)
 
@@ -8,7 +8,7 @@ This guide covers installing the **EDB Postgres for Kubernetes** operator and de
 
 ## Ansible and GitOps
 
-This repository does **not** ship a vendored Ansible collection for the EDB Kubernetes operator. You can apply the same objects with **`kubernetes.core.k8s`**, **`kubernetes.core.k8s_info`**, or `oc`/`kubectl` from **your** playbooks or **Ansible Automation Platform**, using an execution environment that includes `kubernetes.core` and a valid kubeconfig.
+This repository does **not** ship a vendored Ansible collection for the EDB Postgres operator. You can apply the same objects with **`kubernetes.core.k8s`**, **`kubernetes.core.k8s_info`**, or `oc`/`kubectl` from **your** playbooks or **Ansible Automation Platform**, using an execution environment that includes `kubernetes.core` and a valid kubeconfig.
 
 Suggested automation flow:
 
@@ -20,7 +20,7 @@ For **Postgres on hosts** (VMs / bare metal), use **[TPA](install-tpa.md)** — 
 
 ## Prerequisites
 
-- OpenShift 4.x or Kubernetes 1.21+
+- OpenShift 4.x or later (see your subscription’s supported versions)
 - Cluster admin or namespace admin privileges
 - `kubectl` or `oc` CLI installed
 - Valid EDB subscription and pull secret
@@ -107,26 +107,26 @@ oc get pods -n production
 ## Quick start resources
 
 - **Git-ready manifests (Kustomize)**: [db-deploy/README.md](../db-deploy/README.md) — operator base from `get.enterprisedb.io` and a sample `Cluster` in `db-deploy/sample-cluster/`
-- **Cross-cluster passive replica (anonymized placeholders)**: [db-deploy/cross-cluster/README.md](../db-deploy/cross-cluster/README.md) — Route + TLS secret sync + replica `Cluster` between two kube contexts
+- **Cross-cluster passive replica (anonymized placeholders)**: [db-deploy/cross-cluster/README.md](../db-deploy/cross-cluster/README.md) — Route + TLS secret sync + replica `Cluster` between two OpenShift (or `oc`) contexts
 - **OpenShift smoke test (anonymized)**: [openshift-edb-operator-smoke-test.md](openshift-edb-operator-smoke-test.md) — operator install, SCC, example `Cluster`, verification (`KUBECONFIG` example: `${HOME}/kube.kubeconfig`)
-- **EDB Postgres for Kubernetes Documentation**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
+- **EDB Postgres on OpenShift (upstream operator docs)**: [https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)
 
 ## Next steps
 
 After installation:
 
-1. **Configure High Availability**: Set up replication and failover (see [EDB Postgres for Kubernetes Architecture](#edb-postgres-for-kubernetes-architecture) below)
+1. **Configure High Availability**: Set up replication and failover (see [EDB Postgres on OpenShift Architecture](#edb-postgres-on-openshift-architecture) below)
 2. **Set Up Monitoring**: Deploy monitoring tools (Prometheus, Grafana)
 3. **Configure Backups**: Set up automated backup schedules
 4. **Implement Security**: Configure TLS, authentication, and network policies
 5. **Deploy AAP**: Install Ansible Automation Platform for cluster management (see [AAP Deployment Architecture](../README.md#aap-deployment-architecture))
 
-## EDB Postgres for Kubernetes Architecture
+## EDB Postgres on OpenShift Architecture
 
 ### Distributed PostgreSQL Topology
 
-This architecture implements EDB Postgres for Kubernetes (CloudNativePG) distributed topology with replica clusters across two separate Kubernetes/OpenShift clusters, as documented in the [EDB official architecture guide](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/architecture/#deployments-across-kubernetes-clusters).
+This architecture implements EDB Postgres on OpenShift (CloudNativePG family) distributed topology with replica clusters across two separate OpenShift clusters, as documented in the [EDB official architecture guide](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/architecture/#deployments-across-kubernetes-clusters).
 
 **Key Concepts:**
 
@@ -155,7 +155,7 @@ This architecture implements EDB Postgres for Kubernetes (CloudNativePG) distrib
    - During failover, operator updates `-rw` service automatically
 
 5. **Cross-Cluster Limitations**:
-   - Each EDB operator manages only its local Kubernetes cluster
+   - Each EDB operator manages only its local OpenShift cluster
    - Cross-cluster failover must be coordinated externally (via AAP, GitOps, or higher-level orchestration)
    - Promotion of replica cluster to primary is declarative but requires external trigger
 
@@ -197,14 +197,14 @@ This architecture implements EDB Postgres for Kubernetes (CloudNativePG) distrib
 **AAP Controller:**
 ```yaml
 # Scale AAP controller replicas
-kubectl scale deployment automation-controller \
+oc scale deployment automation-controller \
   -n ansible-automation-platform --replicas=5
 ```
 
 **PostgreSQL Clusters:**
 ```yaml
 # Scale database replicas
-kubectl patch cluster prod-db -n production \
+oc patch cluster prod-db -n production \
   --type='json' -p='[{"op": "replace", "path": "/spec/instances", "value": 5}]'
 ```
 

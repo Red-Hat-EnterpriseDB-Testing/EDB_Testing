@@ -1,13 +1,15 @@
 # AAP with EDB Postgres Multi-Datacenter Architecture
 
+**📚 [Complete Documentation Index](docs/INDEX.md)** - Navigate all documentation by topic, deployment type, or audience
+
 ## Table of Contents
 
 - [Overview](#overview)
 - [Installation](#installation)
   - [RHEL / hosts — Trusted Postgres Architect (TPA) (recommended)](docs/install-tpa.md)
-  - [OpenShift / Kubernetes — EDB operator & manual](docs/install-kubernetes-manual.md)
-  - [OpenShift / Kubernetes — Kustomize manifests (`db-deploy/`)](db-deploy/README.md)
-  - [OpenShift / Kubernetes — AAP operator with external Postgres (`aap-deploy/`)](aap-deploy/README.md)
+  - [OpenShift — EDB operator & manual](docs/install-kubernetes-manual.md)
+  - [OpenShift — Kustomize manifests (`db-deploy/`)](db-deploy/README.md)
+  - [OpenShift — AAP operator with external Postgres (`aap-deploy/`)](aap-deploy/README.md)
   - [RHEL manual installation](docs/install-rhel-manual.md)
   - [OpenShift manual installation](docs/install-kubernetes-manual.md)
 - [Architecture](#architecture)
@@ -34,7 +36,7 @@
   - [Full scenarios doc](docs/dr-scenarios.md)
 - [Scaling Considerations](#scaling-considerations)
   - [Horizontal & vertical scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations)
-- [EDB Postgres on OpenShift Architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture)
+- [EDB Postgres on OpenShift Architecture](docs/install-kubernetes-manual.md#edb-postgres-on-openshift-architecture)
 
 ## Overview
 
@@ -42,12 +44,12 @@ This document describes the architecture of EnterpriseDB Postgres deployed Activ
 
 ## Installation
 
-**Preferred automation:** Use **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)** from EnterpriseDB for Postgres on **bare metal, cloud instances, or SSH-managed hosts**—see [docs/install-tpa.md](docs/install-tpa.md) and [EDB TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/). TPA does **not** deploy the **EDB Postgres for Kubernetes** operator; for Postgres **on OpenShift as pods**, use the operator and manual/GitOps steps in this repo.
+**Preferred automation:** Use **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)** from EnterpriseDB for Postgres on **bare metal, cloud instances, or SSH-managed hosts**—see [docs/install-tpa.md](docs/install-tpa.md) and [EDB TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/). TPA does **not** deploy the **EDB Postgres on OpenShift** operator; for Postgres **on OpenShift as pods**, use the operator and manual/GitOps steps in this repo.
 
 | Area | Description | Guide |
 |------|-------------|--------|
 | **RHEL / hosts (TPA)** *(recommended)* | `tpaexec` workflows for supported platforms (bare metal, cloud, Docker for testing) | [TPA install](docs/install-tpa.md) · [RHEL / Ansible entry](docs/install-tpa.md#rhel-tpa-ansible) · [TPA on GitHub](https://github.com/EnterpriseDB/tpa) · [EDB TPA docs](https://www.enterprisedb.com/docs/tpa/latest/) |
-| **OpenShift / Kubernetes** | Operator install, `Cluster` CRs, passive cross-cluster replica (streaming), AAP operator with external EDB Postgres | [Ansible / GitOps pointers](docs/install-kubernetes-manual.md#ansible-gitops) · [Manual `oc` / YAML](docs/install-kubernetes-manual.md) · [Kustomize EDB Install (`db-deploy/`)](db-deploy/README.md) · [Cross-cluster replica](db-deploy/cross-cluster/README.md) · [AAP deploy (`aap-deploy/`)](aap-deploy/README.md) · [AAP OpenShift manifests](aap-deploy/openshift/README.md) · [Operator smoke test](docs/openshift-edb-operator-smoke-test.md) · [EDB Postgres on OpenShift architecture](docs/install-kubernetes-manual.md#edb-postgres-for-kubernetes-architecture) · [Scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations) |
+| **OpenShift** | Operator install, `Cluster` CRs, passive cross-cluster replica (streaming), AAP operator with external EDB Postgres | [Ansible / GitOps pointers](docs/install-kubernetes-manual.md#ansible-gitops) · [Manual `oc` / YAML](docs/install-kubernetes-manual.md) · [Kustomize EDB Install (`db-deploy/`)](db-deploy/README.md) · [Cross-cluster replica](db-deploy/cross-cluster/README.md) · [AAP deploy (`aap-deploy/`)](aap-deploy/README.md) · [AAP OpenShift manifests](aap-deploy/openshift/README.md) · [Operator smoke test](docs/openshift-edb-operator-smoke-test.md) · [EDB Postgres on OpenShift architecture](docs/install-kubernetes-manual.md#edb-postgres-on-openshift-architecture) · [Scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations) |
 | RHEL EDB Install(manual) | Traditional VM-based install without TPA | [RHEL — Manual](docs/install-rhel-manual.md) |
 | OpenShift (manual) | Operator + YAML/`oc` only | [OpenShift — Manual](docs/install-kubernetes-manual.md) |
 | **AAP architecture** | Reference layouts for AAP on RHEL vs OpenShift | [RHEL AAP](docs/rhel-aap-architecture.md) · [OpenShift AAP](docs/openshift-aap-architecture.md) |

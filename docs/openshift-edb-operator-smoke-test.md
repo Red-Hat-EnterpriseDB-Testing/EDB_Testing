@@ -1,4 +1,4 @@
-# OpenShift — EDB Postgres for Kubernetes operator (smoke test)
+# OpenShift — EDB Postgres operator (smoke test)
 
 Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (namespace, cluster name, storage class, passwords) with your own values.
 
@@ -17,7 +17,7 @@ kubectl config current-context
 
 ## 1. Operator install
 
-Create the operator namespace and apply the manifest. On recent Kubernetes/OpenShift, use **server-side apply** so large CRDs (for example poolers) do not exceed client-side annotation limits:
+Create the operator namespace and apply the manifest. On recent OpenShift releases, use **server-side apply** so large CRDs (for example poolers) do not exceed client-side annotation limits:
 
 ```bash
 kubectl create namespace postgresql-operator-system
@@ -147,4 +147,4 @@ kubectl delete namespace edb-postgres
 
 ## Reference
 
-- [EDB Postgres for Kubernetes documentation](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
+- [EDB Postgres on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
