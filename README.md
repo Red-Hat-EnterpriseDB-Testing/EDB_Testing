@@ -40,23 +40,36 @@
 
 ## Overview
 
-This document describes the architecture of EnterpriseDB Postgres deployed Active/Passive across two clusters in different datacenters with in datacenter replication for the  Ansible Automation Platform (AAP). This will acheive a **NEAR** HA type architecture, especially for failover to the databases synching in region/datacenter. A DR scenario should be exactly for if there is a catastrophic failure. Failing to a in site database should cause little to no intervention needed at the application layer. The main thing to note is for a DR failover any running jobs will be lost, however if it fails in site, the jobs should continue to run UNLESS the controller has a failure.
+This document describes the architecture of EnterpriseDB Postgres deployed Active/Passive
+across two clusters in different datacenters with in datacenter replication for the
+Ansible Automation Platform (AAP). This will achieve a **NEAR** HA type architecture,
+especially for failover to the databases syncing in region/datacenter.
+
+A DR scenario should be exactly for if there is a catastrophic failure. Failing to an
+in-site database should cause little to no intervention needed at the application layer.
+The main thing to note is for a DR failover any running jobs will be lost, however if
+it fails in site, the jobs should continue to run UNLESS the controller has a failure.
 
 ## Installation
 
-**Preferred automation:** Use **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)** from EnterpriseDB for Postgres on **bare metal, cloud instances, or SSH-managed hosts**—see [docs/install-tpa.md](docs/install-tpa.md) and [EDB TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/). TPA does **not** deploy the **EDB Postgres on OpenShift** operator; for Postgres **on OpenShift as pods**, use the operator and manual/GitOps steps in this repo.
+**Preferred automation:** Use **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)**
+from EnterpriseDB for Postgres on **bare metal, cloud instances, or SSH-managed hosts**—see
+[docs/install-tpa.md](docs/install-tpa.md) and [EDB TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/).
+
+TPA does **not** deploy the **EDB Postgres on OpenShift** operator; for Postgres **on OpenShift
+as pods**, use the operator and manual/GitOps steps in this repo.
 
 | Area | Description | Guide |
 |------|-------------|--------|
-| **RHEL / hosts (TPA)** *(recommended)* | `tpaexec` workflows for supported platforms (bare metal, cloud, Docker for testing) | [TPA install](docs/install-tpa.md) · [RHEL / Ansible entry](docs/install-tpa.md#rhel-tpa-ansible) · [TPA on GitHub](https://github.com/EnterpriseDB/tpa) · [EDB TPA docs](https://www.enterprisedb.com/docs/tpa/latest/) |
-| **OpenShift** | Operator install, `Cluster` CRs, passive cross-cluster replica (streaming), AAP operator with external EDB Postgres | [Ansible / GitOps pointers](docs/install-kubernetes-manual.md#ansible-gitops) · [Manual `oc` / YAML](docs/install-kubernetes-manual.md) · [Kustomize EDB Install (`db-deploy/`)](db-deploy/README.md) · [Cross-cluster replica](db-deploy/cross-cluster/README.md) · [AAP deploy (`aap-deploy/`)](aap-deploy/README.md) · [AAP OpenShift manifests](aap-deploy/openshift/README.md) · [Operator smoke test](docs/openshift-edb-operator-smoke-test.md) · [EDB Postgres on OpenShift architecture](docs/install-kubernetes-manual.md#edb-postgres-on-openshift-architecture) · [Scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations) |
-| RHEL EDB Install(manual) | Traditional VM-based install without TPA | [RHEL — Manual](docs/install-rhel-manual.md) |
+| **RHEL / hosts (TPA)** *(recommended)* | `tpaexec` workflows for supported platforms (bare metal, cloud, Docker for testing) | [TPA install](docs/install-tpa.md)<br>[RHEL / Ansible entry](docs/install-tpa.md#rhel-tpa-ansible)<br>[TPA on GitHub](https://github.com/EnterpriseDB/tpa)<br>[EDB TPA docs](https://www.enterprisedb.com/docs/tpa/latest/) |
+| **OpenShift** | Operator install, `Cluster` CRs, passive cross-cluster replica (streaming), AAP operator with external EDB Postgres | [Ansible / GitOps pointers](docs/install-kubernetes-manual.md#ansible-gitops)<br>[Manual `oc` / YAML](docs/install-kubernetes-manual.md)<br>[Kustomize EDB Install (`db-deploy/`)](db-deploy/README.md)<br>[Cross-cluster replica](db-deploy/cross-cluster/README.md)<br>[AAP deploy (`aap-deploy/`)](aap-deploy/README.md)<br>[AAP OpenShift manifests](aap-deploy/openshift/README.md)<br>[Operator smoke test](docs/openshift-edb-operator-smoke-test.md)<br>[EDB Postgres on OpenShift architecture](docs/install-kubernetes-manual.md#edb-postgres-on-openshift-architecture)<br>[Scaling (OpenShift)](docs/install-kubernetes-manual.md#scaling-considerations) |
+| RHEL EDB Install (manual) | Traditional VM-based install without TPA | [RHEL — Manual](docs/install-rhel-manual.md) |
 | OpenShift (manual) | Operator + YAML/`oc` only | [OpenShift — Manual](docs/install-kubernetes-manual.md) |
-| **AAP architecture** | Reference layouts for AAP on RHEL vs OpenShift | [RHEL AAP](docs/rhel-aap-architecture.md) · [OpenShift AAP](docs/openshift-aap-architecture.md) |
-| **Disaster recovery** | DR scenarios and failover planning | [docs/dr-scenarios.md](docs/dr-scenarios.md) |
-| **EDB Failover Manager (EFM)** | EFM integration with Postgres | [docs/enterprisefailovermanager.md](docs/enterprisefailovermanager.md) |
-| **Troubleshooting** | Diagnostics and issue resolution | [docs/troubleshooting.md](docs/troubleshooting.md) |
-| **AAP cluster scripts & runbook** | Automation and operational procedures | [scripts/README.md](scripts/README.md) · [Runbook](docs/manual-scripts-doc.md) |
+| **AAP architecture** | Reference layouts for AAP on RHEL vs OpenShift | [RHEL AAP](docs/rhel-aap-architecture.md)<br>[OpenShift AAP](docs/openshift-aap-architecture.md) |
+| **Disaster recovery** | DR scenarios and failover planning | [DR scenarios](docs/dr-scenarios.md) |
+| **EDB Failover Manager (EFM)** | EFM integration with Postgres | [EFM Integration](docs/enterprisefailovermanager.md) |
+| **Troubleshooting** | Diagnostics and issue resolution | [Troubleshooting](docs/troubleshooting.md) |
+| **AAP cluster scripts & runbook** | Automation and operational procedures | [Scripts](scripts/README.md)<br>[Runbook](docs/manual-scripts-doc.md) |
 
 ## Architecture 
 
@@ -78,9 +91,13 @@ The global load balancer provides a single entry point for AAP access:
 
 ### Ansible Automation Platform (AAP)
 
-**Operator install with external EDB Postgres** (sample namespace / cluster: `edb-postgres` / `postgresql`): see **[`aap-deploy/README.md`](aap-deploy/README.md)** (overview) and **[`aap-deploy/openshift/README.md`](aap-deploy/openshift/README.md)** (subscription + `AnsibleAutomationPlatform` CR).
+**Operator install with external EDB Postgres** (sample namespace / cluster: `edb-postgres` / `postgresql`):
+- See **[`aap-deploy/README.md`](aap-deploy/README.md)** (overview)
+- See **[`aap-deploy/openshift/README.md`](aap-deploy/openshift/README.md)** (subscription + `AnsibleAutomationPlatform` CR)
 
-For OpenShift AAP is deployed on **Sepearate OpenShift clusters** for high availability and geographic distribution. For RHEL you can do a single install across datacenters however you **MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
+For OpenShift, AAP is deployed on **separate OpenShift clusters** for high availability and
+geographic distribution. For RHEL you can do a single install across datacenters however you
+**MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**
 
 #### Datacenter 1 - AAP Instance
 - **Namespace**: `ansible-automation-platform`
