@@ -33,43 +33,30 @@ jobs:
         run: |
           pip install yamllint
 
-      - name: Create yamllint config
-        run: |
-          cat > .yamllint <<EOF
-          extends: default
-
-          rules:
-            line-length:
-              max: 120
-              level: warning
-            indentation:
-              spaces: 2
-            comments:
-              min-spaces-from-content: 1
-            comments-indentation: {}
-            document-start: disable
-            truthy:
-              allowed-values: ['true', 'false', 'on', 'off']
-
-          ignore: |
-            .github/
-            node_modules/
-            vendor/
-          EOF
-
       - name: Run yamllint
         run: |
           echo "Running yamllint on YAML files..."
-          yamllint -f colored . || true
 
-          # Store exit code
-          yamllint . > yamllint-results.txt 2>&1 || LINT_EXIT=$?
+          # Run yamllint and capture output
+          yamllint -f colored . 2>&1 | tee yamllint-results.txt
 
-          # Display results
-          cat yamllint-results.txt
+          # Count errors (not warnings)
+          ERROR_COUNT=$(grep -c "error" yamllint-results.txt || true)
 
-          # Exit with stored code
-          exit ${LINT_EXIT:-0}
+          echo ""
+          echo "============================================="
+          echo "yamllint Summary:"
+          echo "Errors found: $ERROR_COUNT"
+          echo "============================================="
+
+          # Only fail on actual errors, not warnings
+          if [ $ERROR_COUNT -gt 0 ]; then
+            echo "❌ YAML lint errors found"
+            exit 1
+          else
+            echo "✅ No YAML lint errors"
+            exit 0
+          fi
 
   kubeval:
     name: OpenShift manifest validation
@@ -148,8 +135,11 @@ jobs:
 
       - name: Install Kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          KUSTOMIZE_VERSION="v5.5.0"
+          curl -sLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          tar xzf "kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
           sudo mv kustomize /usr/local/bin/
+          kustomize version
 
       - name: Find and test Kustomize builds
         run: |
