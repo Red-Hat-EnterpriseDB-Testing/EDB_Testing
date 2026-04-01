@@ -56,6 +56,9 @@
 |----------|-------------|-----------|
 | **[Architecture Overview](architecture.md)** ⭐ **COMPREHENSIVE** | Complete architecture documentation | 45 min |
 | **[Main README Architecture](../README.md#architecture)** | High-level overview with diagram | 5 min |
+| **[AAP Containerized Growth DR](aap-containerized-growth-dr-architecture.md)** ⭐ **NEW** | 3-node multi-DC deployment (cost-optimized) | 25 min |
+| **[AAP Containerized Enterprise DR](aap-containerized-enterprise-dr-architecture.md)** ⭐ **NEW** | 8-node multi-DC deployment (production-grade) | 30 min |
+| **[Architecture Validation Report](aap-architecture-validation-report.md)** | Validation vs Red Hat AAP 2.6 tested models | 15 min |
 | **[RHEL AAP Architecture](rhel-aap-architecture.md)** | AAP on RHEL with systemd services | 10 min |
 | **[OpenShift AAP Architecture](openshift-aap-architecture.md)** | AAP on OpenShift with operator | 10 min |
 
@@ -67,10 +70,19 @@
 - Scaling strategies (horizontal, vertical, geographic)
 - Backup and restore architecture
 
+**AAP Containerized Deployment Models:**
+
+Choose based on your requirements:
+
+| Topology | VMs | Best For | RTO | Cost |
+|----------|-----|----------|-----|------|
+| **[Growth](aap-containerized-growth-dr-architecture.md)** | 16 total (3 AAP/DC) | Small-medium, budget-conscious | < 5 min | Lower |
+| **[Enterprise](aap-containerized-enterprise-dr-architecture.md)** | 26 total (8 AAP/DC) | Production-critical, high-scale | < 5 min | Higher |
+
 **Architecture Decisions:**
 - Active-Passive topology (DC1 primary, DC2 standby)
 - Physical streaming replication + WAL archiving to S3
-- CloudNativePG operator for database lifecycle management
+- CloudNativePG operator (OpenShift) or EDB Postgres Advanced (RHEL)
 - EDB Failover Manager (EFM) for automated database failover
 - Global Load Balancer for traffic management and health-based routing
 
