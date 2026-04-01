@@ -91,14 +91,31 @@ echo "    Primary pod: $POD"
 
 if [[ "${SKIP_DB_BOOTSTRAP:-}" != "1" ]]; then
   echo "==> Bootstrapping AAP databases (role + DBs + hstore)..."
+
+  # Validate password doesn't contain SQL metacharacters
+  if [[ "$AAP_DB_PASSWORD" =~ [\'\"\\;] ]]; then
+    echo "error: AAP_DB_PASSWORD contains forbidden characters: ', \", \\, or ;" >&2
+    echo "These characters could cause SQL injection or parsing errors" >&2
+    exit 1
+  fi
+
   export AAP_DB_PASSWORD
   export SQL_FILE
   python3 <<'PY' | oc_g exec -i -n "$PG_NS" "$POD" -- psql -U postgres -v ON_ERROR_STOP=1 -f -
 import os
 import sys
+import re
+
 path = os.environ["SQL_FILE"]
+password = os.environ["AAP_DB_PASSWORD"]
+
+# Additional validation in Python
+if any(char in password for char in ["'", '"', '\\', ';', '--']):
+    sys.stderr.write("ERROR: Password contains forbidden SQL metacharacters\n")
+    sys.exit(1)
+
 text = open(path, encoding="utf-8").read()
-text = text.replace("REPLACE_WITH_STRONG_PASSWORD", os.environ["AAP_DB_PASSWORD"])
+text = text.replace("REPLACE_WITH_STRONG_PASSWORD", password)
 sys.stdout.write(text)
 PY
 else

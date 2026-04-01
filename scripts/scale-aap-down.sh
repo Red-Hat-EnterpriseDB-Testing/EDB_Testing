@@ -1,103 +1,120 @@
 #!/bin/bash
-#
-# Copyright 2026 EnterpriseDB Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # Scale Down AAP Pods on OpenShift
 # This script scales AAP components to zero replicas
 #
 
-set -e
+set -euo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared libraries
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/logging.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/aap-scaling.sh"
 
 # Configuration
 NAMESPACE="ansible-automation-platform"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
+
 # Default cluster context - update to your cluster context from your kubeconfig file.
 # Run 'kubectl config get-contexts' to list available contexts. Pass context as $1 to override.
-DEFAULT_CLUSTER_CONTEXT="your-cluster-context"
+# Or set via environment variable: export CLUSTER_CONTEXT=<your-context>
+DEFAULT_CLUSTER_CONTEXT="${CLUSTER_CONTEXT:-your-cluster-context}"
 CLUSTER_CONTEXT="${1:-$DEFAULT_CLUSTER_CONTEXT}"
 
-echo "==================================="
-echo "AAP Scale Down Script"
-echo "==================================="
-echo "Namespace: $NAMESPACE"
-echo "Context: $CLUSTER_CONTEXT"
-echo "==================================="
+# Setup logging
+setup_logging "scale-aap-down"
+
+log_section "AAP Scale Down Script"
+log "Namespace: $NAMESPACE"
+log "Context: $CLUSTER_CONTEXT"
+log "Log file: $LOG_FILE"
+log_raw "==================================="
+log ""
+
+# Validate cluster context
+if ! validate_cluster_context "$CLUSTER_CONTEXT"; then
+    exit 1
+fi
 
 # Set kubeconfig
 export KUBECONFIG="$KUBECONFIG_FILE"
 
 # Switch to target context
-echo "Switching to context: $CLUSTER_CONTEXT"
-oc config use-context "$CLUSTER_CONTEXT" || {
-    echo "Error: Failed to switch context"
+log "Switching to context: $CLUSTER_CONTEXT"
+if oc config use-context "$CLUSTER_CONTEXT" >> "$LOG_FILE" 2>&1; then
+    log_success "Context switched successfully"
+else
+    log_failure "Failed to switch context"
     exit 1
-}
+fi
 
 # Verify current context
 CURRENT_CONTEXT=$(oc config current-context)
-echo "Current context: $CURRENT_CONTEXT"
+log "Current context: $CURRENT_CONTEXT"
 
 # Switch to AAP namespace
-echo "Switching to namespace: $NAMESPACE"
-oc project "$NAMESPACE" || {
-    echo "Error: Namespace $NAMESPACE not found"
+log "Switching to namespace: $NAMESPACE"
+if oc project "$NAMESPACE" >> "$LOG_FILE" 2>&1; then
+    log_success "Namespace set successfully"
+else
+    log_failure "Namespace $NAMESPACE not found"
     exit 1
-}
+fi
 
-# Define AAP deployments to scale down
-AAP_DEPLOYMENTS=(
-    "aap-gateway"
-    "automation-controller-operator-controller-manager"
-    "automation-controller-task"
-    "automation-controller-web"
-    "automation-hub-operator-controller-manager"
-    "automation-hub-api"
-    "automation-hub-content"
-    "automation-hub-worker"
-)
+log ""
+log "Scaling down AAP deployments to 0 replicas..."
+log ""
 
-echo ""
-echo "Scaling down AAP deployments..."
-echo ""
+# Scale each deployment to 0 (using shared function with idempotency)
+SCALED_COUNT=0
+SKIPPED_COUNT=0
+FAILED_COUNT=0
 
-# Scale each deployment to 0
-for deployment in "${AAP_DEPLOYMENTS[@]}"; do
-    if oc get deployment "$deployment" -n "$NAMESPACE" &>/dev/null; then
-        echo "Scaling down: $deployment"
-        oc scale deployment "$deployment" -n "$NAMESPACE" --replicas=0
-        echo "✓ $deployment scaled to 0 replicas"
+for deployment in "${!AAP_DEPLOYMENTS[@]}"; do
+    if scale_deployment "$deployment" "$NAMESPACE" 0; then
+        current=$(get_current_replicas "$deployment" "$NAMESPACE")
+        if [ "$current" -ne 0 ]; then
+            SCALED_COUNT=$((SCALED_COUNT + 1))
+        else
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        fi
     else
-        echo "⚠ Deployment $deployment not found, skipping..."
+        FAILED_COUNT=$((FAILED_COUNT + 1))
     fi
 done
 
-echo ""
-echo "Waiting for pods to terminate..."
-sleep 10
+log ""
+log "Scaling summary: $SCALED_COUNT scaled down, $SKIPPED_COUNT already at 0, $FAILED_COUNT failed"
 
-# Verify pods are scaled down
-REMAINING_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | wc -l || echo 0)
-
-if [ "$REMAINING_PODS" -eq 0 ]; then
-    echo "✓ All AAP pods have been scaled down successfully"
-else
-    echo "⚠ Warning: $REMAINING_PODS AAP pods still running"
-    echo "Remaining pods:"
-    oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running | grep -E "automation|aap-gateway" || true
+if [ $FAILED_COUNT -gt 0 ]; then
+    log_warn "Some deployments failed to scale down"
 fi
 
-echo ""
-echo "Scale down operation complete!"
-echo "Database pods are NOT scaled down (intentional for replication)"
+log ""
+log "Waiting for pods to terminate..."
+sleep 10
+
+# Verify pods are scaled down (use more specific pattern)
+REMAINING_PODS=$(oc get pods -n "$NAMESPACE" \
+    --field-selector=status.phase=Running \
+    --no-headers 2>/dev/null | \
+    grep -E '^(automation-(controller|hub)|aap-gateway)' | \
+    wc -l || echo 0)
+
+log ""
+if [ "$REMAINING_PODS" -eq 0 ]; then
+    log_success "All AAP pods have been scaled down successfully"
+else
+    log_warn "$REMAINING_PODS AAP pods still running"
+    log "Remaining pods:"
+    oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running 2>/dev/null | \
+        grep -E 'NAME|^(automation-(controller|hub)|aap-gateway)' || true
+fi
+
+log ""
+log_section "Scale Down Operation Complete"
+log "Note: Database pods are NOT scaled down (intentional for replication)"
+log "Log file: $LOG_FILE"

@@ -1,19 +1,4 @@
 #!/bin/bash
-#
-# Copyright 2026 EnterpriseDB Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # DR Failover Test Orchestration Script
 # Automated disaster recovery testing with RTO/RPO measurement
 #
@@ -28,7 +13,7 @@
 #   --dry-run                Simulate test without actual failover
 #
 
-set -e
+set -euo pipefail
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -283,19 +268,46 @@ else
         DC2_DB_POD=$(oc get pods -n "$DB_NAMESPACE" -l "cnpg.io/cluster=postgresql-replica" -o name 2>/dev/null | head -1 || echo "")
 
         if [ -n "$DC2_DB_POD" ]; then
-            DC2_RECOVERY=$(oc exec -n "$DB_NAMESPACE" "$DC2_DB_POD" -- psql -U postgres -t -c "SELECT pg_is_in_recovery();" 2>/dev/null | tr -d '[:space:]' || echo "t")
+            # Add retry logic for database query (handles transient failures during promotion)
+            local attempt=0
+            local max_attempts=3
+            local query_success=false
 
-            if [ "$DC2_RECOVERY" == "f" ]; then
-                log "✅ DC2 database promoted to PRIMARY"
-                PROMOTED=true
-                "$SCRIPT_DIR/measure-rto-rpo.sh" milestone "$TEST_ID" "database_promoted" >> "$TEST_LOG" 2>&1
-                break
+            while [ $attempt -lt $max_attempts ]; do
+                if DC2_RECOVERY=$(oc exec -n "$DB_NAMESPACE" "$DC2_DB_POD" -- \
+                    psql -U postgres -t -c "SELECT pg_is_in_recovery();" 2>&1); then
+                    DC2_RECOVERY=$(echo "$DC2_RECOVERY" | tr -d '[:space:]')
+                    query_success=true
+                    break
+                else
+                    log "  Database query failed (attempt $((attempt+1))/$max_attempts): ${DC2_RECOVERY}"
+                    ((attempt++)) || true
+                    if [ $attempt -lt $max_attempts ]; then
+                        sleep 2
+                    fi
+                fi
+            done
+
+            if [ "$query_success" == "true" ]; then
+                if [ "$DC2_RECOVERY" == "f" ]; then
+                    log "✅ DC2 database promoted to PRIMARY"
+                    PROMOTED=true
+                    "$SCRIPT_DIR/measure-rto-rpo.sh" milestone "$TEST_ID" "database_promoted" >> "$TEST_LOG" 2>&1
+                    break
+                elif [ "$DC2_RECOVERY" == "t" ]; then
+                    log "  Database still in recovery mode (${ELAPSED}s elapsed)"
+                else
+                    log "  Unexpected recovery state: $DC2_RECOVERY"
+                fi
+            else
+                log "  Database query failed after $max_attempts attempts, will retry in 5s"
             fi
+        else
+            log "  No database pod found in DC2 (${ELAPSED}s elapsed)"
         fi
 
         sleep 5
         ELAPSED=$((ELAPSED + 5))
-        log "  Waiting for promotion... (${ELAPSED}s elapsed)"
     done
 
     if [ "$PROMOTED" == "false" ]; then

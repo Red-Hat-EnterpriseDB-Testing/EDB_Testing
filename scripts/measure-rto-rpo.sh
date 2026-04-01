@@ -1,7 +1,5 @@
 #!/bin/bash
 #
-# Copyright 2026 EnterpriseDB Corporation
-#
 # RTO/RPO Measurement Script
 # Measures Recovery Time Objective and Recovery Point Objective during DR tests
 #
@@ -12,7 +10,7 @@
 #   ./measure-rto-rpo.sh report <test-id>
 #
 
-set -e
+set -euo pipefail
 
 # Configuration
 METRICS_DIR="/tmp/dr-metrics"
@@ -97,20 +95,38 @@ add_milestone() {
     local elapsed=$(calculate_duration "$start_time_ms" "$timestamp_ms")
 
     # Update metrics file (using temp file for atomic update)
-    local temp_file="${METRICS_FILE}.tmp"
+    local temp_file
+    temp_file=$(mktemp "${METRICS_FILE}.XXXXXX")
 
-    # Use jq if available, otherwise manual JSON manipulation
+    # Use jq if available for safe JSON manipulation
     if command -v jq &> /dev/null; then
         jq ".milestones.\"$milestone\" = {\"timestamp\": \"$timestamp_human\", \"timestamp_ms\": $timestamp_ms, \"elapsed_seconds\": $elapsed}" \
             "$METRICS_FILE" > "$temp_file"
+        # Atomic replacement (POSIX compliant)
         mv "$temp_file" "$METRICS_FILE"
     else
-        # Manual JSON update (basic implementation)
-        # Find the milestones section and add new entry
-        sed -i.bak "s|\"milestones\": {}|\"milestones\": {\"$milestone\": {\"timestamp\": \"$timestamp_human\", \"timestamp_ms\": $timestamp_ms, \"elapsed_seconds\": $elapsed}}|" "$METRICS_FILE"
-        # If milestones already has entries, append
-        if grep -q '"milestones": {[^}]' "$METRICS_FILE"; then
-            sed -i.bak "s|}},|}, \"$milestone\": {\"timestamp\": \"$timestamp_human\", \"timestamp_ms\": $timestamp_ms, \"elapsed_seconds\": $elapsed}},|" "$METRICS_FILE"
+        # Fallback: use Python for JSON manipulation (more reliable than sed)
+        if command -v python3 &> /dev/null; then
+            python3 <<PY > "$temp_file"
+import json
+import sys
+
+with open("$METRICS_FILE", "r") as f:
+    data = json.load(f)
+
+data["milestones"]["$milestone"] = {
+    "timestamp": "$timestamp_human",
+    "timestamp_ms": $timestamp_ms,
+    "elapsed_seconds": $elapsed
+}
+
+json.dump(data, sys.stdout, indent=2)
+PY
+            mv "$temp_file" "$METRICS_FILE"
+        else
+            echo "ERROR: Neither jq nor python3 available for JSON manipulation" >&2
+            rm -f "$temp_file"
+            return 1
         fi
     fi
 
@@ -231,15 +247,34 @@ case "$ACTION" in
         end_time_ms=$(get_timestamp_ms)
         rto=$(calculate_duration "$start_time_ms" "$end_time_ms")
 
-        # Update metrics file with final RTO
+        # Update metrics file with final RTO (atomic update)
+        local temp_file
+        temp_file=$(mktemp "${METRICS_FILE}.XXXXXX")
+        local end_time_human
+        end_time_human=$(get_timestamp_human)
+
         if command -v jq &> /dev/null; then
-            temp_file="${METRICS_FILE}.tmp"
-            jq ".rto_seconds = $rto | .status = \"completed\" | .end_time = \"$(get_timestamp_human)\"" \
+            jq ".rto_seconds = $rto | .status = \"completed\" | .end_time = \"$end_time_human\"" \
                 "$METRICS_FILE" > "$temp_file"
             mv "$temp_file" "$METRICS_FILE"
+        elif command -v python3 &> /dev/null; then
+            python3 <<PY > "$temp_file"
+import json
+
+with open("$METRICS_FILE", "r") as f:
+    data = json.load(f)
+
+data["rto_seconds"] = $rto
+data["status"] = "completed"
+data["end_time"] = "$end_time_human"
+
+json.dump(data, sys.stdout, indent=2)
+PY
+            mv "$temp_file" "$METRICS_FILE"
         else
-            sed -i.bak "s|\"rto_seconds\": null|\"rto_seconds\": $rto|" "$METRICS_FILE"
-            sed -i.bak "s|\"status\": \"in_progress\"|\"status\": \"completed\"|" "$METRICS_FILE"
+            echo "ERROR: Neither jq nor python3 available for JSON manipulation" >&2
+            rm -f "$temp_file"
+            exit 1
         fi
 
         echo "✓ Test completed"

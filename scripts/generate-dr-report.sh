@@ -1,7 +1,5 @@
 #!/bin/bash
 #
-# Copyright 2026 EnterpriseDB Corporation
-#
 # DR Test Report Generator
 # Generates comprehensive HTML/PDF reports from DR test results
 #
