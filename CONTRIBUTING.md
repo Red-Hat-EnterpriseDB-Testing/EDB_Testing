@@ -122,8 +122,7 @@ Add TOC to documents > 200 lines:
 
 **Requirements:**
 - Shebang: `#!/bin/bash`
-- Copyright header (see existing scripts)
-- Set error handling: `set -e`
+- Set error handling: `set -euo pipefail`
 - Executable permissions: `chmod +x script.sh`
 
 **Style:**
@@ -136,13 +135,13 @@ Add TOC to documents > 200 lines:
 **Example:**
 ```bash
 #!/bin/bash
-# Copyright 2026 EnterpriseDB Corporation
 #
 # Description: Brief description of script purpose
 #
 # Usage: ./script-name.sh <arg1> <arg2>
+#
 
-set -e
+set -euo pipefail
 
 # Configuration
 DB_NAMESPACE="${1:-edb-postgres}"

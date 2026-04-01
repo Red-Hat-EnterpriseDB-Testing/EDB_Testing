@@ -1,176 +1,125 @@
 #!/bin/bash
-#
-# Copyright 2026 EnterpriseDB Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # Scale Up AAP Pods on OpenShift
 # This script restores AAP components to operational replica counts
 #
 
-set -e
+set -euo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared libraries
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/logging.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/aap-scaling.sh"
 
 # Configuration
 NAMESPACE="ansible-automation-platform"
+DB_NAMESPACE="edb-postgres"
+DB_CLUSTER="postgresql"
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config}"
+
 # Default cluster context - update to your cluster context from your kubeconfig file.
 # Run 'kubectl config get-contexts' to list available contexts. Pass context as $1 to override.
-DEFAULT_CLUSTER_CONTEXT="your-cluster-context"
+# Or set via environment variable: export CLUSTER_CONTEXT=<your-context>
+DEFAULT_CLUSTER_CONTEXT="${CLUSTER_CONTEXT:-your-cluster-context}"
 CLUSTER_CONTEXT="${1:-$DEFAULT_CLUSTER_CONTEXT}"
 
-echo "==================================="
-echo "AAP Scale Up Script"
-echo "==================================="
-echo "Namespace: $NAMESPACE"
-echo "Context: $CLUSTER_CONTEXT"
-echo "==================================="
+# Setup logging
+setup_logging "scale-aap-up"
+
+log_section "AAP Scale Up Script"
+log "Namespace: $NAMESPACE"
+log "Context: $CLUSTER_CONTEXT"
+log "Log file: $LOG_FILE"
+log_raw "==================================="
+log ""
+
+# Validate cluster context
+if ! validate_cluster_context "$CLUSTER_CONTEXT"; then
+    exit 1
+fi
 
 # Set kubeconfig
 export KUBECONFIG="$KUBECONFIG_FILE"
 
 # Switch to target context
-echo "Switching to context: $CLUSTER_CONTEXT"
-oc config use-context "$CLUSTER_CONTEXT" || {
-    echo "Error: Failed to switch context"
+log "Switching to context: $CLUSTER_CONTEXT"
+if oc config use-context "$CLUSTER_CONTEXT" >> "$LOG_FILE" 2>&1; then
+    log_success "Context switched successfully"
+else
+    log_failure "Failed to switch context"
     exit 1
-}
+fi
 
 # Verify current context
 CURRENT_CONTEXT=$(oc config current-context)
-echo "Current context: $CURRENT_CONTEXT"
+log "Current context: $CURRENT_CONTEXT"
 
 # Switch to AAP namespace
-echo "Switching to namespace: $NAMESPACE"
-oc project "$NAMESPACE" || {
-    echo "Error: Namespace $NAMESPACE not found"
+log "Switching to namespace: $NAMESPACE"
+if oc project "$NAMESPACE" >> "$LOG_FILE" 2>&1; then
+    log_success "Namespace set successfully"
+else
+    log_failure "Namespace $NAMESPACE not found"
     exit 1
-}
+fi
 
 # CRITICAL: Verify database is in PRIMARY mode to prevent split-brain
-echo ""
-echo "Validating database role (split-brain prevention)..."
-DB_NAMESPACE="edb-postgres"
-DB_CLUSTER="postgresql"
-
-# Get the primary database pod
-DB_POD=$(oc get pods -n "$DB_NAMESPACE" -l "cnpg.io/cluster=$DB_CLUSTER,role=primary" -o name 2>/dev/null | head -1)
-
-if [ -z "$DB_POD" ]; then
-    echo "❌ ERROR: Cannot find primary database pod in namespace $DB_NAMESPACE"
-    echo "This may indicate:"
-    echo "  1. Database cluster is down"
-    echo "  2. No primary exists (cluster in replica-only mode)"
-    echo "  3. Namespace or cluster name is incorrect"
-    echo ""
-    echo "DO NOT scale AAP when database is not in PRIMARY mode!"
+log ""
+if ! validate_database_primary "$DB_NAMESPACE" "$DB_CLUSTER"; then
     exit 1
 fi
+log ""
 
-# Verify the database is not in recovery (not a replica)
-echo "Checking database pod: $DB_POD"
-IN_RECOVERY=$(oc exec -n "$DB_NAMESPACE" "$DB_POD" -- psql -U postgres -t -c "SELECT pg_is_in_recovery();" 2>/dev/null | tr -d '[:space:]')
+log "Scaling up AAP deployments..."
+log ""
 
-if [ "$IN_RECOVERY" = "t" ]; then
-    echo "❌ CRITICAL ERROR: Database is in RECOVERY mode (acting as a REPLICA)"
-    echo ""
-    echo "This means the database is currently a standby/replica, NOT a primary."
-    echo "Scaling AAP pods against a replica database will cause:"
-    echo "  - Connection failures (replicas are read-only)"
-    echo "  - Data integrity issues"
-    echo "  - Split-brain scenario if primary still exists elsewhere"
-    echo ""
-    echo "ACTION REQUIRED:"
-    echo "  1. Verify this is the correct datacenter/cluster"
-    echo "  2. If failover is needed, promote this replica to primary first:"
-    echo "     oc annotate cluster $DB_CLUSTER -n $DB_NAMESPACE --overwrite \\"
-    echo "       cnpg.io/reconciliationLoop=disabled"
-    echo "  3. Then re-run this script"
-    echo ""
-    exit 1
-elif [ "$IN_RECOVERY" = "f" ]; then
-    echo "✅ Database is in PRIMARY mode - safe to scale AAP"
-else
-    echo "⚠ WARNING: Could not determine database recovery status"
-    echo "Response: '$IN_RECOVERY'"
-    echo "Proceeding with caution..."
-fi
-echo ""
+# Scale each deployment to target replicas (using shared function with idempotency)
+SCALED_COUNT=0
+SKIPPED_COUNT=0
+FAILED_COUNT=0
 
-# Define AAP deployments with target replica counts
-# Format: "deployment:replicas"
-declare -A AAP_DEPLOYMENTS=(
-    ["aap-gateway"]="3"
-    ["automation-controller-operator-controller-manager"]="1"
-    ["automation-controller-task"]="3"
-    ["automation-controller-web"]="3"
-    ["automation-hub-operator-controller-manager"]="1"
-    ["automation-hub-api"]="2"
-    ["automation-hub-content"]="2"
-    ["automation-hub-worker"]="2"
-)
-
-echo ""
-echo "Scaling up AAP deployments..."
-echo ""
-
-# Scale each deployment to target replicas
 for deployment in "${!AAP_DEPLOYMENTS[@]}"; do
     replicas="${AAP_DEPLOYMENTS[$deployment]}"
-    
-    if oc get deployment "$deployment" -n "$NAMESPACE" &>/dev/null; then
-        echo "Scaling up: $deployment to $replicas replicas"
-        oc scale deployment "$deployment" -n "$NAMESPACE" --replicas="$replicas"
-        echo "✓ $deployment scaled to $replicas replicas"
+
+    if scale_deployment "$deployment" "$NAMESPACE" "$replicas"; then
+        current=$(get_current_replicas "$deployment" "$NAMESPACE")
+        if [ "$current" -ne "$replicas" ]; then
+            SCALED_COUNT=$((SCALED_COUNT + 1))
+        else
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        fi
     else
-        echo "⚠ Deployment $deployment not found, skipping..."
+        FAILED_COUNT=$((FAILED_COUNT + 1))
     fi
 done
 
-echo ""
-echo "Waiting for pods to start..."
-sleep 15
+log ""
+log "Scaling summary: $SCALED_COUNT scaled, $SKIPPED_COUNT already at target, $FAILED_COUNT failed"
 
-# Wait for pods to be ready
-echo "Checking pod readiness..."
-MAX_WAIT=300
-ELAPSED=0
-
-while [ $ELAPSED -lt $MAX_WAIT ]; do
-    READY_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | grep "1/1\|2/2\|3/3" | wc -l || echo 0)
-    TOTAL_PODS=$(oc get pods -n "$NAMESPACE" --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -E "automation|aap-gateway" | wc -l || echo 0)
-    
-    echo "Ready pods: $READY_PODS / $TOTAL_PODS"
-    
-    if [ "$READY_PODS" -ge 10 ]; then
-        echo "✓ AAP pods are ready!"
-        break
-    fi
-    
-    sleep 10
-    ELAPSED=$((ELAPSED + 10))
-done
-
-if [ $ELAPSED -ge $MAX_WAIT ]; then
-    echo "⚠ Warning: Timeout waiting for pods to be ready"
+if [ $FAILED_COUNT -gt 0 ]; then
+    log_warn "Some deployments failed to scale"
 fi
 
-echo ""
-echo "Current pod status:"
-oc get pods -n "$NAMESPACE" | grep -E "NAME|automation|aap-gateway"
+# Wait for pods to be ready
+log ""
+if wait_for_pods "$NAMESPACE" 10 300; then
+    log_success "AAP pods are ready"
+else
+    log_warn "Some pods may not be ready yet"
+fi
 
-echo ""
-echo "Scale up operation complete!"
-echo ""
-echo "Verify AAP is accessible:"
+log ""
+log "Current pod status:"
+oc get pods -n "$NAMESPACE" 2>/dev/null | grep -E 'NAME|^(automation-(controller|hub)|aap-gateway)' || true
+
+log ""
+log_section "Scale Up Operation Complete"
+
+# Get AAP route
 AAP_ROUTE=$(oc get route -n "$NAMESPACE" -o jsonpath='{.items[0].spec.host}' 2>/dev/null || echo "route-not-found")
-echo "AAP URL: https://$AAP_ROUTE"
+log "AAP URL: https://$AAP_ROUTE"
+log ""
+log "Log file: $LOG_FILE"

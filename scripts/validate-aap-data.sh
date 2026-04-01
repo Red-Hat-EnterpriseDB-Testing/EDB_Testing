@@ -1,19 +1,4 @@
 #!/bin/bash
-#
-# Copyright 2026 EnterpriseDB Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # AAP Data Validation Script
 # Validates AAP data integrity after failover or DR events
 #
@@ -21,8 +6,12 @@
 #   ./validate-aap-data.sh create-baseline <cluster-context>
 #   ./validate-aap-data.sh validate <cluster-context>
 #
+# Environment Variables:
+#   AAP_CA_BUNDLE - Path to CA certificate bundle for TLS verification
+#                   (default: /etc/pki/tls/certs/ca-bundle.crt)
+#
 
-set -e
+set -euo pipefail
 
 # Configuration
 NAMESPACE="ansible-automation-platform"
@@ -105,17 +94,50 @@ echo ""
 # Function: Get AAP API token
 get_aap_token() {
     local token_response
+    local json_payload
 
-    token_response=$(curl -k -s -X POST \
+    # Use jq to safely construct JSON payload (prevents injection)
+    if command -v jq &> /dev/null; then
+        json_payload=$(jq -n \
+            --arg user "$AAP_ADMIN_USER" \
+            --arg pass "$AAP_ADMIN_PASSWORD" \
+            '{username: $user, password: $pass}')
+    else
+        # Fallback: validate no special characters before string interpolation
+        if [[ "$AAP_ADMIN_PASSWORD" =~ [\"\'\\] ]]; then
+            echo "ERROR: Password contains forbidden characters: \", ', or \\" >&2
+            return 1
+        fi
+        json_payload="{\"username\":\"$AAP_ADMIN_USER\",\"password\":\"$AAP_ADMIN_PASSWORD\"}"
+    fi
+
+    # Use CA bundle instead of -k (insecure)
+    # Set AAP_CA_BUNDLE environment variable to override
+    local curl_opts=()
+    if [ -n "${AAP_CA_BUNDLE:-}" ]; then
+        curl_opts+=(--cacert "$AAP_CA_BUNDLE")
+    elif [ -f "/etc/pki/tls/certs/ca-bundle.crt" ]; then
+        curl_opts+=(--cacert /etc/pki/tls/certs/ca-bundle.crt)
+    else
+        # Fallback to insecure only if no CA bundle available
+        echo "⚠️  WARNING: No CA bundle found, using insecure TLS" >&2
+        curl_opts+=(-k)
+    fi
+
+    token_response=$(curl "${curl_opts[@]}" -s -X POST \
         -H "Content-Type: application/json" \
-        -d "{\"username\":\"$AAP_ADMIN_USER\",\"password\":\"$AAP_ADMIN_PASSWORD\"}" \
+        -d "$json_payload" \
         "$AAP_URL/api/v2/tokens/" 2>/dev/null || echo "")
 
     if [ -z "$token_response" ]; then
         return 1
     fi
 
-    echo "$token_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4
+    if command -v jq &> /dev/null; then
+        echo "$token_response" | jq -r '.token // empty'
+    else
+        echo "$token_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4
+    fi
 }
 
 # Function: Call AAP API
@@ -123,7 +145,17 @@ call_aap_api() {
     local endpoint="$1"
     local auth_token=$2
 
-    curl -k -s -H "Authorization: Bearer $auth_token" \
+    # Use CA bundle instead of -k (insecure)
+    local curl_opts=()
+    if [ -n "${AAP_CA_BUNDLE:-}" ]; then
+        curl_opts+=(--cacert "$AAP_CA_BUNDLE")
+    elif [ -f "/etc/pki/tls/certs/ca-bundle.crt" ]; then
+        curl_opts+=(--cacert /etc/pki/tls/certs/ca-bundle.crt)
+    else
+        curl_opts+=(-k)
+    fi
+
+    curl "${curl_opts[@]}" -s -H "Authorization: Bearer $auth_token" \
         "$AAP_URL/api/v2/$endpoint" 2>/dev/null || echo "{}"
 }
 

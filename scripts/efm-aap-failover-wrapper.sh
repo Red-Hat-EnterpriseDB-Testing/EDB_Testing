@@ -1,19 +1,4 @@
 #!/bin/bash
-#
-# Copyright 2026 EnterpriseDB Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # EFM AAP Failover Wrapper Script
 # This script is called by EFM during database failover
 #
@@ -24,7 +9,7 @@
 # $4 = VIP address (if configured)
 #
 
-set -e
+set -euo pipefail
 
 CLUSTER_NAME="$1"
 NODE_TYPE="$2"
@@ -33,8 +18,21 @@ VIP_ADDRESS="${4:-}"
 
 # Cluster contexts for OpenShift - update these to your cluster context from your kubeconfig file.
 # Run 'kubectl config get-contexts' to list available contexts.
-DC1_CLUSTER_CONTEXT="your-dc1-cluster-context"
-DC2_CLUSTER_CONTEXT="your-dc2-cluster-context"
+DC1_CLUSTER_CONTEXT="${DC1_CLUSTER_CONTEXT:-your-dc1-cluster-context}"
+DC2_CLUSTER_CONTEXT="${DC2_CLUSTER_CONTEXT:-your-dc2-cluster-context}"
+
+# Validate configuration is not using placeholder values
+if [[ "$DC1_CLUSTER_CONTEXT" == *"your-"* ]] || [[ "$DC1_CLUSTER_CONTEXT" == *"example"* ]]; then
+    echo "ERROR: DC1_CLUSTER_CONTEXT contains placeholder value: $DC1_CLUSTER_CONTEXT" >&2
+    echo "Please set DC1_CLUSTER_CONTEXT environment variable or update this script" >&2
+    exit 1
+fi
+
+if [[ "$DC2_CLUSTER_CONTEXT" == *"your-"* ]] || [[ "$DC2_CLUSTER_CONTEXT" == *"example"* ]]; then
+    echo "ERROR: DC2_CLUSTER_CONTEXT contains placeholder value: $DC2_CLUSTER_CONTEXT" >&2
+    echo "Please set DC2_CLUSTER_CONTEXT environment variable or update this script" >&2
+    exit 1
+fi
 
 LOGFILE="/var/log/efm-aap-failover.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -53,17 +51,30 @@ log_message "VIP Address: $VIP_ADDRESS"
 log_message "========================================"
 
 # Determine which datacenter this node is in based on address or hostname
+# Uses strict pattern matching to avoid false positives
 DATACENTER=""
-if [[ "$NODE_ADDRESS" == *"dc1"* ]] || [[ "$NODE_ADDRESS" == *"ocp1"* ]]; then
-    DATACENTER="DC1"
-    CLUSTER_CONTEXT="$DC1_CLUSTER_CONTEXT"
-elif [[ "$NODE_ADDRESS" == *"dc2"* ]] || [[ "$NODE_ADDRESS" == *"ocp2"* ]]; then
-    DATACENTER="DC2"
-    CLUSTER_CONTEXT="$DC2_CLUSTER_CONTEXT"
-else
-    log_message "ERROR: Unable to determine datacenter from node address"
-    exit 1
-fi
+CLUSTER_CONTEXT=""
+
+case "$NODE_ADDRESS" in
+    # DC1 patterns: exact domain matches and IP ranges
+    *.dc1.* | *-dc1-* | 10.1.*.* | *.ocp1.* | *-ocp1-*)
+        DATACENTER="DC1"
+        CLUSTER_CONTEXT="$DC1_CLUSTER_CONTEXT"
+        ;;
+    # DC2 patterns: exact domain matches and IP ranges
+    *.dc2.* | *-dc2-* | 10.2.*.* | *.ocp2.* | *-ocp2-*)
+        DATACENTER="DC2"
+        CLUSTER_CONTEXT="$DC2_CLUSTER_CONTEXT"
+        ;;
+    *)
+        log_message "ERROR: Unable to determine datacenter from node address: $NODE_ADDRESS"
+        log_message "Expected patterns:"
+        log_message "  DC1: *.dc1.*, *-dc1-*, 10.1.*.*, *.ocp1.*, *-ocp1-*"
+        log_message "  DC2: *.dc2.*, *-dc2-*, 10.2.*.*, *.ocp2.*, *-ocp2-*"
+        log_message "Please update the pattern matching in this script to match your environment"
+        exit 1
+        ;;
+esac
 
 log_message "Detected Datacenter: $DATACENTER"
 log_message "OpenShift Context: $CLUSTER_CONTEXT"

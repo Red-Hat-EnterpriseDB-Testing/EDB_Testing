@@ -10,14 +10,17 @@
 
 **New to this repository?** Start here:
 
-1. **[Quick Start Guide](quick-start-guide.md)** ⭐ **START HERE** - Get running in 15-30 minutes
-2. **[Main README](../README.md)** - Architecture overview and table of contents
-3. **[Deployment Guides](#deployment-guides)** - Detailed deployment methods
-4. **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework
+1. **[Quick Start Guide](quick-start-guide.md)** ⭐ **START HERE** - OpenShift/RHEL deployment (15-30 min)
+2. **[AAP Containerized Quick Start](aap-containerized-quickstart.md)** ⭐ **NEW** - Multi-DC DR deployment (30-60 min planning)
+3. **[Main README](../README.md)** - Architecture overview and table of contents
+4. **[Deployment Guides](#deployment-guides)** - Detailed deployment methods
+5. **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework
 
 **Quick deployment paths:**
 - **OpenShift (15 min):** [Quick Start Guide - OpenShift](quick-start-guide.md#quick-start-openshift-15-minutes)
 - **RHEL with TPA (20 min):** [Quick Start Guide - RHEL](quick-start-guide.md#quick-start-rhel-with-tpa-20-minutes)
+- **AAP Containerized Growth (30 min):** [AAP Containerized Quick Start - Growth](aap-containerized-quickstart.md#growth-topology-deployment)
+- **AAP Containerized Enterprise (30 min):** [AAP Containerized Quick Start - Enterprise](aap-containerized-quickstart.md#enterprise-topology-deployment)
 - **Local testing (30 min):** [Quick Start Guide - CRC](quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes)
 
 **Need to perform a DR drill?**
@@ -56,6 +59,9 @@
 |----------|-------------|-----------|
 | **[Architecture Overview](architecture.md)** ⭐ **COMPREHENSIVE** | Complete architecture documentation | 45 min |
 | **[Main README Architecture](../README.md#architecture)** | High-level overview with diagram | 5 min |
+| **[AAP Containerized Growth DR](aap-containerized-growth-dr-architecture.md)** ⭐ **NEW** | 3-node multi-DC deployment (cost-optimized) | 25 min |
+| **[AAP Containerized Enterprise DR](aap-containerized-enterprise-dr-architecture.md)** ⭐ **NEW** | 8-node multi-DC deployment (production-grade) | 30 min |
+| **[Architecture Validation Report](aap-architecture-validation-report.md)** | Validation vs Red Hat AAP 2.6 tested models | 15 min |
 | **[RHEL AAP Architecture](rhel-aap-architecture.md)** | AAP on RHEL with systemd services | 10 min |
 | **[OpenShift AAP Architecture](openshift-aap-architecture.md)** | AAP on OpenShift with operator | 10 min |
 
@@ -67,10 +73,19 @@
 - Scaling strategies (horizontal, vertical, geographic)
 - Backup and restore architecture
 
+**AAP Containerized Deployment Models:**
+
+Choose based on your requirements:
+
+| Topology | VMs | Best For | RTO | Cost |
+|----------|-----|----------|-----|------|
+| **[Growth](aap-containerized-growth-dr-architecture.md)** | 16 total (3 AAP/DC) | Small-medium, budget-conscious | < 5 min | Lower |
+| **[Enterprise](aap-containerized-enterprise-dr-architecture.md)** | 26 total (8 AAP/DC) | Production-critical, high-scale | < 5 min | Higher |
+
 **Architecture Decisions:**
 - Active-Passive topology (DC1 primary, DC2 standby)
 - Physical streaming replication + WAL archiving to S3
-- CloudNativePG operator for database lifecycle management
+- CloudNativePG operator (OpenShift) or EDB Postgres Advanced (RHEL)
 - EDB Failover Manager (EFM) for automated database failover
 - Global Load Balancer for traffic management and health-based routing
 

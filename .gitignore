@@ -5,3 +5,18 @@
 **/kubeconfig
 **/kubeconfig-*
 *.pem
+
+# Secret files (allow .example variants)
+*.secret.yaml
+!*.secret.yaml.example
+
+# Log files
+*.log
+*-latest.log
+/tmp/
+/var/log/aap-dr/
+
+# Temporary and backup files
+*.tmp
+*.bak
+.DS_Store
