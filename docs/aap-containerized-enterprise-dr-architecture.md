@@ -159,7 +159,7 @@ User → GLB → HAProxy(DC2) → AAP Containers(DC2) → VIP(DC2) → PostgreSQ
 | **Automation Controller** | RHEL 9.4+, Podman | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
 | **Automation Hub** | RHEL 9.4+, Podman + Redis | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
 | **Event-Driven Ansible** | RHEL 9.4+, Podman + Redis | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
-| **HAProxy Load Balancer** | RHEL 9.4+ | 1 | 2 vCPU, 8GB RAM, 40GB disk | 2 vCPU, 8GB RAM |
+| **HAProxy DB Router** | RHEL 9.4+, HAProxy | 1 | 2 vCPU, 8GB RAM, 40GB disk | 2 vCPU, 8GB RAM |
 | **Total AAP Infrastructure DC1** | - | **9 VMs** | - | **34 vCPU, 136GB RAM** |
 
 **DC2 (Standby Site) - AAP Component VMs (STOPPED)**
@@ -170,7 +170,7 @@ User → GLB → HAProxy(DC2) → AAP Containers(DC2) → VIP(DC2) → PostgreSQ
 | **Automation Controller** | RHEL 9.4+, Podman (STOPPED) | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
 | **Automation Hub** | RHEL 9.4+, Podman + Redis (STOPPED) | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
 | **Event-Driven Ansible** | RHEL 9.4+, Podman + Redis (STOPPED) | 2 | 4 vCPU, 16GB RAM, 60GB disk | 8 vCPU, 32GB RAM |
-| **HAProxy Load Balancer** | RHEL 9.4+ | 1 | 2 vCPU, 8GB RAM, 40GB disk | 2 vCPU, 8GB RAM |
+| **HAProxy DB Router** | RHEL 9.4+, HAProxy | 1 | 2 vCPU, 8GB RAM, 40GB disk | 2 vCPU, 8GB RAM |
 | **Total AAP Infrastructure DC2** | - | **9 VMs** | - | **34 vCPU, 136GB RAM** |
 
 > **Note:** Red Hat requires 6 VMs minimum for Redis HA compatibility (Redis colocated on gateway, hub, and EDA nodes = 6 total). Our design meets this requirement.
@@ -183,14 +183,14 @@ DC1:
   controller1-dc1.example.com   controller2-dc1.example.com
   hub1-dc1.example.com          hub2-dc1.example.com
   eda1-dc1.example.com          eda2-dc1.example.com
-  haproxy-dc1.example.com
+  haproxy-db-dc1.example.com    # Database connection router
 
 DC2:
   gateway1-dc2.example.com      gateway2-dc2.example.com
   controller1-dc2.example.com   controller2-dc2.example.com
   hub1-dc2.example.com          hub2-dc2.example.com
   eda1-dc2.example.com          eda2-dc2.example.com
-  haproxy-dc2.example.com
+  haproxy-db-dc2.example.com    # Database connection router
 ```
 
 **Containers per Component Type**
@@ -298,8 +298,7 @@ DC1 Network:
     - controller1-dc1:  10.1.1.13    controller2-dc1:  10.1.1.14
     - hub1-dc1:         10.1.1.15    hub2-dc1:         10.1.1.16
     - eda1-dc1:         10.1.1.17    eda2-dc1:         10.1.1.18
-    - haproxy-dc1:      10.1.1.10
-    - HAProxy VIP:      10.1.1.100
+    - haproxy-db-dc1:   10.1.1.20    # Database connection router
 
   - Database Subnet:  10.1.2.0/24
     - pg-dc1-1:         10.1.2.21    pg-dc1-2:         10.1.2.22
@@ -312,8 +311,7 @@ DC2 Network:
     - controller1-dc2:  10.2.1.13    controller2-dc2:  10.2.1.14
     - hub1-dc2:         10.2.1.15    hub2-dc2:         10.2.1.16
     - eda1-dc2:         10.2.1.17    eda2-dc2:         10.2.1.18
-    - haproxy-dc2:      10.2.1.10
-    - HAProxy VIP:      10.2.1.100
+    - haproxy-db-dc2:   10.2.1.20    # Database connection router
 
   - Database Subnet:  10.2.2.0/24
     - pg-dc2-1:         10.2.2.21    pg-dc2-2:         10.2.2.22
@@ -560,7 +558,7 @@ redis_mode='standalone'  # Use 'cluster' for Redis HA (optional)
 
 # Platform Gateway Configuration
 gateway_admin_password='<set your own>'
-gateway_pg_host='10.1.2.100'  # EFM VIP for DC1 PostgreSQL cluster
+gateway_pg_host='10.1.1.20'  # HAProxy database router (routes to PostgreSQL VIP 10.1.2.100)
 gateway_pg_port='5432'
 gateway_pg_database='automationgateway'
 gateway_pg_username='aap'
@@ -569,7 +567,7 @@ gateway_main_url='https://aap.example.com'
 
 # Automation Controller Configuration
 controller_admin_password='<set your own>'
-controller_pg_host='10.1.2.100'  # EFM VIP
+controller_pg_host='10.1.1.20'  # HAProxy database router
 controller_pg_port='5432'
 controller_pg_database='awx'
 controller_pg_username='aap'
@@ -577,7 +575,7 @@ controller_pg_password='<set your own>'
 
 # Automation Hub Configuration
 hub_admin_password='<set your own>'
-hub_pg_host='10.1.2.100'  # EFM VIP
+hub_pg_host='10.1.1.20'  # HAProxy database router
 hub_pg_port='5432'
 hub_pg_database='automationhub'
 hub_pg_username='aap'
@@ -585,7 +583,7 @@ hub_pg_password='<set your own>'
 
 # Event-Driven Ansible Configuration
 eda_admin_password='<set your own>'
-eda_pg_host='10.1.2.100'  # EFM VIP
+eda_pg_host='10.1.1.20'  # HAProxy database router
 eda_pg_port='5432'
 eda_pg_database='automationedacontroller'
 eda_pg_username='aap'
@@ -641,29 +639,29 @@ controller_admin_password='<SAME AS DC1>'
 hub_admin_password='<SAME AS DC1>'
 eda_admin_password='<SAME AS DC1>'
 
-# Platform Gateway (pointing to DC2 PostgreSQL VIP)
-gateway_pg_host='10.2.2.100'  # EFM VIP for DC2 (standby until promotion)
+# Platform Gateway (pointing to DC2 HAProxy)
+gateway_pg_host='10.2.1.20'  # HAProxy database router (routes to PostgreSQL VIP 10.2.2.100)
 gateway_pg_port='5432'
 gateway_pg_database='automationgateway'
 gateway_pg_username='aap'
 gateway_pg_password='<SAME AS DC1>'
 
 # Automation Controller
-controller_pg_host='10.2.2.100'
+controller_pg_host='10.2.1.20'  # HAProxy database router
 controller_pg_port='5432'
 controller_pg_database='awx'
 controller_pg_username='aap'
 controller_pg_password='<SAME AS DC1>'
 
 # Automation Hub
-hub_pg_host='10.2.2.100'
+hub_pg_host='10.2.1.20'  # HAProxy database router
 hub_pg_port='5432'
 hub_pg_database='automationhub'
 hub_pg_username='aap'
 hub_pg_password='<SAME AS DC1>'
 
 # Event-Driven Ansible
-eda_pg_host='10.2.2.100'
+eda_pg_host='10.2.1.20'  # HAProxy database router
 eda_pg_port='5432'
 eda_pg_database='automationedacontroller'
 eda_pg_username='aap'
@@ -724,53 +722,123 @@ systemctl disable automation-controller-web automation-controller-task
 systemctl disable automation-gateway automation-hub eda-activation-worker redis
 ```
 
-### 4.3 HAProxy Configuration
+### 4.3 HAProxy Configuration (Database Connection Layer)
+
+> **Architecture Note:** This deployment uses HAProxy for database connection routing instead of pgBouncer due to AAP 2.6 compatibility constraints. HAProxy routes AAP containers to the EFM-managed PostgreSQL VIP without connection pooling. See **[HAProxy vs pgBouncer Architectural Analysis](haproxy-pgbouncer-architectural-analysis.md)** for complete design rationale, trade-offs, and implementation guidance.
 
 ```haproxy
 # /etc/haproxy/haproxy.cfg (DC1 and DC2)
+# HAProxy for PostgreSQL Connection Routing
+# Replaces pgBouncer due to AAP compatibility issues
 
 global
-    log /dev/log local0
+    log /dev/log local0 info
     chroot /var/lib/haproxy
-    maxconn 4000
+    stats socket /var/lib/haproxy/stats mode 600 level admin
+    stats timeout 30s
     user haproxy
     group haproxy
     daemon
-    ssl-default-bind-ciphers ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5:!DSS
-    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    maxconn 4000
 
 defaults
     log     global
-    mode    http
-    option  httplog
+    mode    tcp
+    option  tcplog
     option  dontlognull
-    timeout connect 5000
-    timeout client  300000
-    timeout server  300000
+    timeout connect 10s
+    timeout client  1h
+    timeout server  1h
+    timeout check   5s
+    retries 3
 
-# Frontend - AAP HTTPS
-frontend aap_https
-    bind *:443 ssl crt /etc/haproxy/certs/aap.pem
-    mode http
-    default_backend aap_backend
-
-# Backend - Platform Gateway Nodes
-backend aap_backend
-    mode http
+# Backend - PostgreSQL VIP (EFM-managed)
+backend postgresql_backend
+    mode tcp
     balance roundrobin
-    option httpchk GET /api/v2/ping/
-    http-check expect status 200
+    
+    # External health check validates writable node
+    option external-check
+    external-check path "/usr/bin:/bin"
+    external-check command /usr/local/bin/check-postgres-writable.sh
+    
+    # Single backend: EFM-managed VIP always points to PRIMARY
+    server postgresql-vip 10.1.2.100:5432 check inter 5s rise 2 fall 3 maxconn 500
 
-    # Platform Gateway nodes (DC1 example - points to gateway VMs)
-    server gateway1-dc1 10.1.1.11:80 check inter 5s rise 2 fall 3
-    server gateway2-dc1 10.1.1.12:80 check inter 5s rise 2 fall 3
+# Frontend - AAP Database Connections
+frontend postgresql_frontend
+    bind *:5432
+    mode tcp
+    default_backend postgresql_backend
 
-# Frontend - Stats
+# Stats interface
 listen stats
     bind *:8404
+    mode http
     stats enable
     stats uri /stats
-    stats refresh 30s
+    stats refresh 10s
+    stats auth admin:ChangeMeStats123!
+```
+
+**External Health Check Script:**
+
+```bash
+#!/bin/bash
+# /usr/local/bin/check-postgres-writable.sh
+# Validates PostgreSQL VIP points to writable PRIMARY node
+# Called by HAProxy external-check with backend IP and port as arguments
+
+PGHOST="${1:-10.1.2.100}"
+PGPORT="${2:-5432}"
+PGUSER="haproxy_healthcheck"
+PGDATABASE="postgres"
+TIMEOUT=3
+
+# Check 1: PostgreSQL is reachable
+if ! timeout "${TIMEOUT}" pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -q; then
+    logger -t haproxy-healthcheck "PostgreSQL unreachable: ${PGHOST}:${PGPORT}"
+    exit 1
+fi
+
+# Check 2: PostgreSQL is NOT in recovery (writable PRIMARY)
+IS_RECOVERY=$(timeout "${TIMEOUT}" psql \
+    -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
+    -t -c "SELECT pg_is_in_recovery();" 2>/dev/null | tr -d '[:space:]')
+
+if [[ "${IS_RECOVERY}" == "f" ]]; then
+    exit 0  # Writable PRIMARY
+else
+    logger -t haproxy-healthcheck "PostgreSQL is read-only: ${PGHOST}:${PGPORT}"
+    exit 1  # Read-only STANDBY
+fi
+```
+
+**Required PostgreSQL Health Check User:**
+
+```sql
+-- Create dedicated health check user (minimal privileges)
+CREATE USER haproxy_healthcheck WITH PASSWORD 'HealthCheckPassword123!';
+GRANT CONNECT ON DATABASE postgres TO haproxy_healthcheck;
+
+-- pg_hba.conf entry
+# TYPE  DATABASE        USER                    ADDRESS         METHOD
+host    postgres        haproxy_healthcheck     10.1.1.0/24     scram-sha-256
+host    postgres        haproxy_healthcheck     10.2.1.0/24     scram-sha-256
+```
+
+**HAProxy Deployment Model:**
+
+```
+DC1:
+  - haproxy-db-dc1: 10.1.1.20 (routes to PostgreSQL VIP 10.1.2.100)
+  
+DC2:
+  - haproxy-db-dc2: 10.2.1.20 (routes to PostgreSQL VIP 10.2.2.100)
+
+For HA (optional):
+  - Deploy 2 HAProxy instances per DC with Keepalived VIP
+  - See Architecture Analysis document for HA configuration
 ```
 
 ---
@@ -1319,6 +1387,7 @@ echo 'set server aap_backend/aap-node1 state ready' | socat stdio /var/lib/hapro
 ## Related Documentation
 
 - **[Architecture Validation Report](aap-architecture-validation-report.md)** ⭐ - Validation against Red Hat AAP 2.6 tested models
+- **[HAProxy vs pgBouncer Analysis](haproxy-pgbouncer-architectural-analysis.md)** ⭐ - Architecture Decision Record for HAProxy implementation
 - [Main Architecture](architecture.md) - Comprehensive architecture documentation
 - [RHEL AAP Architecture](rhel-aap-architecture.md) - Alternative RHEL deployment
 - [OpenShift AAP Architecture](openshift-aap-architecture.md) - Kubernetes-based deployment
