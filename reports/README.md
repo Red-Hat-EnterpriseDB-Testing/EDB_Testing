@@ -7,8 +7,19 @@ This directory contains test reports and validation results for the EDB PostgreS
 | Report | Date | Description |
 |--------|------|-------------|
 | [REPLICATION-TEST-REPORT-20260402.md](REPLICATION-TEST-REPORT-20260402.md) | 2026-04-02 | PostgreSQL replication testing on CRC OpenShift - comprehensive test suite including failover, data consistency, and performance metrics |
+| [AAP-OPENSHIFT-EXTERNAL-DB-20260403.md](AAP-OPENSHIFT-EXTERNAL-DB-20260403.md) | 2026-04-03 | AAP 2.6 deployment on OpenShift with external PostgreSQL - complete deployment documentation including troubleshooting and architecture |
 
 ## Report Types
+
+### AAP Deployment Reports
+Comprehensive AAP deployment documentation covering:
+- External PostgreSQL database configuration
+- Operator-based deployment process
+- Troubleshooting steps and solutions
+- Component status and verification
+- Architecture diagrams and benefits
+- Migration from internal to external database
+- Security context constraints and permissions
 
 ### Replication Tests
 Tests covering:
