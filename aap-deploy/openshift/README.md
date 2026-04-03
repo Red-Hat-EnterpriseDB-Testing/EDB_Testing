@@ -2,6 +2,8 @@
 
 This flow installs the **Ansible Automation Platform operator** (`stable-2.6`) and an **`AnsibleAutomationPlatform`** instance that uses the CloudNativePG / EDB **`postgresql`** read-write Service **`postgresql-rw.edb-postgres.svc.cluster.local`** (adjust if you use different namespace or `Cluster` names) as a single PostgreSQL server with **four databases** (gateway, controller, hub, EDA).
 
+**What gets deployed:** This configuration deploys the complete AAP 2.6 platform including Platform Gateway, Automation Controller, Automation Hub, and Event-Driven Ansible. For deployment-specific configuration, verification, and troubleshooting, see the **[AAP Deployment Reference](../../docs/aap-components-reference.md)**. For component capabilities and features, see [Red Hat AAP 2.6 Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6).
+
 Confirm fields and prerequisites in [Installing on OpenShift Container Platform 2.6](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/installing_on_openshift_container_platform/index).
 
 ## Prerequisites
@@ -81,7 +83,8 @@ oc get routes -n ansible-automation-platform
 | File | Purpose |
 |------|---------|
 | `kustomization.yaml` | Namespace, `OperatorGroup`, `Subscription` |
-| `ansibleautomationplatform.yaml` | Parent CR with external DB secret refs |
+| `ansibleautomationplatform.yaml` | Basic parent CR with external DB secret refs (recommended starting point) |
+| `ansibleautomationplatform-advanced.yaml` | Advanced CR example with HA, scaling, and resource tuning options |
 | `scripts/generate-postgres-secrets.sh` | Prints four `Secret` manifests |
 | `postgres-configuration-secret.example.yaml` | Optional single-secret structural template (placeholders; most flows use the generator script above) |
 | `../edb-bootstrap/create-aap-databases.sql` | Reference SQL (edit password before use) |
@@ -89,3 +92,17 @@ oc get routes -n ansible-automation-platform
 ## Private CA (optional)
 
 If the controller must trust a custom CA for Postgres TLS, create **`bundle-ca.crt`** in a Secret and set **`spec.bundle_cacert_secret`** on `AnsibleAutomationPlatform` per product docs.
+
+## Component information
+
+This deployment includes all four AAP 2.6 components:
+
+- **Platform Gateway**: Unified authentication and UI
+- **Automation Controller**: Job execution and workflow orchestration
+- **Automation Hub**: Content management and collection distribution
+- **Event-Driven Ansible (EDA)**: Event-driven automation
+
+**Documentation:**
+
+- **Deployment reference** (database setup, verification, troubleshooting): [AAP Deployment Reference](../../docs/aap-components-reference.md)
+- **Component capabilities and usage**: [Red Hat AAP 2.6 Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6)

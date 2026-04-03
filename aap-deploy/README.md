@@ -166,6 +166,8 @@ To install **AAP 2.6** with the operator on **one** OpenShift cluster and use **
 
 Adjust `spec.hub.file_storage_storage_class` to a **ReadWriteMany** `StorageClass` before or after apply.
 
+**What gets deployed:** The default configuration deploys the complete AAP 2.6 platform including Platform Gateway, Automation Controller, Automation Hub, and Event-Driven Ansible. See the **[AAP Deployment Reference](../docs/aap-components-reference.md)** for deployment configuration, database setup, verification procedures, and troubleshooting. For component capabilities and usage, see [Red Hat AAP 2.6 Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6).
+
 ## 9. Layout of this folder
 
 | Path | Purpose |
