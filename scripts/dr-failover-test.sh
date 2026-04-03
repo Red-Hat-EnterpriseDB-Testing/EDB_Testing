@@ -269,9 +269,9 @@ else
 
         if [ -n "$DC2_DB_POD" ]; then
             # Add retry logic for database query (handles transient failures during promotion)
-            local attempt=0
-            local max_attempts=3
-            local query_success=false
+            attempt=0
+            max_attempts=3
+            query_success=false
 
             while [ $attempt -lt $max_attempts ]; do
                 if DC2_RECOVERY=$(oc exec -n "$DB_NAMESPACE" "$DC2_DB_POD" -- \

@@ -248,9 +248,7 @@ case "$ACTION" in
         rto=$(calculate_duration "$start_time_ms" "$end_time_ms")
 
         # Update metrics file with final RTO (atomic update)
-        local temp_file
         temp_file=$(mktemp "${METRICS_FILE}.XXXXXX")
-        local end_time_human
         end_time_human=$(get_timestamp_human)
 
         if command -v jq &> /dev/null; then
