@@ -34,7 +34,7 @@ stringData:
   username: $PGUSER
   password: $PASS
   sslmode: $SSLMODE
-  target_session_attrs: read-write
+  target_session_attrs: read-write  # Ensures connection to primary (not replica)
   type: unmanaged
 ---
 EOF
