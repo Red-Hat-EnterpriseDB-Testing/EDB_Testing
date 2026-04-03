@@ -148,8 +148,11 @@ Choose based on your requirements:
 | **[generate-dr-report.sh](../scripts/generate-dr-report.sh)** | DR test report generation | `./generate-dr-report.sh <test-id>` |
 
 **Script Documentation:**
-- [Scripts README](../scripts/README.md) - Detailed usage for all scripts
-- [Manual Scripts Doc](manual-scripts-doc.md) - Operations runbook
+- **[Scripts README](../scripts/README.md)** ⭐ - Quick reference for all scripts
+- **[Scripts Guide](scripts-guide.md)** - Comprehensive usage guide
+- **[Scripts Library Reference](scripts-library-reference.md)** - Shared library functions API
+- **[Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md)** - Pre-commit hooks and quality automation
+- **[Manual Scripts Doc](manual-scripts-doc.md)** - Operations runbook
 
 ---
 
@@ -158,6 +161,7 @@ Choose based on your requirements:
 **Contributing and automation:**
 
 - **[CI/CD Pipeline](cicd-pipeline.md)** - GitHub Actions workflows (6,500 words)
+- **[Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md)** ⭐ **NEW** - Pre-commit hooks, CI checks, and quality automation
 - **[Pre-commit Hooks](../.pre-commit-config.yaml)** - Local validation before commit
 - **CONTRIBUTING.md** - _Coming soon_ (see [Documentation Audit](documentation-audit-report.md))
 
@@ -169,6 +173,7 @@ Choose based on your requirements:
 **Testing:**
 - [Component Testing Results](component-testing-results.md) - Script validation (macOS/CRC)
 - [AAP Deployment Validation](aap-deployment-validation-crc.md) - End-to-end validation
+- [run-ci-checks-locally.sh](../scripts/run-ci-checks-locally.sh) - Run CI checks before pushing
 
 ---
 
@@ -296,7 +301,7 @@ Choose based on your requirements:
 | ⚠️ Partial | 4 | Exists but needs expansion (security, monitoring) |
 | ❌ Planned | 3 | Identified in audit, not yet created (GLOSSARY, FAQ, Migration Guide) |
 
-**Recent Additions (2026-03-31):**
+**Recent Additions (2026-03-31 to 2026-04-03):**
 - ✅ DR Testing Guide (10,000+ words)
 - ✅ DR Testing Implementation Summary
 - ✅ Component Testing Results
@@ -305,6 +310,9 @@ Choose based on your requirements:
 - ✅ Documentation Audit Report
 - ✅ Documentation Index (this file)
 - ✅ Contributing Guide (CONTRIBUTING.md)
+- ✅ Scripts Library Reference (2026-04-03)
+- ✅ Scripts Hooks and CI/CD Guide (2026-04-03)
+- ✅ Scripts README reorganization (2026-04-03)
 
 **Next Documentation Priorities:**
 1. Security Hardening Guide (Week 2)
