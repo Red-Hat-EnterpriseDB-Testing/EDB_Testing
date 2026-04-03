@@ -47,6 +47,7 @@
 - [EDB Operator Installation](../db-deploy/olm-openshift/README.md) - CloudNativePG operator via OLM
 - [Cross-Cluster Replication](../db-deploy/cross-cluster/README.md) - DC1 → DC2 streaming replication
 - [AAP OpenShift Manifests](../aap-deploy/openshift/README.md) - Subscription and AnsibleAutomationPlatform CR
+- [AAP Deployment Reference](aap-components-reference.md) ⭐ **NEW** - Database setup, verification, troubleshooting (Gateway, Controller, Hub, EDA)
 - [EDB Operator Smoke Test](openshift-edb-operator-smoke-test.md) - Validation procedures
 
 ---
@@ -119,6 +120,7 @@ Choose based on your requirements:
 **Day-to-day operations:**
 
 - **[Operations Runbook](manual-scripts-doc.md)** - AAP cluster management procedures
+- **[AAP Deployment Reference](aap-components-reference.md)** ⭐ **NEW** - Deployment verification, troubleshooting, scaling
 - **[Script Reference](../scripts/README.md)** - All automation scripts documented
 - **[Troubleshooting Guide](troubleshooting.md)** - Common issues and diagnostics
 - **[EDB Failover Manager](enterprisefailovermanager.md)** - EFM integration and VIP management
@@ -286,10 +288,11 @@ Choose based on your requirements:
 ### 🎯 Application Developers
 
 **Essential Reading:**
-1. [AAP Deployment](../aap-deploy/README.md) - AAP usage and integration
-2. [Troubleshooting Guide](troubleshooting.md) - Common issues
-3. [Main README](../README.md) - System architecture
-4. [OpenShift AAP Architecture](openshift-aap-architecture.md) - Platform overview
+1. [AAP Deployment Reference](aap-components-reference.md) - Deployment verification and troubleshooting
+2. [AAP Deployment](../aap-deploy/README.md) - AAP usage and integration
+3. [Red Hat AAP Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6) - Component capabilities and features
+4. [Troubleshooting Guide](troubleshooting.md) - Common issues
+5. [Main README](../README.md) - System architecture
 
 ---
 
@@ -313,6 +316,7 @@ Choose based on your requirements:
 - ✅ Scripts Library Reference (2026-04-03)
 - ✅ Scripts Hooks and CI/CD Guide (2026-04-03)
 - ✅ Scripts README reorganization (2026-04-03)
+- ✅ AAP Deployment Reference (2026-04-03) - Deployment-specific configuration and troubleshooting
 
 **Next Documentation Priorities:**
 1. Security Hardening Guide (Week 2)

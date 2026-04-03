@@ -1,0 +1,228 @@
+# Advanced configuration example for AAP 2.6 AnsibleAutomationPlatform CR
+# This file demonstrates additional configuration options beyond the basic deployment.
+# For basic deployment, use ansibleautomationplatform.yaml in this directory.
+# For complete component documentation, see: docs/aap-components-guide.md
+
+apiVersion: aap.ansible.com/v1alpha1
+kind: AnsibleAutomationPlatform
+metadata:
+  name: aap
+  namespace: ansible-automation-platform
+spec:
+  # ==================================================================================
+  # PLATFORM GATEWAY - Unified authentication and UI
+  # ==================================================================================
+  database:
+    database_secret: external-postgres-configuration-gateway
+
+  # Optional gateway settings
+  # service_type: ClusterIP              # Default: ClusterIP (use LoadBalancer for external LB)
+  # route_tls_termination_mechanism: Edge  # Default: Edge (options: Edge, Passthrough)
+  # ingress_type: Route                   # Default: Route (OpenShift); use Ingress for vanilla K8s
+
+  # ==================================================================================
+  # AUTOMATION CONTROLLER - Job execution and workflow orchestration
+  # ==================================================================================
+  controller:
+    postgres_configuration_secret: external-postgres-configuration-controller
+
+    # High-availability configuration
+    replicas: 2                          # Number of web/API pods (increase for HA)
+    task_replicas: 4                     # Number of job executor pods (increase for concurrency)
+
+    # Resource limits for web pods
+    web_resource_requirements:
+      requests:
+        cpu: "2000m"
+        memory: "4Gi"
+      limits:
+        cpu: "4000m"
+        memory: "8Gi"
+
+    # Resource limits for task pods (job executors)
+    task_resource_requirements:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+
+    # Execution environment (EE) image pull credentials
+    # ee_extra_env: |
+    #   - name: MY_CUSTOM_ENV_VAR
+    #     value: "custom-value"
+
+    # Node affinity (schedule pods on specific nodes)
+    # node_selector: |
+    #   node-role.kubernetes.io/worker: ""
+
+    # Tolerations for tainted nodes
+    # task_tolerations: |
+    #   - key: "dedicated"
+    #     operator: "Equal"
+    #     value: "automation"
+    #     effect: "NoSchedule"
+
+  # ==================================================================================
+  # AUTOMATION HUB - Content management and distribution
+  # ==================================================================================
+  hub:
+    # Storage configuration (REQUIRED - must be ReadWriteMany)
+    storage_type: file                                      # Options: file, s3, azure
+    file_storage_storage_class: ocs-storagecluster-cephfs   # MUST be RWX-capable
+    file_storage_size: 10Gi                                 # Adjust based on collection count
+
+    # Database configuration
+    postgres_configuration_secret: external-postgres-configuration-hub
+
+    # High-availability configuration
+    replicas: 2                          # Number of Hub API pods
+
+    # Resource limits
+    resource_requirements:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+
+    # Worker configuration (for async tasks like collection sync)
+    # worker_replicas: 2
+    # worker_resource_requirements:
+    #   requests:
+    #     cpu: "500m"
+    #     memory: "1Gi"
+    #   limits:
+    #     cpu: "1000m"
+    #     memory: "2Gi"
+
+    # Node affinity
+    # node_selector: |
+    #   node-role.kubernetes.io/worker: ""
+
+  # ==================================================================================
+  # Alternative Hub configuration with S3 storage (instead of file storage)
+  # ==================================================================================
+  # hub:
+  #   storage_type: s3
+  #   object_storage_s3_secret: hub-s3-credentials  # Secret with S3 credentials
+  #   postgres_configuration_secret: external-postgres-configuration-hub
+  #   replicas: 2
+  #
+  # Required keys in hub-s3-credentials secret:
+  # - s3-access-key-id
+  # - s3-secret-access-key
+  # - s3-bucket-name
+  # - s3-region
+  # - s3-endpoint (optional, for non-AWS S3-compatible storage)
+
+  # ==================================================================================
+  # EVENT-DRIVEN ANSIBLE (EDA) - Event-driven automation
+  # ==================================================================================
+  eda:
+    database:
+      database_secret: external-postgres-configuration-eda
+
+    # High-availability configuration
+    replicas: 2                          # Number of EDA API pods
+    worker_replicas: 5                   # Number of event processing workers
+
+    # Resource limits for API pods
+    resource_requirements:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+    # Resource limits for worker pods
+    # worker_resource_requirements:
+    #   requests:
+    #     cpu: "500m"
+    #     memory: "1Gi"
+    #   limits:
+    #     cpu: "1000m"
+    #     memory: "2Gi"
+
+    # Controller integration (auto-configured via gateway, override if needed)
+    # automation_server_url: https://controller.example.com
+
+    # Node affinity
+    # node_selector: |
+    #   node-role.kubernetes.io/worker: ""
+
+  # ==================================================================================
+  # PLATFORM-WIDE SETTINGS
+  # ==================================================================================
+
+  # TLS/SSL custom CA bundle (optional)
+  # If your PostgreSQL server uses a custom CA, create a secret with "bundle-ca.crt" key
+  # bundle_cacert_secret: custom-ca-bundle
+
+  # Image pull secrets (for private container registries)
+  # image_pull_secrets:
+  #   - private-registry-credentials
+
+  # Platform-wide idle mode (scale all components to zero)
+  # Use this for maintenance windows or DR site standby mode
+  # idle_aap: false                      # Set to true to scale down all components
+
+  # Service account (operator creates one by default; override if needed)
+  # service_account_name: aap-custom-sa
+
+  # ==================================================================================
+  # CSRF SETTINGS (for external ingress, non-OpenShift Route scenarios)
+  # ==================================================================================
+  # If using external ingress/load balancer instead of OpenShift Routes:
+  # csrf_trusted_origins:
+  #   - https://aap.example.com
+  #   - https://gateway.example.com
+
+  # ==================================================================================
+  # ADDITIONAL ADVANCED OPTIONS
+  # ==================================================================================
+
+  # Garbage collection for old job artifacts
+  # controller:
+  #   garbage_collect_secrets: true
+
+  # LDAP/SAML/OAuth integration (configure via Controller UI or API, not CR)
+  # See AAP documentation for authentication configuration
+
+  # Route/Ingress annotations (platform-wide)
+  # route_annotations: |
+  #   haproxy.router.openshift.io/timeout: 2m
+
+  # Security context (for compliance or restricted environments)
+  # security_context_settings:
+  #   runAsUser: 1000
+  #   runAsGroup: 1000
+  #   fsGroup: 1000
+
+# ==================================================================================
+# NOTES
+# ==================================================================================
+#
+# 1. Resource sizing guidelines:
+#    - Small deployment (< 100 jobs/day): Use default resource requests
+#    - Medium deployment (100-500 jobs/day): 2x resources on controller tasks
+#    - Large deployment (> 500 jobs/day): 4x+ resources, consider horizontal scaling
+#
+# 2. Hub storage sizing:
+#    - Small (< 100 collections): 10-20Gi
+#    - Medium (100-500 collections): 50-100Gi
+#    - Large (> 500 collections, multiple EEs): 200Gi+
+#
+# 3. EDA worker scaling:
+#    - Base (< 10 active rulebooks): 2 workers
+#    - Medium (10-50 active rulebooks): 5 workers
+#    - High (> 50 active rulebooks): 10+ workers
+#
+# 4. For detailed component documentation, verification procedures, and
+#    troubleshooting, see: docs/aap-components-guide.md
+#
+# 5. Official AAP documentation:
+#    https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6
