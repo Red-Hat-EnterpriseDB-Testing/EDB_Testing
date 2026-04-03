@@ -93,8 +93,8 @@ if [[ "${SKIP_DB_BOOTSTRAP:-}" != "1" ]]; then
   echo "==> Bootstrapping AAP databases (role + DBs + hstore)..."
 
   # Validate password doesn't contain SQL metacharacters
-  if [[ "$AAP_DB_PASSWORD" =~ [\'\"\\;] ]]; then
-    echo "error: AAP_DB_PASSWORD contains forbidden characters: ', \", \\, or ;" >&2
+  if [[ "$AAP_DB_PASSWORD" =~ [\'\"\;] ]]; then
+    echo "error: AAP_DB_PASSWORD contains forbidden characters: ', \", or ;" >&2
     echo "These characters could cause SQL injection or parsing errors" >&2
     exit 1
   fi
