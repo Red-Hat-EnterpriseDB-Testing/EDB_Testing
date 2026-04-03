@@ -83,9 +83,14 @@ Solid lines denote active production paths on Site 1. The dashed link is the sta
 
 Create an opaque `Secret` in the **AAP namespace** with keys expected by the AAP Operator for **unmanaged** PostgreSQL. See [`openshift/postgres-configuration-secret.example.yaml`](openshift/postgres-configuration-secret.example.yaml) for a structural template (replace all placeholders; do not commit real credentials).
 
-Reference the secret from the **`AutomationController`** (and any other component that uses Postgres, e.g. **Automation Hub**) via:
+Reference the secrets from the **`AnsibleAutomationPlatform`** parent CR:
 
-`spec.postgres_configuration_secret: <secret-name>`
+- Gateway: `spec.database.database_secret: <gateway-secret-name>`
+- Controller: `spec.controller.postgres_configuration_secret: <controller-secret-name>`
+- Hub: `spec.hub.postgres_configuration_secret: <hub-secret-name>`
+- EDA: `spec.eda.database.database_secret: <eda-secret-name>`
+
+See `openshift/ansibleautomationplatform.yaml` for the complete example.
 
 Exact CRD field names can vary slightly by AAP release; confirm in your version’s “Installing on OpenShift” / customization guide.
 
