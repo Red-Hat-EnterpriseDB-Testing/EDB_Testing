@@ -20,4 +20,4 @@
 *.tmp
 *.bak
 .DS_Store
-.pub 
+*.pub
