@@ -2,7 +2,8 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-green)
-![Last Updated](https://img.shields.io/badge/Updated-March%202026-blue)
+![Last Updated](https://img.shields.io/badge/Updated-April%202026-blue)
+[![Changelog](https://img.shields.io/badge/Changelog-Keep%20a%20Changelog-orange.svg)](CHANGELOG.md)
 
 > **🚀 NEW: [Quick Start Guide](docs/quick-start-guide.md)** - Deploy in 15-30 minutes
 > Choose your path: [OpenShift (15 min)](docs/quick-start-guide.md#quick-start-openshift-15-minutes) | [RHEL with TPA (20 min)](docs/quick-start-guide.md#quick-start-rhel-with-tpa-20-minutes) | [Local CRC (30 min)](docs/quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes)
@@ -15,6 +16,7 @@
 - [Prerequisites](#prerequisites)
 - [Quick Links](#quick-links)
 - [Repository Structure](#repository-structure)
+- [Changelog](CHANGELOG.md)
 
 ## Overview
 
@@ -67,6 +69,7 @@ Before getting started, ensure you have:
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ### Community
+- **[📝 Changelog](CHANGELOG.md)** - All notable changes to this project
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to this project
 - **[License](LICENSE)** - Apache 2.0 License
 
