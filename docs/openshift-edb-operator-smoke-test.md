@@ -1,4 +1,4 @@
-# OpenShift — EDB Postgres operator (smoke test)
+# OpenShift — EDB PostgreSQL operator (smoke test)
 
 Anonymized lab checklist: install the operator, fix common OpenShift constraints, deploy a tiny cluster, and run one SQL check. Replace placeholders (namespace, cluster name, storage class, passwords) with your own values.
 
@@ -147,4 +147,4 @@ kubectl delete namespace edb-postgres
 
 ## Reference
 
-- [EDB Postgres on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)
+- [EDB PostgreSQL on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)

@@ -39,11 +39,11 @@ This document analyzes the architectural decision to replace pgBouncer with HAPr
 - 8 AAP component VMs per datacenter (2 gateway, 2 controller, 2 hub, 2 EDA)
 - 4 PostgreSQL databases per instance (awx, automationhub, automationedacontroller, automationgateway)
 - Active-Passive multi-datacenter DR configuration
-- EDB Postgres Advanced Server 16 with streaming replication
+- EDB PostgreSQL Advanced Server 16 with streaming replication
 - EDB Failover Manager (EFM) for automatic failover orchestration
 
 **EDB Reference Architecture:**
-```
+```text
 AAP Containers → pgBouncer → VIP (EFM-managed) → PostgreSQL Primary
                     ↓
               Connection Pooling
@@ -72,7 +72,7 @@ AAP Containers → pgBouncer → VIP (EFM-managed) → PostgreSQL Primary
 
 ### 1.3 Current Solution Overview
 
-```
+```text
 AAP Containers → HAProxy → PostgreSQL VIP (EFM-managed) → PostgreSQL Primary
                     ↓
               Traffic Director
@@ -88,7 +88,7 @@ AAP Containers → HAProxy → PostgreSQL VIP (EFM-managed) → PostgreSQL Prima
 
 ### 2.1 Standard EDB Architecture (pgBouncer-based)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    AAP Application Layer                     │
 │  (gateway, controller, hub, eda containers)                  │
@@ -133,7 +133,7 @@ AAP Containers → HAProxy → PostgreSQL VIP (EFM-managed) → PostgreSQL Prima
 
 ### 2.2 Proposed HAProxy Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    AAP Application Layer                     │
 │  (gateway, controller, hub, eda containers)                  │
@@ -1397,7 +1397,7 @@ AAP Containers → HAProxy VIP → pgBouncer → PostgreSQL VIP → PostgreSQL P
 ## Appendix B: References
 
 **EDB Documentation:**
-- [EDB Postgres Advanced Server 16](https://www.enterprisedb.com/docs/epas/16/)
+- [EDB PostgreSQL Advanced Server 16](https://www.enterprisedb.com/docs/epas/16/)
 - [EDB Failover Manager 4.7](https://www.enterprisedb.com/docs/efm/4.7/)
 
 **Red Hat AAP Documentation:**
