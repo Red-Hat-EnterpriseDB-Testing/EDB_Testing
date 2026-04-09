@@ -1,6 +1,6 @@
-# EDB Postgres on RHEL — Manual Installation
+# EDB PostgreSQL on RHEL — Manual Installation
 
-This guide covers installing EDB Postgres on RHEL manually (repository, packages, PGD, and post-install configuration) for traditional VM-based deployments.
+This guide covers installing EDB PostgreSQL on RHEL manually (repository, packages, PGD, and post-install configuration) for traditional VM-based deployments.
 
 [← Back to main README](../README.md#installation) · [TPA on RHEL (recommended)](install-tpa.md#rhel-tpa-ansible)
 
@@ -35,9 +35,9 @@ sudo systemctl enable postgresql-16
 sudo systemctl start postgresql-16
 ```
 
-### Using EDB Postgres Distributed (PGD)
+### Using EDB PostgreSQL Distributed (PGD)
 
-For multi-datacenter replication scenarios, use EDB Postgres Distributed:
+For multi-datacenter replication scenarios, use EDB PostgreSQL Distributed:
 
 ```bash
 # Install PGD repository
@@ -88,7 +88,7 @@ sudo systemctl restart edb-as-16
 
 ### 4. Create database users and databases
 
-```bash
+```sql
 # Switch to postgres user
 sudo su - enterprisedb
 
@@ -118,5 +118,5 @@ sudo firewall-cmd --list-all
 
 ## Quick start resources
 
-- **EDB Postgres Distributed Quickstart**: [https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/](https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/)
+- **EDB PostgreSQL Distributed Quickstart**: [https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/](https://www.enterprisedb.com/docs/pgd/latest/overview/quickstart/)
 - **EDB Installation Guide**: [https://www.enterprisedb.com/docs/epas/latest/installing/](https://www.enterprisedb.com/docs/epas/latest/installing/)

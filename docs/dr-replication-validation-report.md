@@ -4,7 +4,7 @@
 **Report Date:** 2026-03-31
 **Validation Scope:** Streaming Replication, Cross-Cluster Setup, Failover Mechanisms
 **Validated By:** Backend Architecture Team
-**Status:** ✅ **REPLICATION ARCHITECTURE IS SOLID**
+**Status:** REPLICATION ARCHITECTURE IS SOLID
 
 ---
 
@@ -16,16 +16,16 @@ This validation focuses exclusively on the **replication architecture** for the 
 
 | Component | Rating | Status |
 |-----------|--------|--------|
-| **Streaming Replication (Within-DC)** | ✅ **EXCELLENT** | CloudNativePG operator manages automatically |
-| **Cross-Cluster Replication (DC1→DC2)** | ✅ **EXCELLENT** | Properly configured with TLS passthrough |
-| **Replication Security (mTLS)** | ✅ **EXCELLENT** | Certificate-based auth, verify-ca mode |
-| **Network Connectivity** | ✅ **GOOD** | OpenShift Route with TLS passthrough |
-| **Failover Detection** | ✅ **GOOD** | EFM integration configured |
-| **Service Routing** | ✅ **EXCELLENT** | Automatic `-rw` service updates |
-| **Replication Monitoring** | ⚠️ **NEEDS IMPROVEMENT** | Documented but no implementation |
-| **Split-Brain Prevention** | ❌ **CRITICAL GAP** | Not implemented in scripts |
+| **Streaming Replication (Within-DC)** | EXCELLENT | CloudNativePG operator manages automatically |
+| **Cross-Cluster Replication (DC1→DC2)** | EXCELLENT | Properly configured with TLS passthrough |
+| **Replication Security (mTLS)** | EXCELLENT | Certificate-based auth, verify-ca mode |
+| **Network Connectivity** | GOOD | OpenShift Route with TLS passthrough |
+| **Failover Detection** | GOOD | EFM integration configured |
+| **Service Routing** | EXCELLENT | Automatic `-rw` service updates |
+| **Replication Monitoring** | NEEDS IMPROVEMENT | Documented but no implementation |
+| **Split-Brain Prevention** | CRITICAL GAP | Not implemented in scripts |
 
-**Overall Replication Verdict:** ✅ **PRODUCTION READY** (with one critical gap to fix)
+**Overall Replication Verdict:** PRODUCTION READY (with one critical gap to fix)
 
 ---
 
@@ -55,7 +55,7 @@ spec:
 
 **How It Works:**
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    DC1 Primary Cluster                   │
 ├─────────────────────────────────────────────────────────┤
@@ -99,10 +99,10 @@ spec:
    - Automatic reconnection on failover
 
 **Evidence:**
-```bash
-# Operator creates replication configuration automatically
-# No manual postgresql.conf edits required
-# All managed via Cluster CR spec
+```text
+Operator creates replication configuration automatically
+No manual postgresql.conf edits required
+All managed via Cluster CR spec
 ```
 
 **Validation Result:** ✅ **PASS** - Within-DC replication is properly configured
@@ -157,7 +157,7 @@ spec:
 
 **Network Path:**
 
-```
+```text
 DC1 Primary Cluster                          DC2 Replica Cluster
 ┌────────────────────────┐                   ┌────────────────────────┐
 │                        │                   │                        │
@@ -205,11 +205,11 @@ DC1 Primary Cluster                          DC2 Replica Cluster
 
 **Script Quality Analysis:**
 
-```bash
-# /db-deploy/cross-cluster/scripts/sync-passive-replica.sh
-# 107 lines, well-structured
+```text
+/db-deploy/cross-cluster/scripts/sync-passive-replica.sh
+107 lines, well-structured
 
-✅ Proper error handling (set -euo pipefail)
+Proper error handling (set -euo pipefail)
 ✅ Environment variable validation
 ✅ Kubeconfig/context separation for multi-cluster
 ✅ Secret sanitization (removes ownerReferences)
@@ -315,7 +315,7 @@ From `/db-deploy/cross-cluster/primary-site/route-replication.yaml` comments:
 
 **Replication Network Path:**
 
-```
+```text
 DC1 Primary Pod                              DC2 Replica Pod
 ┌──────────────────┐                        ┌──────────────────┐
 │ postgresql-1     │                        │ postgresql-      │
@@ -382,7 +382,7 @@ DC1 Primary Pod                              DC2 Replica Pod
 
 **How It Works:**
 
-```
+```text
 1. Liveness Probe Fails (postgresql-1 pod)
    ├─ Operator detects failure within 30 seconds
    └─ Initiates failover sequence
@@ -448,7 +448,7 @@ status:
 
 **How It Works:**
 
-```
+```text
 1. EFM Detects DC1 Primary Unreachable
    ├─ Health check failures (3 consecutive = 15 seconds)
    └─ Declares primary dead
@@ -483,7 +483,7 @@ RPO: < 5 seconds (async replication lag)
 
 **EFM Configuration:**
 
-```properties
+```ini
 # /scripts/config/efm.properties.example (documented)
 enable.custom.scripts=true
 script.timeout=300  # 5 minutes for AAP to start
@@ -498,10 +498,10 @@ script.post.promotion=/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh %h %s %a 
 
 **Script Analysis:**
 
-```bash
-# /scripts/efm-aap-failover-wrapper.sh (101 lines)
+```text
+/scripts/efm-aap-failover-wrapper.sh (101 lines)
 
-✅ Proper parameter handling ($1-$4)
+Proper parameter handling ($1-$4)
 ✅ Logging to /var/log/efm-aap-failover.log
 ✅ Datacenter detection (dc1/dc2 or ocp1/ocp2 pattern matching)
 ✅ OpenShift context mapping
@@ -526,7 +526,7 @@ fi
 
 **Split-Brain Scenario:**
 
-```
+```text
 Network Partition between DC1 and DC2:
 
 DC1 Side:                         DC2 Side:
@@ -621,9 +621,9 @@ From `/README.md`:
 
 **Reality Check:**
 
-```bash
+```text
 $ find . -name "*.yaml" -o -name "*.json" | xargs grep -l "ServiceMonitor\|PrometheusRule\|AlertingRule"
-# (no output)
+(no output)
 
 $ find . -name "*.yaml" | xargs grep -l "cnpg_pg_replication_lag\|pg_stat_replication"
 # (no output)
@@ -739,7 +739,7 @@ spec:
 
 **How CloudNativePG Manages Slots:**
 
-```
+```text
 CloudNativePG Operator automatically:
 1. Creates replication slots for each replica
 2. Names slots based on replica instance
@@ -768,7 +768,7 @@ $ oc exec -n edb-postgres postgresql-1 -- \
  _replica_dc2   | physical  | t      | 0/3A000028  | NULL
 ```
 
-**✅ Automatic Slot Lifecycle:**
+**Automatic Slot Lifecycle:**
 - Slots created when replicas connect
 - Slots removed when replicas removed
 - No manual slot management required
@@ -832,15 +832,15 @@ From `/docs/enterprisefailovermanager.md`:
 
 **Reality:**
 
-```bash
+```text
 $ find . -name "*test*" -o -name "*drill*" -o -name "*validate*" | grep -E "\.sh$"
-# (no test scripts found)
+(no test scripts found)
 
 $ grep -r "test.*failover\|drill\|simulation" docs/ scripts/
 # (documentation only, no test results or scripts)
 ```
 
-**Conclusion:** ❌ **Failover has NEVER been tested**
+**Conclusion:** Failover has NEVER been tested
 
 **Impact:**
 - Unknown actual RTO/RPO
@@ -1008,7 +1008,7 @@ echo "Step 8: Restoring to normal (DC1 primary)"
 
 ### Overall Assessment
 
-```
+```text
 Category Scores:
 ─────────────────────────────────────────────────────
 Replication Design          : 10/10 ✅ EXCELLENT
@@ -1169,7 +1169,7 @@ The **replication architecture is fundamentally sound** with excellent design, p
 ### How CloudNativePG Manages Replication
 
 **Automatic Configuration:**
-```
+```text
 When you create a Cluster with instances: 2, the operator:
 1. Creates postgresql-1 as primary
 2. Creates postgresql-2 as hot standby

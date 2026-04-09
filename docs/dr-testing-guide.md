@@ -59,7 +59,7 @@ cd /path/to/EDB_Testing/scripts
 
 **Expected output:**
 
-```
+```text
 =============================================
 DR Failover Test - dr-test-20260331-140530
 =============================================
@@ -122,7 +122,7 @@ Result: ✅ PASSED
 
 ### 3. Test Phases
 
-```
+```text
 ┌──────────────────────┐
 │ Pre-flight Checks    │ ← Validate environment health
 └──────────┬───────────┘
@@ -237,7 +237,7 @@ Options:
 
 **Sample Output:**
 
-```
+```text
 AAP Data Validation
 ============================================
 Action: validate
@@ -297,7 +297,7 @@ All metrics match baseline exactly.
 
 **Output:**
 
-```
+```text
 RTO/RPO Measurement Report
 ============================================
 Test ID: dr-test-001
@@ -732,7 +732,7 @@ For compliance (SOC 2, ISO 27001, etc.), maintain:
 
 **Files to retain:**
 
-```
+```text
 /tmp/dr-test-results/<test-id>.log
 /tmp/dr-metrics/rto-rpo-<test-id>.json
 /tmp/aap-validation-results/validation-report-*.txt

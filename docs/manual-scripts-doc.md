@@ -18,9 +18,9 @@ Use when the **passive** datacenter should not run AAP pods (save resources, avo
 - **`scripts/start-aap-cluster.sh`** — start dependencies then AAP services in order (copy path per `scripts/README.md` if installing under `/usr/local/bin`).
 - **`scripts/stop-aap-cluster.sh`** — reverse order shutdown for maintenance or DR rehearsal.
 
-## EFM-driven failover (Postgres promotion)
+## EFM-driven failover (PostgreSQL promotion)
 
-When Postgres failover is handled by **EDB Failover Manager** and you must **raise AAP** in the datacenter that now holds the primary:
+When PostgreSQL failover is handled by **EDB Failover Manager** and you must **raise AAP** in the datacenter that now holds the primary:
 
 - Wrapper / orchestration: **`scripts/efm-aap-failover-wrapper.sh`**, **`scripts/efm-orchestrated-failover.sh`**
 - **Read first:** [`enterprisefailovermanager.md`](enterprisefailovermanager.md) and **`scripts/efm.properties.sample`**

@@ -19,11 +19,11 @@ This architecture describes **Ansible Automation Platform (AAP) 2.6** deployed w
 
 - **Deployment method:** AAP 2.6 **operator** on OpenShift (`Subscription` + `AnsibleAutomationPlatform` CR), not the containerized RHEL installer.
 - **Topology:** **Site 1 (active)** runs production AAP against the **read–write** PostgreSQL primary; **Site 2 (standby)** keeps **matching CRs and secrets** with AAP **workloads scaled down or unrouted** until DR.
-- **Database:** **EDB Postgres for Kubernetes** `Cluster` (example namespace `edb-postgres`, name `postgresql`) on each site; **cross-cluster passive replica** from Site 1 → Site 2 per [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md).
-- **High availability:** In-cluster Postgres HA via the EDB operator; **cross-site** recovery relies on **controlled promotion** of the replica and **re-pointing** AAP database secrets (or global DNS) to the new primary.
+- **Database:** **EDB PostgreSQL for Kubernetes** `Cluster` (example namespace `edb-postgres`, name `postgresql`) on each site; **cross-cluster passive replica** from Site 1 → Site 2 per [`db-deploy/cross-cluster/README.md`](../db-deploy/cross-cluster/README.md).
+- **High availability:** In-cluster PostgreSQL HA via the EDB operator; **cross-site** recovery relies on **controlled promotion** of the replica and **re-pointing** AAP database secrets (or global DNS) to the new primary.
 - **Automation:** **Event-Driven Ansible (`AutomationEDA`)** can monitor health; add automated failover only after **manual** runbooks are proven.
 
-> **⚠️ Important:** Multi-cluster Active–Passive AAP with an external/unmanaged Postgres topology is **customer responsibility** to validate. Red Hat documents single-cluster operator install and external DB requirements; **stretching** that across two OpenShift clusters with replication and cutover is **not** a single tested SKU. Follow PostgreSQL, EDB, and OpenShift best practices and test RTO/RPO in your environment.
+> **⚠️ Important:** Multi-cluster Active–Passive AAP with an external/unmanaged PostgreSQL topology is **customer responsibility** to validate. Red Hat documents single-cluster operator install and external DB requirements; **stretching** that across two OpenShift clusters with replication and cutover is **not** a single tested SKU. Follow PostgreSQL, EDB, and OpenShift best practices and test RTO/RPO in your environment.
 
 ---
 
@@ -373,9 +373,9 @@ Failback is **the same pattern in reverse** after **Site 1** is rebuilt or re-sy
 
 ## 8. Configuration Examples
 
-### 8.1 Postgres connection (unmanaged secret keys)
+### 8.1 PostgreSQL connection (unmanaged secret keys)
 
-Unmanaged Postgres secrets for the operator carry host, port, database, user, password, and TLS mode. Generate with [`generate-postgres-secrets.sh`](../aap-deploy/openshift/scripts/generate-postgres-secrets.sh). Example **logical** content (not a committed secret):
+Unmanaged PostgreSQL secrets for the operator carry host, port, database, user, password, and TLS mode. Generate with [`generate-postgres-secrets.sh`](../aap-deploy/openshift/scripts/generate-postgres-secrets.sh). Example **logical** content (not a committed secret):
 
 ```yaml
 # Keys vary by component secret — see script output
@@ -396,7 +396,7 @@ Use the committed sample as a starting point:
 - [`aap-deploy/openshift/ansibleautomationplatform.yaml`](../aap-deploy/openshift/ansibleautomationplatform.yaml)  
 - Advanced options: [`aap-deploy/openshift/ansibleautomationplatform-advanced.yaml`](../aap-deploy/openshift/ansibleautomationplatform-advanced.yaml)  
 
-### 8.3 Private CA for Postgres TLS
+### 8.3 Private CA for PostgreSQL TLS
 
 If required, set **`spec.bundle_cacert_secret`** on `AnsibleAutomationPlatform` per product documentation (see [`aap-deploy/openshift/README.md`](../aap-deploy/openshift/README.md) §Private CA).
 
@@ -413,7 +413,7 @@ If required, set **`spec.bundle_cacert_secret`** on `AnsibleAutomationPlatform` 
 ### 9.2 TLS
 
 - **Routes:** TLS termination vs passthrough for AAP vs Postgres replication are **separate** decisions.  
-- **Postgres:** Align `sslmode` with cert SAN/CN (see cross-cluster README).
+- **PostgreSQL:** Align `sslmode` with cert SAN/CN (see cross-cluster README).
 
 ### 9.3 Secrets management
 
@@ -439,7 +439,7 @@ oc --context site1 get routes -n ansible-automation-platform
 ### 10.2 Emergency failover (outline)
 
 1. `scripts/scale-aap-down.sh` (Site 1) — see script for flags.  
-2. Promote Postgres on Site 2 (EDB).  
+2. Promote PostgreSQL on Site 2 (EDB).  
 3. Update connection secrets / DNS for Site 2 AAP.  
 4. `scripts/scale-aap-up.sh` (Site 2).  
 5. Validate end-to-end automation (smoke job).
@@ -487,7 +487,7 @@ oc --context site1 get routes -n ansible-automation-platform
 **External references**
 
 - [Red Hat AAP 2.6 — Installing on OpenShift](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/installing_on_openshift_container_platform/index)  
-- [EDB Postgres for Kubernetes — Replica clusters](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/)  
+- [EDB PostgreSQL for Kubernetes — Replica clusters](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/replica_cluster/)  
 
 ---
 

@@ -1,4 +1,4 @@
-# AAP with EDB Postgres Multi-Datacenter Architecture
+# AAP with EDB PostgreSQL Multi-Datacenter Architecture
 
 **Complete architecture documentation for Ansible Automation Platform with EnterpriseDB PostgreSQL**
 
@@ -28,8 +28,8 @@
 
 ## Architecture Overview
 
-This architecture implements EnterpriseDB Postgres deployed Active/Passive across two clusters in
-different datacenters with in-datacenter replication for the Ansible Automation Platform (AAP).
+This architecture implements EnterpriseDB PostgreSQL deployed Active/Passive across two clusters in
+different datacenters with in-datacenter replication for Ansible Automation Platform (AAP).
 This achieves a **NEAR** HA type architecture, especially for failover to the databases syncing
 in region/datacenter.
 
@@ -80,9 +80,9 @@ The global load balancer provides a single entry point for AAP access:
 
 For OpenShift, AAP is deployed on **separate OpenShift clusters** for high availability and
 geographic distribution. For RHEL you can do a single install across datacenters however you
-**MUST TURN OFF THE SERVICES ON THE SECONDARY SITE**.
+**MUST TURN OFF THE SERVICES ON DC2**.
 
-#### Datacenter 1 - AAP Instance (Active)
+#### DC1 - AAP Instance (Active)
 
 - **Namespace**: `ansible-automation-platform`
 - **AAP Gateway**: 3 replicas for HA
@@ -92,7 +92,7 @@ geographic distribution. For RHEL you can do a single install across datacenters
 - **Route**: `aap-dc1.apps.ocp1.example.com`
 - **State**: Active, serving production traffic
 
-#### Datacenter 2 - AAP Instance (Passive)
+#### DC2 - AAP Instance (Passive)
 
 - **Namespace**: `ansible-automation-platform`
 - **AAP Gateway**: Scaled to 0 (or 3 replicas if pre-warmed)
@@ -150,7 +150,7 @@ EDB-managed application database clusters use physical replication:
   - Supports all PostgreSQL features
 
 **Replication topology:**
-```
+```text
 DC1 Primary Cluster:
   postgresql-1 (primary) → postgresql-2 (hot standby)
                         → postgresql-3 (hot standby)
@@ -298,7 +298,7 @@ spec:
    - Ensures DC2 can serve reads and has HA ready for promotion
 
 **Data flow diagram:**
-```
+```text
 User/API → GLB → AAP DC1 → PostgreSQL DC1 Primary
                                  ↓
                           ┌──────┴──────┬──────────┬─────────┐
@@ -342,7 +342,7 @@ User/API → GLB → AAP DC1 → PostgreSQL DC1 Primary
 - Typical service update time: 5-10 seconds
 
 **Query routing strategy:**
-```
+```text
 Write queries → Always to -rw service → Primary instance
 Read queries (low latency) → -r service → Any instance (including primary)
 Read queries (HA) → -ro service → Hot standby replicas only

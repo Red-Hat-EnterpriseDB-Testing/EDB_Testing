@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get up and running with AAP and EDB Postgres in 15-30 minutes.
+Get up and running with Ansible Automation Platform (AAP) and EDB PostgreSQL in 15-30 minutes.
 
 ## Table of Contents
 
@@ -83,7 +83,7 @@ ssh user@target-host  # Should connect without password (key-based auth)
 
 ## Quick Start: OpenShift (15 minutes)
 
-Deploy EDB Postgres and AAP on OpenShift using Kustomize.
+Deploy EDB PostgreSQL and AAP on OpenShift using Kustomize.
 
 ### Step 1: Clone Repository (1 minute)
 
@@ -105,9 +105,9 @@ oc create secret docker-registry edb-pull-secret \
   -n edb-postgres
 ```
 
-**Note:** This quick start uses the community CloudNativePG operator image, so this step is optional. However, if you plan to use EDB Postgres Advanced images (see [`db-deploy/sample-cluster/base/cluster-edb-registry.yaml`](../db-deploy/sample-cluster/base/cluster-edb-registry.yaml)), you'll need this pull secret.
+**Note:** This quick start uses the community CloudNativePG operator image, so this step is optional. However, if you plan to use EDB PostgreSQL Advanced Server images (see [`db-deploy/sample-cluster/base/cluster-edb-registry.yaml`](../db-deploy/sample-cluster/base/cluster-edb-registry.yaml)), you'll need this pull secret.
 
-### Step 3: Deploy EDB Postgres Operator (2 minutes)
+### Step 3: Deploy EDB PostgreSQL Operator (2 minutes)
 
 ```bash
 # Deploy CloudNativePG operator with server-side apply for large CRDs
@@ -121,7 +121,7 @@ oc wait --for=condition=Ready pod \
 ```
 
 **Expected output:**
-```
+```text
 namespace/postgresql-operator-system created
 customresourcedefinition.apiextensions.k8s.io/clusters.postgresql.k8s.enterprisedb.io created
 deployment.apps/postgresql-operator-controller-manager created
@@ -141,7 +141,7 @@ oc get clusters -n edb-postgres -w
 ```
 
 **Wait for:**
-```
+```text
 NAME         AGE   INSTANCES   READY   STATUS                     PRIMARY
 postgresql   1m    2           0       Creating primary instance  postgresql-1
 postgresql   2m    2           1       Cluster in healthy state   postgresql-1
@@ -161,7 +161,7 @@ oc exec -n edb-postgres postgresql-1 -- \
   psql -U postgres -c "SELECT version();"
 ```
 
-**Expected:** PostgreSQL version output showing EDB Postgres Advanced.
+**Expected:** PostgreSQL version output showing EDB PostgreSQL Advanced Server.
 
 ### Step 6: Deploy AAP (5 minutes)
 
@@ -204,13 +204,13 @@ echo "Admin password: $AAP_PASSWORD"
 
 **Open in browser:** `https://$AAP_ROUTE`
 
-✅ **Done!** You now have AAP with external EDB Postgres running on OpenShift.
+✅ **Done!** You now have AAP with external EDB PostgreSQL running on OpenShift.
 
 ---
 
 ## Quick Start: RHEL with TPA (20 minutes)
 
-Deploy EDB Postgres on RHEL using Trusted Postgres Architect (TPA).
+Deploy EDB PostgreSQL on RHEL using Trusted Postgres Architect (TPA).
 
 ### Step 1: Install TPA (5 minutes)
 
@@ -284,7 +284,7 @@ instances:
 # Provision infrastructure (configure OS, install packages)
 tpaexec provision cluster-name
 
-# Deploy Postgres cluster
+# Deploy PostgreSQL cluster
 tpaexec deploy cluster-name
 
 # Test deployment
@@ -301,7 +301,7 @@ ssh postgres-dc1-primary "sudo -u postgres psql -c 'SELECT version();'"
 ssh postgres-dc1-primary "sudo -u postgres psql -c 'SELECT * FROM pg_stat_replication;'"
 ```
 
-**Expected:** 2 replication connections (dc1-replica and dc2-replica).
+**Expected:** 2 replication connections (DC1-replica and DC2-replica).
 
 ✅ **Done!** You now have a multi-datacenter PostgreSQL cluster on RHEL.
 
@@ -348,7 +348,7 @@ crc config set disk-size 50
 crc start
 ```
 
-### Step 3: Deploy EDB Postgres (5 minutes)
+### Step 3: Deploy EDB PostgreSQL (5 minutes)
 
 ```bash
 # Clone repository
@@ -839,7 +839,7 @@ oc exec -n edb-postgres postgresql-1 -- \
 
 ### External Resources
 
-- **[EDB Postgres Documentation](https://www.enterprisedb.com/docs/)** - Official EDB docs
+- **[EDB PostgreSQL Documentation](https://www.enterprisedb.com/docs/)** - Official EDB docs
 - **[CloudNativePG Documentation](https://cloudnative-pg.io/)** - Operator documentation
 - **[AAP Documentation](https://access.redhat.com/documentation/en-us/red_hat_ansible_automation_platform/)** - Red Hat AAP docs
 - **[OpenShift Documentation](https://docs.openshift.com/)** - OpenShift platform docs
@@ -855,5 +855,5 @@ oc exec -n edb-postgres postgresql-1 -- \
 
 **Quick Start Complete!** 🎉
 
-You now have a working AAP + EDB Postgres deployment. Continue with [Next Steps](#next-steps) to
+You now have a working AAP + EDB PostgreSQL deployment. Continue with [Next Steps](#next-steps) to
 prepare for production use.

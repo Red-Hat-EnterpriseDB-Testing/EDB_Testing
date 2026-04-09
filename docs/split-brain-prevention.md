@@ -95,7 +95,7 @@ A database in recovery mode (`t`) is a **standby/replica** and should **never** 
 
 ### Execution Flow
 
-```
+```text
 ┌─────────────────────────────────────┐
 │ scale-aap-up.sh invoked             │
 │ (manually or via EFM hook)          │
@@ -147,10 +147,10 @@ A database in recovery mode (`t`) is a **standby/replica** and should **never** 
 
 | Condition | Action | Rationale |
 |-----------|--------|-----------|
-| No primary pod found | ❌ EXIT with error | Database cluster may be down or misconfigured |
-| `pg_is_in_recovery() = t` | ❌ EXIT with error | Database is a replica - AAP writes would fail |
-| `pg_is_in_recovery() = f` | ✅ Proceed | Database is primary - safe to scale AAP |
-| Recovery status unknown | ⚠️ Proceed with warning | Fail-open to avoid blocking legitimate failover |
+| No primary pod found | EXIT with error | Database cluster may be down or misconfigured |
+| `pg_is_in_recovery() = t` | EXIT with error | Database is a replica - AAP writes would fail |
+| `pg_is_in_recovery() = f` | Proceed | Database is primary - safe to scale AAP |
+| Recovery status unknown | Proceed with warning | Fail-open to avoid blocking legitimate failover |
 
 ---
 
@@ -167,10 +167,10 @@ cd /Users/cferman/Documents/GitHub/EDB_Testing/scripts
 
 **Test Coverage:**
 
-1. ✅ Database role detection (pg_is_in_recovery query)
-2. ✅ Safety code presence in scale-aap-up.sh
-3. ⚠️ Replica scenario (manual test required)
-4. ✅ Dry-run validation (current cluster state)
+1. Database role detection (pg_is_in_recovery query)
+2. Safety code presence in scale-aap-up.sh
+3. Replica scenario (manual test required)
+4. Dry-run validation (current cluster state)
 
 ### Manual Failover Drill
 

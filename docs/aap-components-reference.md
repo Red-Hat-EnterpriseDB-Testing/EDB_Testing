@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This reference documents the deployment-specific configuration, database setup, verification procedures, and troubleshooting for AAP 2.6 on OpenShift using external EDB PostgreSQL. For general AAP component capabilities and features, see the [Red Hat AAP 2.6 Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6).
+This reference documents the deployment-specific configuration, database setup, verification procedures, and troubleshooting for Ansible Automation Platform (AAP) 2.6 on OpenShift using external EDB PostgreSQL. For general AAP component capabilities and features, see the [Red Hat AAP 2.6 Documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6).
 
 **What this guide covers:**
 
@@ -52,7 +52,7 @@ The default `ansibleautomationplatform.yaml` in this repository deploys **all fo
 
 ### Architecture Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Platform Gateway                          │
 │              (Authentication & Unified UI)                   │
@@ -78,7 +78,7 @@ The default `ansibleautomationplatform.yaml` in this repository deploys **all fo
 
 ### One Instance, Four Databases
 
-This deployment uses a **single PostgreSQL instance** (EDB Postgres for Kubernetes Cluster) with four separate databases:
+This deployment uses a **single PostgreSQL instance** (EDB PostgreSQL for Kubernetes Cluster) with four separate databases:
 
 | Component | Database Name | Owner | Extensions | Secret Name |
 |-----------|--------------|-------|------------|-------------|
@@ -264,7 +264,7 @@ oc get pods -n ansible-automation-platform
 
 **Expected pods:**
 
-```
+```text
 aap-operator-controller-manager-<id>              2/2     Running
 aap-platform-gateway-<id>                         1/1     Running
 aap-controller-web-<id>                           1/1     Running
@@ -324,7 +324,7 @@ oc get pvc -n ansible-automation-platform
 
 **Expected:**
 
-```
+```text
 NAME                           STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS
 aap-hub-file-storage           Bound    pvc-abc123    10Gi       RWX            ocs-storagecluster-cephfs
 ```
@@ -364,7 +364,7 @@ aap-hub-file-storage           Bound    pvc-abc123    10Gi       RWX            
 
 **Symptom:**
 
-```
+```text
 aap-hub-api-<id>    0/1     Pending   0          5m
 ```
 
@@ -393,7 +393,7 @@ oc patch ansibleautomationplatform aap -n ansible-automation-platform --type=mer
 
 **Symptom:**
 
-```
+```bash
 oc logs deployment/aap-hub-api | tail
 # Shows: ERROR: type "hstore" does not exist
 ```
