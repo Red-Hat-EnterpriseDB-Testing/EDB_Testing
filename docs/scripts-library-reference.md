@@ -6,7 +6,7 @@ This document provides detailed reference for shared library functions used acro
 
 The `scripts/lib/` directory contains reusable Bash libraries that provide common functionality:
 
-- **aap-scaling.sh** - AAP deployment scaling and validation functions
+- **aap-scaling.sh** - Ansible Automation Platform (AAP) deployment scaling and validation functions
 - **logging.sh** - Standardized logging and output formatting
 
 ## aap-scaling.sh
@@ -547,6 +547,6 @@ fi
 
 ## See Also
 
-- [scripts-guide.md](scripts-guide.md) - Complete scripts documentation
-- [dr-testing-guide.md](dr-testing-guide.md) - DR testing procedures
-- [split-brain-prevention.md](split-brain-prevention.md) - Split-brain prevention details
+- [Scripts Guide](scripts-guide.md) - Complete scripts documentation
+- [DR Testing Guide](dr-testing-guide.md) - DR testing procedures
+- [Split-Brain Prevention](split-brain-prevention.md) - Split-brain prevention details

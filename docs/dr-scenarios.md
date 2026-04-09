@@ -2,7 +2,7 @@
 
 ## Scenario 1: Datacenter 1 Complete Failure
 
-1. **Detection**: Global load balancer health checks fail for DC1 AAP (3 consecutive failures = 15 seconds)
+1. **Detection**: Global load balancer health checks fail for DC1 Ansible Automation Platform (AAP) (3 consecutive failures = 15 seconds)
 2. **Traffic Shift**: GLB automatically routes all traffic to DC2 AAP instance
 3. **Database Promotion**: DC2 AAP database promoted from read-only replica to read-write primary
 4. **AAP Activation**: DC2 AAP takes over management of both OpenShift clusters
@@ -14,7 +14,7 @@
 7. **RTO**: < 1 minute (15s detection + 45s promotion/cutover)
 8. **RPO**: Depends on replication lag (typically < 5 seconds)
 
-## Scenario 2: AAP Instance Failure in DC1 (OpenShift restarts pods or rhel starts up services )
+## Scenario 2: AAP Instance Failure in DC1 (OpenShift restarts pods or RHEL starts up services)
 
 1. **Detection**: Load balancer marks DC1 AAP as unhealthy
 2. **Automatic Failover**: Traffic shifted to DC2 AAP (passive becomes active)

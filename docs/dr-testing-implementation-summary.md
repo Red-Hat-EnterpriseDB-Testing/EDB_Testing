@@ -29,7 +29,7 @@ Successfully implemented a comprehensive, production-ready disaster recovery tes
 
 **Total:** ~1,430 lines of production-ready bash code
 
-**Location:** `/scripts/`
+**Location:** `scripts/`
 
 ### ✅ Kubernetes Automation (5 manifests)
 
@@ -41,7 +41,7 @@ Successfully implemented a comprehensive, production-ready disaster recovery tes
 | **PVC** | Test results storage (5Gi) | ✅ Complete |
 | **Kustomization** | Declarative deployment | ✅ Complete |
 
-**Location:** `/openshift/dr-testing/`
+**Location:** `openshift/dr-testing/`
 
 ### ✅ Documentation (2 guides)
 
@@ -143,7 +143,7 @@ Successfully implemented a comprehensive, production-ready disaster recovery tes
 ├─────────────────────────────────────────────────────────────────┤
 │  Phase 2: Create Baseline                                       │
 │    → Call: validate-aap-data.sh create-baseline DC1             │
-│    → Snapshot all AAP metrics                                   │
+│    → Snapshot all Ansible Automation Platform (AAP) metrics     │
 │    → Store baseline in /tmp/aap-baseline/                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  Phase 3: Simulate Failure                                      │
@@ -382,7 +382,7 @@ kustomize build . | kubectl apply --dry-run=client -f -
 | Component | Previous | Current | Notes |
 |-----------|----------|---------|-------|
 | Streaming Replication | 10/10 | 10/10 | Unchanged (excellent) |
-| Cross-cluster Setup | 10/10 | 10/10 | Unchanged (excellent) |
+| Cross-datacenter Setup | 10/10 | 10/10 | Unchanged (excellent) |
 | TLS Security | 10/10 | 10/10 | Unchanged (excellent) |
 | Split-brain Prevention | 5/10 | 10/10 | ✅ Fixed (GAP-REP-001) |
 | **Failover Testing** | **0/10** | **10/10** | ✅ **Fixed (GAP-REP-002)** |

@@ -1,6 +1,6 @@
 # EDB EFM (Enterprise Failover Manager) Integration
 
-EDB Failover Manager (EFM) can automatically trigger the AAP cluster management scripts during PostgreSQL database failover events. This provides seamless coordination between database failover and AAP cluster activation.
+EDB Failover Manager (EFM) can automatically trigger the Ansible Automation Platform (AAP) cluster management scripts during PostgreSQL database failover events. This provides seamless coordination between database failover and AAP cluster activation.
 
 [← Back to main README](../README.md#aap-cluster-management)
 
@@ -157,7 +157,7 @@ Edit the EFM configuration file for your cluster:
 
 **File**: `/etc/edb/efm-4.x/efm.properties`
 
-```properties
+```ini
 # Post-Promotion Script (runs on newly promoted primary)
 # This script activates AAP in the datacenter where database was promoted
 script.post.promotion=/usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh %h %s %a %v
@@ -337,7 +337,7 @@ fi
 
 ## Troubleshooting and Rollback
 
-For EFM integration troubleshooting (script execution, timeouts, OpenShift authentication, network connectivity) and rollback procedures when AAP fails to start during failover, see **[Troubleshooting](troubleshooting.md)**.
+For EFM integration troubleshooting (script execution, timeouts, OpenShift authentication, network connectivity) and rollback procedures when AAP fails to start during failover, see [Troubleshooting](troubleshooting.md).
 
 ## Best Practices
 

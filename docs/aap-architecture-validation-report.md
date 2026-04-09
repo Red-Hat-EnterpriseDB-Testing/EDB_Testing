@@ -43,7 +43,7 @@ This report validates the [AAP Containerized DR Architecture](aap-containerized-
 
 | Aspect | Red Hat Standard | Our Design | Status |
 |--------|------------------|------------|--------|
-| **PostgreSQL Version** | 15, 16, or 17 | EDB Postgres Advanced 16 | ✅ **COMPATIBLE** |
+| **PostgreSQL Version** | 15, 16, or 17 | EDB PostgreSQL Advanced 16 | ✅ **COMPATIBLE** |
 | **ICU Support** | Required for external DB | EDB includes ICU | ✅ **COMPATIBLE** |
 | **Backup/Restore** | PG 16/17 need external | Barman Cloud + WAL archive | ✅ **COMPATIBLE** |
 | **Database Names** | User-defined | awx, automationhub, automationedacontroller, automationgateway | ✅ **CORRECT** |

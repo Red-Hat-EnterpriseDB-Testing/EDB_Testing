@@ -119,7 +119,7 @@ The EDB_Testing repository contains **comprehensive and high-quality documentati
 - ⚠️ No clear "getting started" path for new users
 
 **Recommended Structure:**
-```
+```text
 docs/
 ├── INDEX.md                    # ← CREATE THIS (central navigation)
 ├── getting-started/
@@ -236,7 +236,7 @@ docs/
 **1. Missing Documentation Index**
 - **Severity:** Critical
 - **Impact:** Users cannot easily navigate documentation
-- **Recommendation:** Create `/docs/INDEX.md` with categorized links to all documentation
+- **Recommendation:** Create `docs/INDEX.md` with categorized links to all documentation
 - **Effort:** 1 hour
 - **Priority:** P0 (Week 1)
 
@@ -249,9 +249,9 @@ docs/
 - **Completed:** 2026-03-31
 
 **3. No CONTRIBUTING.md** ✅ **RESOLVED**
-- **Status:** Created `/CONTRIBUTING.md` (621 lines)
+- **Status:** Created `CONTRIBUTING.md` (621 lines)
 - **Content:** Documentation standards, code standards, testing requirements, PR process
-- **Recommendation:** Create `/CONTRIBUTING.md` with:
+- **Recommendation:** Create `CONTRIBUTING.md` with:
   - Documentation standards (headings, code blocks, terminology)
   - PR checklist and review process
   - Testing requirements before merging
@@ -266,7 +266,7 @@ docs/
 - **Impact:** Difficult to track documentation changes, compatibility unclear
 - **Recommendation:**
   - Add version numbers to major docs (e.g., `v1.0 - 2026-03-31`)
-  - Create `/docs/CHANGELOG.md` for documentation updates
+  - Create `docs/CHANGELOG.md` for documentation updates
   - Consider using Git tags for releases
 - **Effort:** 1 hour
 - **Priority:** P1 (Week 3)
@@ -289,7 +289,7 @@ docs/
   - "PostgreSQL" vs "Postgres" vs "postgres"
   - "OpenShift cluster" vs "OCP cluster"
   - "datacenter" vs "data center"
-- **Recommendation:** Create `/docs/GLOSSARY.md` with:
+- **Recommendation:** Create `docs/GLOSSARY.md` with:
   - Preferred terminology
   - Abbreviations and expansions
   - Consistent capitalization rules
@@ -315,7 +315,7 @@ docs/
 **8. No Glossary**
 - **Severity:** Minor
 - **Impact:** New users may not understand abbreviations
-- **Recommendation:** Create `/docs/GLOSSARY.md`
+- **Recommendation:** Create `docs/GLOSSARY.md`
 - **Effort:** 1 hour
 - **Priority:** P2 (Month 2)
 
@@ -332,7 +332,7 @@ docs/
 **10. No FAQ**
 - **Severity:** Minor
 - **Impact:** Common questions require digging through docs
-- **Recommendation:** Create `/docs/FAQ.md` based on:
+- **Recommendation:** Create `docs/FAQ.md` based on:
   - Troubleshooting section common issues
   - Questions from users/PRs
   - Deployment gotchas
@@ -435,7 +435,7 @@ docs/
 ### High Priority (Week 1-2)
 
 1. **Create Documentation Index**
-   - File: `/docs/INDEX.md`
+   - File: `docs/INDEX.md`
    - Content: Categorized links to all documentation
    - Effort: 1 hour
    - Impact: High (immediately improves navigation)
@@ -447,13 +447,13 @@ docs/
    - Impact: High (prevents broken links)
 
 3. **Create CONTRIBUTING.md**
-   - File: `/CONTRIBUTING.md`
+   - File: `CONTRIBUTING.md`
    - Content: Documentation standards, PR guidelines, testing requirements
    - Effort: 2 hours
    - Impact: High (improves contribution quality)
 
 4. **Security Hardening Guide**
-   - File: `/docs/security-hardening.md`
+   - File: `docs/security-hardening.md`
    - Content: TLS, RBAC, secrets, audit logging
    - Effort: 12 hours
    - Impact: High (production requirement)
@@ -461,25 +461,25 @@ docs/
 ### Medium Priority (Weeks 3-4)
 
 5. **Monitoring and Alerting Guide**
-   - File: `/docs/monitoring-alerting.md`
+   - File: `docs/monitoring-alerting.md`
    - Content: Consolidate scattered monitoring info
    - Effort: 10 hours
    - Impact: High
 
 6. **Backup and Restore Guide**
-   - File: `/docs/backup-restore-procedures.md`
+   - File: `docs/backup-restore-procedures.md`
    - Content: Detailed restore examples, PITR procedures
    - Effort: 6 hours
    - Impact: High
 
 7. **Documentation Versioning**
    - Add version numbers to major docs
-   - Create `/docs/CHANGELOG.md`
+   - Create `docs/CHANGELOG.md`
    - Effort: 1 hour
    - Impact: Medium
 
 8. **Terminology Glossary**
-   - File: `/docs/GLOSSARY.md`
+   - File: `docs/GLOSSARY.md`
    - Content: Preferred terms, abbreviations, standards
    - Effort: 3 hours (includes updating existing docs)
    - Impact: Medium
@@ -487,19 +487,19 @@ docs/
 ### Low Priority (Month 2-3)
 
 9. **Migration Guide**
-   - File: `/docs/migration-guide.md`
+   - File: `docs/migration-guide.md`
    - Content: Upgrade procedures (AAP, PostgreSQL)
    - Effort: 8 hours
    - Impact: Medium
 
 10. **Performance Tuning Guide**
-    - File: `/docs/performance-tuning.md`
+    - File: `docs/performance-tuning.md`
     - Content: PostgreSQL, AAP, replication tuning
     - Effort: 10 hours
     - Impact: Medium
 
 11. **FAQ**
-    - File: `/docs/FAQ.md`
+    - File: `docs/FAQ.md`
     - Content: Common questions and gotchas
     - Effort: 2 hours
     - Impact: Low
@@ -531,9 +531,9 @@ docs/
 
 ### Week 1 (5 hours)
 - [x] Complete documentation audit ✅
-- [ ] Create `/docs/INDEX.md` (1 hour)
+- [ ] Create `docs/INDEX.md` (1 hour)
 - [ ] Fix cross-reference links (2 hours)
-- [ ] Create `/CONTRIBUTING.md` (2 hours)
+- [ ] Create `CONTRIBUTING.md` (2 hours)
 
 ### Week 2 (12 hours)
 - [ ] Security Hardening Guide (12 hours)

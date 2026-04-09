@@ -24,8 +24,8 @@
 - **Local testing (30 min):** [Quick Start Guide - CRC](quick-start-guide.md#quick-start-local-testing-with-crc-30-minutes)
 
 **Need to perform a DR drill?**
-- **[DR Testing Guide](dr-testing-guide.md)** - Complete testing framework
-- **[DR Scenarios](dr-scenarios.md)** - 6 documented failure scenarios
+- [DR Testing Guide](dr-testing-guide.md) - Complete testing framework
+- [DR Scenarios](dr-scenarios.md) - 6 documented failure scenarios
 
 ---
 
@@ -37,7 +37,7 @@
 
 | Platform | Guide | Description |
 |----------|-------|-------------|
-| **RHEL / Bare Metal** | [TPA Deployment](install-tpa.md) ⭐ **RECOMMENDED** | Automated deployment with Trusted Postgres Architect |
+| **RHEL / Bare Metal** | [TPA Deployment](install-tpa.md) ⭐ **RECOMMENDED** | Automated deployment with Trusted PostgreSQL Architect |
 | **RHEL Manual** | [RHEL Manual Install](install-rhel-manual.md) | Traditional VM-based installation |
 | **OpenShift** | [OpenShift Manual Install](install-kubernetes-manual.md) | Operator-based deployment on OpenShift |
 | **OpenShift (Kustomize)** | [Database Deployment](../db-deploy/README.md) | GitOps-friendly Kustomize manifests |
@@ -58,15 +58,15 @@
 
 | Document | Description | Read Time |
 |----------|-------------|-----------|
-| **[Architecture Overview](architecture.md)** ⭐ **COMPREHENSIVE** | Complete architecture documentation | 45 min |
-| **[Main README Architecture](../README.md#architecture)** | High-level overview with diagram | 5 min |
-| **[AAP Containerized Growth DR](aap-containerized-growth-dr-architecture.md)** ⭐ **NEW** | 3-node multi-DC deployment (cost-optimized) | 25 min |
-| **[AAP Containerized Enterprise DR](aap-containerized-enterprise-dr-architecture.md)** ⭐ **NEW** | 8-node multi-DC deployment (production-grade) | 30 min |
-| **[Architecture Validation Report](aap-architecture-validation-report.md)** | Validation vs Red Hat AAP 2.6 tested models | 15 min |
-| **[RHEL AAP Architecture](rhel-aap-architecture.md)** | AAP on RHEL with systemd services | 10 min |
-| **[OpenShift AAP Architecture](openshift-aap-architecture.md)** | AAP on OpenShift with operator | 10 min |
+| [Architecture Overview](architecture.md) ⭐ **COMPREHENSIVE** | Complete architecture documentation | 45 min |
+| [Main README Architecture](../README.md#architecture) | High-level overview with diagram | 5 min |
+| [AAP Containerized Growth DR](aap-containerized-growth-dr-architecture.md) ⭐ **NEW** | 3-node multi-datacenter deployment (cost-optimized) | 25 min |
+| [AAP Containerized Enterprise DR](aap-containerized-enterprise-dr-architecture.md) ⭐ **NEW** | 8-node multi-datacenter deployment (production-grade) | 30 min |
+| [Architecture Validation Report](aap-architecture-validation-report.md) | Validation vs Red Hat AAP 2.6 tested models | 15 min |
+| [RHEL AAP Architecture](rhel-aap-architecture.md) | AAP on RHEL with systemd services | 10 min |
+| [OpenShift AAP Architecture](openshift-aap-architecture.md) | AAP on OpenShift with operator | 10 min |
 
-**[Architecture Overview](architecture.md)** covers:
+[Architecture Overview](architecture.md) covers:
 - Component details (GLB, AAP, PostgreSQL clusters)
 - Network connectivity and data flow (writes, reads, backups)
 - Replication topology (streaming + WAL archiving)
@@ -86,7 +86,7 @@ Choose based on your requirements:
 **Architecture Decisions:**
 - Active-Passive topology (DC1 primary, DC2 standby)
 - Physical streaming replication + WAL archiving to S3
-- CloudNativePG operator (OpenShift) or EDB Postgres Advanced (RHEL)
+- CloudNativePG operator (OpenShift) or EDB PostgreSQL Advanced (RHEL)
 - EDB Failover Manager (EFM) for automated database failover
 - Global Load Balancer for traffic management and health-based routing
 
@@ -98,11 +98,11 @@ Choose based on your requirements:
 
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
-| **[DR Scenarios](dr-scenarios.md)** | 6 documented failure scenarios | 15 min |
-| **[DR Testing Guide](dr-testing-guide.md)** | Complete testing framework (10,000+ words) | 45 min |
-| **[DR Testing Implementation Summary](dr-testing-implementation-summary.md)** | Implementation details and metrics | 10 min |
-| **[Split-Brain Prevention](split-brain-prevention.md)** | Database role validation and fencing | 15 min |
-| **[EDB Failover Manager](enterprisefailovermanager.md)** | EFM integration and configuration | 20 min |
+| [DR Scenarios](dr-scenarios.md) | 6 documented failure scenarios | 15 min |
+| [DR Testing Guide](dr-testing-guide.md) | Complete testing framework (10,000+ words) | 45 min |
+| [DR Testing Implementation Summary](dr-testing-implementation-summary.md) | Implementation details and metrics | 10 min |
+| [Split-Brain Prevention](split-brain-prevention.md) | Database role validation and fencing | 15 min |
+| [EDB Failover Manager](enterprisefailovermanager.md) | EFM integration and configuration | 20 min |
 
 **DR Validation Reports:**
 - [DR Replication Validation](dr-replication-validation-report.md) - Architecture assessment (Score: 7.1/10)
@@ -119,11 +119,11 @@ Choose based on your requirements:
 
 **Day-to-day operations:**
 
-- **[Operations Runbook](manual-scripts-doc.md)** - AAP cluster management procedures
-- **[AAP Deployment Reference](aap-components-reference.md)** ⭐ **NEW** - Deployment verification, troubleshooting, scaling
-- **[Script Reference](../scripts/README.md)** - All automation scripts documented
-- **[Troubleshooting Guide](troubleshooting.md)** - Common issues and diagnostics
-- **[EDB Failover Manager](enterprisefailovermanager.md)** - EFM integration and VIP management
+- [Operations Runbook](manual-scripts-doc.md) - AAP cluster management procedures
+- [AAP Deployment Reference](aap-components-reference.md) ⭐ **NEW** - Deployment verification, troubleshooting, scaling
+- [Script Reference](../scripts/README.md) - All automation scripts documented
+- [Troubleshooting Guide](troubleshooting.md) - Common issues and diagnostics
+- [EDB Failover Manager](enterprisefailovermanager.md) - EFM integration and VIP management
 
 **Key Operational Tasks:**
 - Scaling AAP up/down: See [scale-aap-up.sh](../scripts/scale-aap-up.sh), [scale-aap-down.sh](../scripts/scale-aap-down.sh)
@@ -150,11 +150,11 @@ Choose based on your requirements:
 | **[generate-dr-report.sh](../scripts/generate-dr-report.sh)** | DR test report generation | `./generate-dr-report.sh <test-id>` |
 
 **Script Documentation:**
-- **[Scripts README](../scripts/README.md)** ⭐ - Quick reference for all scripts
-- **[Scripts Guide](scripts-guide.md)** - Comprehensive usage guide
-- **[Scripts Library Reference](scripts-library-reference.md)** - Shared library functions API
-- **[Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md)** - Pre-commit hooks and quality automation
-- **[Manual Scripts Doc](manual-scripts-doc.md)** - Operations runbook
+- [Scripts README](../scripts/README.md) ⭐ - Quick reference for all scripts
+- [Scripts Guide](scripts-guide.md) - Comprehensive usage guide
+- [Scripts Library Reference](scripts-library-reference.md) - Shared library functions API
+- [Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md) - Pre-commit hooks and quality automation
+- [Manual Scripts Doc](manual-scripts-doc.md) - Operations runbook
 
 ---
 
@@ -162,10 +162,10 @@ Choose based on your requirements:
 
 **Contributing and automation:**
 
-- **[CI/CD Pipeline](cicd-pipeline.md)** - GitHub Actions workflows (6,500 words)
-- **[Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md)** ⭐ **NEW** - Pre-commit hooks, CI checks, and quality automation
-- **[Pre-commit Hooks](../.pre-commit-config.yaml)** - Local validation before commit
-- **CONTRIBUTING.md** - _Coming soon_ (see [Documentation Audit](documentation-audit-report.md))
+- [CI/CD Pipeline](cicd-pipeline.md) - GitHub Actions workflows (6,500 words)
+- [Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md) ⭐ **NEW** - Pre-commit hooks, CI checks, and quality automation
+- [Pre-commit Hooks](../.pre-commit-config.yaml) - Local validation before commit
+- CONTRIBUTING.md - _Coming soon_ (see [Documentation Audit](documentation-audit-report.md))
 
 **GitHub Actions Workflows:**
 - `.github/workflows/yaml-validation.yml` - Kubernetes manifest validation
@@ -213,10 +213,10 @@ Choose based on your requirements:
 
 **Additional resources:**
 
-- **[Documentation Audit Report](documentation-audit-report.md)** - Comprehensive documentation assessment
-- **[Glossary](GLOSSARY.md)** - _Coming soon_ - Terminology and abbreviations
-- **[FAQ](FAQ.md)** - _Coming soon_ - Frequently asked questions
-- **[LICENSE](../LICENSE)** - Copyright and licensing
+- [Documentation Audit Report](documentation-audit-report.md) - Comprehensive documentation assessment
+- [Glossary](GLOSSARY.md) - _Coming soon_ - Terminology and abbreviations
+- [FAQ](FAQ.md) - _Coming soon_ - Frequently asked questions
+- [LICENSE](../LICENSE) - Copyright and licensing
 
 **External Links:**
 - [EnterpriseDB TPA Documentation](https://www.enterprisedb.com/docs/tpa/latest/)

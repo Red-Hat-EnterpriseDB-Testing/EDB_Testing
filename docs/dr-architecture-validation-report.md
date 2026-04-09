@@ -40,7 +40,7 @@ This validation report assesses the disaster recovery (DR) architecture for Ansi
 - AAP deployments in both datacenters with proper scaling (3 gateway, 3 controller, 2 hub)
 
 ✅ **Clear Separation of Concerns**
-- Database layer: EDB Postgres on OpenShift (CloudNativePG)
+- Database layer: EDB PostgreSQL on OpenShift (CloudNativePG)
 - Application layer: AAP 2.6 operator with external database
 - Network layer: OpenShift Routes with TLS passthrough
 - Orchestration layer: EFM + custom scripts
