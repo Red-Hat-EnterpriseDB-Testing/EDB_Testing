@@ -4,9 +4,20 @@
 # Regions: us-east-1 (DC1 Primary), us-west-1 (DC2 Standby)
 # Database: RDS PostgreSQL with cross-region read replica
 
+# Tags (use --tags / --skip-tags on CLI or Job Template Job Tags):
+#   Plays: infrastructure, aws | database, postgresql
+#   Areas: vpc_dc1, vpc_dc2, network, peering, sg_dc1, sg_dc2, security_groups
+#          rds, rds_subnet, rds_params, rds_primary, rds_replica
+#          ec2, ec2_prep, ec2_dc1, ec2_dc2, ec2_aap, ec2_haproxy, dc1, dc2, summary
+#   Database: database_wait, database_connect, database_create, database_user, database_privs, database_ext
+# Examples: --tags database
+#           --tags rds --skip-tags rds_replica
+#           --tags ec2_dc1,ec2_prep
+
 - name: Provision AAP Multi-Region Infrastructure on AWS
   hosts: localhost
   gather_facts: false
+  tags: [infrastructure, aws]
   vars:
     # Project Configuration
     project_name: aap-dr
@@ -77,6 +88,7 @@
     # ===========================================
 
     - name: Create DC1 VPC
+      tags: [vpc, vpc_dc1, dc1, network]
       amazon.aws.ec2_vpc_net:
         name: "{{ project_name }}-vpc-dc1"
         cidr_block: "{{ dc1_vpc_cidr }}"
@@ -87,6 +99,7 @@
       register: dc1_vpc
 
     - name: Create DC1 Internet Gateway
+      tags: [vpc, vpc_dc1, dc1, network]
       amazon.aws.ec2_vpc_igw:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         region: "{{ primary_region }}"
@@ -94,6 +107,7 @@
       register: dc1_igw
 
     - name: Create DC1 AAP Subnet
+      tags: [vpc, vpc_dc1, dc1, network]
       amazon.aws.ec2_vpc_subnet:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         cidr: "{{ dc1_aap_subnet_cidr }}"
@@ -104,6 +118,7 @@
       register: dc1_aap_subnet
 
     - name: Create DC1 Database Subnets (Multi-AZ for RDS)
+      tags: [vpc, vpc_dc1, dc1, network]
       amazon.aws.ec2_vpc_subnet:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         cidr: "{{ item.cidr }}"
@@ -116,6 +131,7 @@
       register: dc1_db_subnets
 
     - name: Create DC1 Route Table
+      tags: [vpc, vpc_dc1, dc1, network]
       amazon.aws.ec2_vpc_route_table:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         region: "{{ primary_region }}"
@@ -134,6 +150,7 @@
     # ===========================================
 
     - name: Create DC2 VPC
+      tags: [vpc, vpc_dc2, dc2, network]
       amazon.aws.ec2_vpc_net:
         name: "{{ project_name }}-vpc-dc2"
         cidr_block: "{{ dc2_vpc_cidr }}"
@@ -144,6 +161,7 @@
       register: dc2_vpc
 
     - name: Create DC2 Internet Gateway
+      tags: [vpc, vpc_dc2, dc2, network]
       amazon.aws.ec2_vpc_igw:
         vpc_id: "{{ dc2_vpc.vpc.id }}"
         region: "{{ standby_region }}"
@@ -151,6 +169,7 @@
       register: dc2_igw
 
     - name: Create DC2 AAP Subnet
+      tags: [vpc, vpc_dc2, dc2, network]
       amazon.aws.ec2_vpc_subnet:
         vpc_id: "{{ dc2_vpc.vpc.id }}"
         cidr: "{{ dc2_aap_subnet_cidr }}"
@@ -161,6 +180,7 @@
       register: dc2_aap_subnet
 
     - name: Create DC2 Database Subnets (Multi-AZ for RDS)
+      tags: [vpc, vpc_dc2, dc2, network]
       amazon.aws.ec2_vpc_subnet:
         vpc_id: "{{ dc2_vpc.vpc.id }}"
         cidr: "{{ item.cidr }}"
@@ -173,6 +193,7 @@
       register: dc2_db_subnets
 
     - name: Create DC2 Route Table
+      tags: [vpc, vpc_dc2, dc2, network]
       amazon.aws.ec2_vpc_route_table:
         vpc_id: "{{ dc2_vpc.vpc.id }}"
         region: "{{ standby_region }}"
@@ -191,6 +212,7 @@
     # ===========================================
 
     - name: Create VPC Peering Connection (DC1 -> DC2)
+      tags: [peering, network]
       amazon.aws.ec2_vpc_peering:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         peer_vpc_id: "{{ dc2_vpc.vpc.id }}"
@@ -201,10 +223,12 @@
       register: vpc_peering
 
     - name: Wait for VPC Peering Connection to propagate
+      tags: [peering, network]
       ansible.builtin.pause:
         seconds: 10
 
     - name: Accept VPC Peering Connection
+      tags: [peering, network]
       amazon.aws.ec2_vpc_peering:
         peering_id: "{{ vpc_peering.vpc_peering_connection_id | default(vpc_peering.peering_id) }}"
         region: "{{ standby_region }}"
@@ -215,10 +239,12 @@
       until: vpc_peering_accept is not failed
 
     - name: Set peering connection ID fact
+      tags: [peering, network]
       ansible.builtin.set_fact:
         peering_connection_id: "{{ vpc_peering.vpc_peering_connection_id | default(vpc_peering.peering_id) }}"
 
     - name: Add DC2 route to DC1 route table
+      tags: [peering, network]
       amazon.aws.ec2_vpc_route_table:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         region: "{{ primary_region }}"
@@ -231,6 +257,7 @@
             vpc_peering_connection_id: "{{ peering_connection_id }}"
 
     - name: Add DC1 route to DC2 route table
+      tags: [peering, network]
       amazon.aws.ec2_vpc_route_table:
         vpc_id: "{{ dc2_vpc.vpc.id }}"
         region: "{{ standby_region }}"
@@ -247,6 +274,7 @@
     # ===========================================
 
     - name: Create DC1 AAP Security Group
+      tags: [security_groups, sg_dc1, dc1]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-aap-dc1"
         description: AAP Component Security Group DC1
@@ -292,6 +320,7 @@
       register: dc1_aap_sg
 
     - name: Create DC1 HAProxy Security Group
+      tags: [security_groups, sg_dc1, dc1]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-haproxy-dc1"
         description: HAProxy Database Router Security Group DC1
@@ -317,6 +346,7 @@
       register: dc1_haproxy_sg
 
     - name: Create DC1 RDS Security Group
+      tags: [security_groups, sg_dc1, dc1]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-rds-dc1"
         description: RDS PostgreSQL Security Group DC1
@@ -341,6 +371,7 @@
     # ===========================================
 
     - name: Create DC2 AAP Security Group
+      tags: [security_groups, sg_dc2, dc2]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-aap-dc2"
         description: AAP Component Security Group DC2
@@ -379,6 +410,7 @@
       register: dc2_aap_sg
 
     - name: Create DC2 HAProxy Security Group
+      tags: [security_groups, sg_dc2, dc2]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-haproxy-dc2"
         description: HAProxy Database Router Security Group DC2
@@ -401,6 +433,7 @@
       register: dc2_haproxy_sg
 
     - name: Create DC2 RDS Security Group
+      tags: [security_groups, sg_dc2, dc2]
       amazon.aws.ec2_security_group:
         name: "{{ project_name }}-sg-rds-dc2"
         description: RDS PostgreSQL Security Group DC2
@@ -423,6 +456,7 @@
     # ===========================================
 
     - name: Create DC1 RDS Subnet Group
+      tags: [rds, rds_subnet, dc1]
       amazon.aws.rds_subnet_group:
         name: "{{ project_name }}-rds-subnet-group-dc1"
         description: RDS Subnet Group for DC1
@@ -435,6 +469,7 @@
       register: dc1_rds_subnet_group
 
     - name: Create DC2 RDS Subnet Group
+      tags: [rds, rds_subnet, dc2]
       amazon.aws.rds_subnet_group:
         name: "{{ project_name }}-rds-subnet-group-dc2"
         description: RDS Subnet Group for DC2
@@ -451,6 +486,7 @@
     # ===========================================
 
     - name: Create RDS Parameter Group for AAP
+      tags: [rds, rds_params]
       amazon.aws.rds_instance_param_group:
         name: "{{ project_name }}-pg-params"
         description: PostgreSQL parameters for AAP workload
@@ -480,6 +516,7 @@
     # ===========================================
 
     - name: Create RDS PostgreSQL Primary Instance (DC1)
+      tags: [rds, rds_primary, dc1]
       amazon.aws.rds_instance:
         id: "{{ project_name }}-postgres-dc1"
         region: "{{ primary_region }}"
@@ -512,6 +549,7 @@
     # ===========================================
 
     - name: Create RDS PostgreSQL Read Replica (DC2)
+      tags: [rds, rds_replica, dc2]
       amazon.aws.rds_instance:
         id: "{{ project_name }}-postgres-dc2"
         region: "{{ standby_region }}"
@@ -537,6 +575,7 @@
 
     # subelements() requires the key to be a list; aap_components uses count (int). Expand to one dict per instance slot.
     - name: Build AAP component instance loop list
+      tags: [ec2, ec2_prep]
       ansible.builtin.set_fact:
         aap_component_slots: "{{ _aap_slot_json | from_json }}"
       vars:
@@ -554,6 +593,7 @@
     # ===========================================
 
     - name: Launch DC1 AAP Component Instances
+      tags: [ec2, ec2_dc1, ec2_aap, dc1]
       amazon.aws.ec2_instance:
         name: "{{ item.name }}{{ item.slot_index + 1 }}-dc1"
         region: "{{ primary_region }}"
@@ -590,6 +630,7 @@
       register: dc1_aap_instances
 
     - name: Launch DC1 HAProxy Instance
+      tags: [ec2, ec2_dc1, ec2_haproxy, dc1]
       amazon.aws.ec2_instance:
         name: haproxy-db-dc1
         region: "{{ primary_region }}"
@@ -627,6 +668,7 @@
     # ===========================================
 
     - name: Launch DC2 AAP Component Instances
+      tags: [ec2, ec2_dc2, ec2_aap, dc2]
       amazon.aws.ec2_instance:
         name: "{{ item.name }}{{ item.slot_index + 1 }}-dc2"
         region: "{{ standby_region }}"
@@ -663,6 +705,7 @@
       register: dc2_aap_instances
 
     - name: Launch DC2 HAProxy Instance
+      tags: [ec2, ec2_dc2, ec2_haproxy, dc2]
       amazon.aws.ec2_instance:
         name: haproxy-db-dc2
         region: "{{ standby_region }}"
@@ -700,6 +743,7 @@
     # ===========================================
 
     - name: Display Infrastructure Summary
+      tags: [summary]
       ansible.builtin.debug:
         msg:
           - "=============================================="
@@ -732,6 +776,7 @@
 - name: Create AAP Databases on RDS
   hosts: localhost
   gather_facts: false
+  tags: [database, postgresql]
   vars:
     # Same identifiers as first play (play-level vars do not carry over; extra_vars still apply).
     rds_instance_id: "{{ (project_name | default('aap-dr')) }}-postgres-dc1"
@@ -741,6 +786,7 @@
 
   tasks:
     - name: Wait for RDS instance to be available
+      tags: [database, database_wait]
       amazon.aws.rds_instance_info:
         db_instance_identifier: "{{ rds_instance_id }}"
         region: "{{ primary_region }}"
@@ -750,10 +796,12 @@
       delay: 30
 
     - name: Set RDS connection target (API endpoint unless RDS_ENDPOINT is set)
+      tags: [database, database_connect]
       ansible.builtin.set_fact:
         rds_endpoint: "{{ lookup('env', 'RDS_ENDPOINT') | default(rds_info.instances[0].endpoint.address, true) }}"
 
     - name: Create AAP databases
+      tags: [database, database_create]
       community.postgresql.postgresql_db:
         name: "{{ item }}"
         login_host: "{{ rds_endpoint }}"
@@ -769,6 +817,7 @@
         - automationgateway
 
     - name: Create AAP database user
+      tags: [database, database_user]
       community.postgresql.postgresql_user:
         name: aap
         password: "{{ aap_db_password }}"
@@ -780,6 +829,7 @@
         state: present
 
     - name: Grant privileges on AAP databases
+      tags: [database, database_privs]
       community.postgresql.postgresql_privs:
         database: "{{ item }}"
         roles: aap
@@ -797,6 +847,7 @@
         - automationgateway
 
     - name: Enable hstore extension for automationhub
+      tags: [database, database_ext]
       community.postgresql.postgresql_ext:
         name: hstore
         db: automationhub
