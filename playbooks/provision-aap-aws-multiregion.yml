@@ -562,8 +562,10 @@
         vpc_subnet_id: "{{ dc1_aap_subnet.subnet.id }}"
         security_groups:
           - "{{ dc1_aap_sg.group_id }}"
-        network:
-          assign_public_ip: true
+        network_interfaces:
+          - device_index: 0
+            assign_public_ip: true
+            delete_on_termination: true
         volumes:
           - device_name: /dev/sda1
             ebs:
@@ -596,8 +598,10 @@
         vpc_subnet_id: "{{ dc1_aap_subnet.subnet.id }}"
         security_groups:
           - "{{ dc1_haproxy_sg.group_id }}"
-        network:
-          assign_public_ip: true
+        network_interfaces:
+          - device_index: 0
+            assign_public_ip: true
+            delete_on_termination: true
         volumes:
           - device_name: /dev/sda1
             ebs:
@@ -631,8 +635,10 @@
         vpc_subnet_id: "{{ dc2_aap_subnet.subnet.id }}"
         security_groups:
           - "{{ dc2_aap_sg.group_id }}"
-        network:
-          assign_public_ip: true
+        network_interfaces:
+          - device_index: 0
+            assign_public_ip: true
+            delete_on_termination: true
         volumes:
           - device_name: /dev/sda1
             ebs:
@@ -665,8 +671,10 @@
         vpc_subnet_id: "{{ dc2_aap_subnet.subnet.id }}"
         security_groups:
           - "{{ dc2_haproxy_sg.group_id }}"
-        network:
-          assign_public_ip: true
+        network_interfaces:
+          - device_index: 0
+            assign_public_ip: true
+            delete_on_termination: true
         volumes:
           - device_name: /dev/sda1
             ebs:
