@@ -608,6 +608,7 @@ See [LICENSE](LICENSE) for details.
 Your contributions help improve this project for everyone. We appreciate your time and effort!
 
 **Additional Resources:**
+
 - [Documentation Audit Report](reports/documentation-audit-report.md) - Current documentation status
 - [DR Testing Guide](docs/dr-testing-guide.md) - Comprehensive DR testing framework
 - [CI/CD Pipeline](docs/cicd-pipeline.md) - Automated workflows
