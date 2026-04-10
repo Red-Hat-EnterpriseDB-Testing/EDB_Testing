@@ -118,7 +118,7 @@ Result: ✅ PASSED
 | **ServiceAccount** | RBAC permissions for test execution | - |
 | **PVC** | Persistent storage for test results | 5Gi storage |
 
-**Location:** `/openshift/dr-testing/`
+**Location:** `/tests/openshift/dr-testing/`
 
 ### 3. Test Phases
 
@@ -358,7 +358,7 @@ Recovery Point Objective (RPO):
 
 **1. Configure cluster contexts:**
 
-Edit `/openshift/dr-testing/kustomization.yaml`:
+Edit `/tests/openshift/dr-testing/kustomization.yaml`:
 
 ```yaml
 configMapGenerator:
@@ -379,7 +379,7 @@ oc create secret generic dr-test-kubeconfig \
 **3. Deploy CronJob:**
 
 ```bash
-cd openshift/dr-testing
+cd tests/openshift/dr-testing
 oc apply -k .
 ```
 

@@ -291,7 +291,7 @@ curl -k https://aap.example.com/api/v2/ping/
 ./scripts/manual-failback-dc1.sh
 
 # Measure RTO/RPO
-./scripts/measure-rto-rpo.sh
+./tests/scripts/measure-rto-rpo.sh
 ```
 
 ---
@@ -412,7 +412,7 @@ sudo dnf install -y postgres_exporter node_exporter
 
 ```bash
 # Add to crontab for quarterly testing
-0 2 * * 6 /path/to/scripts/dr-failover-test.sh quarterly-$(date +%Y-Q%q)
+0 2 * * 6 /path/to/tests/scripts/dr-failover-test.sh quarterly-$(date +%Y-Q%q)
 ```
 
 ### Document Your Deployment

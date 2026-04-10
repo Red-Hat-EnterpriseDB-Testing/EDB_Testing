@@ -9,18 +9,18 @@ metadata:
     component: scripts
 data:
   dr-failover-test.sh: |
-    # Script content would be injected here from /scripts/dr-failover-test.sh
+    # Script content would be injected here from /tests/scripts/dr-failover-test.sh
     # In production, build this into a container image instead
     echo "DR test script - see container image"
 
   validate-aap-data.sh: |
-    # Script content from /scripts/validate-aap-data.sh
+    # Script content from /tests/scripts/validate-aap-data.sh
     echo "Data validation script - see container image"
 
   measure-rto-rpo.sh: |
-    # Script content from /scripts/measure-rto-rpo.sh
+    # Script content from /tests/scripts/measure-rto-rpo.sh
     echo "RTO/RPO measurement script - see container image"
 
   generate-dr-report.sh: |
-    # Script content from /scripts/generate-dr-report.sh
+    # Script content from /tests/scripts/generate-dr-report.sh
     echo "Report generator script - see container image"

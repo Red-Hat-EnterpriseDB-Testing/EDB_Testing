@@ -23,15 +23,6 @@ Scripts for managing AAP on RHEL servers:
 - **[`start-aap-cluster.sh`](start-aap-cluster.sh)** - Start all AAP systemd services
 - **[`stop-aap-cluster.sh`](stop-aap-cluster.sh)** - Stop all AAP systemd services
 
-### Disaster Recovery Testing
-
-Automated DR testing and validation:
-
-- **[`dr-failover-test.sh`](dr-failover-test.sh)** - End-to-end automated DR failover test
-- **[`measure-rto-rpo.sh`](measure-rto-rpo.sh)** - RTO/RPO measurement and tracking
-- **[`validate-aap-data.sh`](validate-aap-data.sh)** - AAP data integrity validation
-- **[`generate-dr-report.sh`](generate-dr-report.sh)** - Generate DR test reports
-
 ### EFM Integration
 
 Scripts for EDB Failover Manager integration:
@@ -41,26 +32,22 @@ Scripts for EDB Failover Manager integration:
 - **[`monitor-efm-scripts.sh`](monitor-efm-scripts.sh)** - Monitor EFM script execution
 - **Configuration**: [`efm.properties.sample`](efm.properties.sample) - Sample EFM configuration
 
-### Testing & Quality Assurance
-
-Scripts for testing and validation:
-
-- **[`test-split-brain-prevention.sh`](test-split-brain-prevention.sh)** - Validate split-brain prevention logic
-- **[`run-ci-checks-locally.sh`](run-ci-checks-locally.sh)** - Run CI checks before pushing
-
-### Git Hooks
-
-Pre-commit hooks for code quality (in `hooks/`):
-
-- **[`hooks/check-script-permissions.sh`](hooks/check-script-permissions.sh)** - Ensure scripts are executable
-- **[`hooks/validate-openshift-manifests.sh`](hooks/validate-openshift-manifests.sh)** - Validate Kubernetes YAML
-
 ### Shared Libraries
 
 Reusable code libraries (in `lib/`):
 
 - **[`lib/aap-scaling.sh`](lib/aap-scaling.sh)** - Common AAP scaling functions
 - **[`lib/logging.sh`](lib/logging.sh)** - Standardized logging functions
+
+## Testing and CI
+
+All testing, validation, and CI/CD infrastructure has been moved to the **[`tests/`](../tests/)** directory:
+
+- **DR Testing Scripts**: `tests/scripts/` - Failover testing, RTO/RPO measurement, data validation
+- **CI Hooks**: `tests/hooks/` - Pre-commit hooks for code quality
+- **OpenShift Testing**: `tests/openshift/dr-testing/` - CronJob-based automated testing
+
+See **[`tests/README.md`](../tests/README.md)** for complete testing documentation.
 
 ## Quick Start
 
@@ -71,24 +58,9 @@ Reusable code libraries (in `lib/`):
 ./scripts/scale-aap-up.sh <cluster-context>
 ```
 
-### Run a DR Failover Test
+### Run DR Testing
 
-```bash
-# Full automated DR test
-./scripts/dr-failover-test.sh \
-  --dc1-context <dc1-context> \
-  --dc2-context <dc2-context>
-```
-
-### Validate AAP Data
-
-```bash
-# Create baseline
-./scripts/validate-aap-data.sh create-baseline <cluster-context>
-
-# Validate against baseline
-./scripts/validate-aap-data.sh validate <cluster-context>
-```
+DR testing scripts have moved to `tests/scripts/`. See **[`tests/README.md`](../tests/README.md)**.
 
 ## Prerequisites
 
@@ -112,11 +84,11 @@ Comprehensive guides are available in the `docs/` directory:
 # 1. Scale up AAP in standby DC
 ./scripts/scale-aap-up.sh <dc2-context>
 
-# 2. Validate data integrity
-./scripts/validate-aap-data.sh validate <dc2-context>
+# 2. Validate data integrity (see tests/)
+./tests/scripts/validate-aap-data.sh validate <dc2-context>
 
-# 3. Generate DR report
-./scripts/generate-dr-report.sh --latest
+# 3. Generate DR report (see tests/)
+./tests/scripts/generate-dr-report.sh --latest
 ```
 
 ### EFM Integration Setup
@@ -136,7 +108,7 @@ sudo -u efm /usr/edb/efm-4.x/bin/efm-aap-failover-wrapper.sh test standby test t
 
 ```bash
 # Run all quality checks before committing
-./scripts/run-ci-checks-locally.sh
+./tests/scripts/run-ci-checks-locally.sh
 ```
 
 ## Support

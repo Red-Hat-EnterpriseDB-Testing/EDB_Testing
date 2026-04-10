@@ -188,7 +188,7 @@ Requires multi-cluster environment or access to remote cluster for full failover
 
 ### Fix #1: macOS Date Compatibility
 
-**File:** `/scripts/measure-rto-rpo.sh`
+**File:** `/tests/scripts/measure-rto-rpo.sh`
 
 **Changes:**
 

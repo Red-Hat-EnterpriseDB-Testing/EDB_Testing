@@ -101,10 +101,12 @@ EDB_Testing/
 ├── scripts/                 # Operational automation scripts
 │   ├── lib/                 # Shared libraries (logging, scaling)
 │   ├── scale-aap-*.sh       # AAP scaling scripts
-│   ├── dr-*.sh              # DR orchestration
-│   └── validate-*.sh        # Validation scripts
-├── openshift/               # OpenShift-specific resources
-│   └── dr-testing/          # DR testing CronJob
+│   ├── efm-*.sh             # EFM integration hooks
+│   └── start/stop-*.sh      # AAP cluster management (RHEL)
+├── tests/                   # Testing and CI infrastructure
+│   ├── scripts/             # Test and validation scripts
+│   ├── hooks/               # Pre-commit and CI hooks
+│   └── openshift/           # DR testing CronJob manifests
 └── .github/                 # CI/CD workflows
     └── workflows/           # GitHub Actions
 ```

@@ -713,7 +713,7 @@ From `/docs/dr-scenarios.md`:
 - Inconsistencies between DC1 and DC2 undetected
 
 **Files Affected:**
-- Missing: `/scripts/validate-aap-data.sh`
+- Missing: `/tests/scripts/validate-aap-data.sh`
 
 **Resolution:**
 - Create data validation script
