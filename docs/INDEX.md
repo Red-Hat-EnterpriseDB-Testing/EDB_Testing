@@ -62,7 +62,7 @@
 | **[Main README Architecture](../README.md#architecture)** | High-level overview with diagram | 5 min |
 | **[AAP Containerized Growth DR](aap-containerized-growth-dr-architecture.md)** ⭐ **NEW** | 3-node multi-DC deployment (cost-optimized) | 25 min |
 | **[AAP Containerized Enterprise DR](aap-containerized-enterprise-dr-architecture.md)** ⭐ **NEW** | 8-node multi-DC deployment (production-grade) | 30 min |
-| **[Architecture Validation Report](aap-architecture-validation-report.md)** | Validation vs Red Hat AAP 2.6 tested models | 15 min |
+| **[Architecture Validation Report](../reports/aap-architecture-validation-report.md)** | Validation vs Red Hat AAP 2.6 tested models | 15 min |
 | **[RHEL AAP Architecture](rhel-aap-architecture.md)** | AAP on RHEL with systemd services | 10 min |
 | **[OpenShift AAP Architecture](openshift-aap-architecture.md)** | AAP on OpenShift with operator | 10 min |
 
@@ -105,7 +105,7 @@ Choose based on your requirements:
 | **[EDB Failover Manager](enterprisefailovermanager.md)** | EFM integration and configuration | 20 min |
 
 **DR Validation Reports:**
-- [DR Replication Validation](dr-replication-validation-report.md) - Architecture assessment (Score: 7.1/10)
+- [DR Replication Validation](../reports/dr-replication-validation-report.md) - Architecture assessment (Score: 7.1/10)
 - [DR Replication Implementation Status](dr-replication-implementation-status.md) - Gap tracking
 - [Component Testing Results](component-testing-results.md) - Script validation on macOS/CRC
 - [AAP Deployment Validation (CRC)](aap-deployment-validation-crc.md) - Local OpenShift testing
@@ -165,7 +165,7 @@ Choose based on your requirements:
 - **[CI/CD Pipeline](cicd-pipeline.md)** - GitHub Actions workflows (6,500 words)
 - **[Scripts Hooks and CI/CD](scripts-hooks-and-cicd.md)** ⭐ **NEW** - Pre-commit hooks, CI checks, and quality automation
 - **[Pre-commit Hooks](../.pre-commit-config.yaml)** - Local validation before commit
-- **CONTRIBUTING.md** - _Coming soon_ (see [Documentation Audit](documentation-audit-report.md))
+- **CONTRIBUTING.md** - _Coming soon_ (see [Documentation Audit](../reports/documentation-audit-report.md))
 
 **GitHub Actions Workflows:**
 - `.github/workflows/yaml-validation.yml` - Kubernetes manifest validation
@@ -188,7 +188,7 @@ Choose based on your requirements:
 - [Split-Brain Prevention](split-brain-prevention.md#monitoring) - Database role monitoring
 
 **Planned Documentation:**
-- Monitoring and Alerting Guide (see [Documentation Audit](documentation-audit-report.md#gap-analysis))
+- Monitoring and Alerting Guide (see [Documentation Audit](../reports/documentation-audit-report.md#gap-analysis))
 - Grafana Dashboard Setup
 - PagerDuty Integration
 
@@ -203,7 +203,7 @@ Choose based on your requirements:
 - [EFM Security](enterprisefailovermanager.md#security) - EFM permissions and VIP management
 
 **Planned Documentation:**
-- Security Hardening Guide (see [Documentation Audit](documentation-audit-report.md#gap-analysis))
+- Security Hardening Guide (see [Documentation Audit](../reports/documentation-audit-report.md#gap-analysis))
 - TLS/SSL Configuration
 - Secrets Management (Vault, Sealed Secrets)
 
@@ -213,7 +213,7 @@ Choose based on your requirements:
 
 **Additional resources:**
 
-- **[Documentation Audit Report](documentation-audit-report.md)** - Comprehensive documentation assessment
+- **[Documentation Audit Report](../reports/documentation-audit-report.md)** - Comprehensive documentation assessment
 - **[Glossary](GLOSSARY.md)** - _Coming soon_ - Terminology and abbreviations
 - **[FAQ](FAQ.md)** - _Coming soon_ - Frequently asked questions
 - **[LICENSE](../LICENSE)** - Copyright and licensing
@@ -324,7 +324,7 @@ Choose based on your requirements:
 3. Backup and Restore Guide (Week 4)
 4. GLOSSARY.md (Month 2)
 
-See [Documentation Audit Report](documentation-audit-report.md) for complete roadmap.
+See [Documentation Audit Report](../reports/documentation-audit-report.md) for complete roadmap.
 
 ---
 

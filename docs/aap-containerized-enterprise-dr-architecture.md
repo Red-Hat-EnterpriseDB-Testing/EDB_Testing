@@ -1342,7 +1342,7 @@ echo 'set server aap_backend/aap-node1 state ready' | socat stdio /var/lib/hapro
 
 ## Related Documentation
 
-- **[Architecture Validation Report](aap-architecture-validation-report.md)** ⭐ - Validation against Red Hat AAP 2.6 tested models
+- **[Architecture Validation Report](../reports/aap-architecture-validation-report.md)** ⭐ - Validation against Red Hat AAP 2.6 tested models
 - **[HAProxy vs pgBouncer Analysis](haproxy-pgbouncer-architectural-analysis.md)** ⭐ - Architecture Decision Record for HAProxy implementation
 - [Main Architecture](architecture.md) - Comprehensive architecture documentation
 - [RHEL AAP Architecture](rhel-aap-architecture.md) - Alternative RHEL deployment

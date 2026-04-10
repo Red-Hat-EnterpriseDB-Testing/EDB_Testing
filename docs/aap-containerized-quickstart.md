@@ -612,7 +612,7 @@ done
 **Full Documentation:**
 - **Growth (16 VMs):** [aap-containerized-growth-dr-architecture.md](aap-containerized-growth-dr-architecture.md)
 - **Enterprise (26 VMs):** [aap-containerized-enterprise-dr-architecture.md](aap-containerized-enterprise-dr-architecture.md)
-- **Validation Report:** [aap-architecture-validation-report.md](aap-architecture-validation-report.md)
+- **Validation Report:** [aap-architecture-validation-report.md](../reports/aap-architecture-validation-report.md)
 
 ---
 
