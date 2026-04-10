@@ -616,10 +616,10 @@ oc apply -f monitoring/prometheus/servicemonitor.yaml
 
 ```bash
 # Schedule quarterly DR tests
-oc apply -f openshift/dr-testing/cronjob-dr-test.yaml
+oc apply -f tests/openshift/dr-testing/cronjob-dr-test.yaml
 
 # Run manual DR test
-./scripts/dr-failover-test.sh --test-id manual-test-001
+./tests/scripts/dr-failover-test.sh --test-id manual-test-001
 ```
 
 **See:** [docs/dr-testing-guide.md](dr-testing-guide.md)

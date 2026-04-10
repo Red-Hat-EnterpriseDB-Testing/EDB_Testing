@@ -42,7 +42,7 @@ Following the replication architecture validation (score: 7.1/10), this document
 - `/scripts/scale-aap-up.sh` - Added database role validation
 
 **Files Created:**
-- `/scripts/test-split-brain-prevention.sh` - Automated test script
+- `/tests/scripts/test-split-brain-prevention.sh` - Automated test script
 - `/docs/split-brain-prevention.md` - Comprehensive documentation
 
 ### Changes Made
@@ -77,7 +77,7 @@ fi
 
 #### 2. Test Script
 
-Created `/scripts/test-split-brain-prevention.sh` with 4 test cases:
+Created `/tests/scripts/test-split-brain-prevention.sh` with 4 test cases:
 1. Database role detection verification
 2. Safety code presence validation
 3. Replica scenario simulation (manual test)
@@ -85,7 +85,7 @@ Created `/scripts/test-split-brain-prevention.sh` with 4 test cases:
 
 **Usage:**
 ```bash
-./scripts/test-split-brain-prevention.sh <cluster-context>
+./tests/scripts/test-split-brain-prevention.sh <cluster-context>
 ```
 
 #### 3. Documentation
@@ -171,7 +171,7 @@ The split-brain check is now active in:
 **Objective:** Execute comprehensive failover testing to validate documented RTO/RPO targets
 
 **Deliverables:**
-1. `/scripts/dr-failover-test.sh` - Automated failover drill script
+1. `/tests/scripts/dr-failover-test.sh` - Automated failover drill script
 2. `/docs/failover-test-results.md` - Test report template
 3. Quarterly testing schedule
 4. Measured actual RTO/RPO values
@@ -199,7 +199,7 @@ The split-brain check is now active in:
    - Measure time to AAP availability
 
 3. **Validation:**
-   - Run `/scripts/validate-aap-data.sh` (to be created)
+   - Run `/tests/scripts/validate-aap-data.sh` (to be created)
    - Verify no data loss
    - Confirm AAP job execution
 
@@ -380,12 +380,12 @@ spec:
    - Send notifications to relevant teams
 
 2. **Begin GAP-REP-002 Implementation:**
-   - Create `/scripts/dr-failover-test.sh`
-   - Create `/scripts/validate-aap-data.sh`
+   - Create `/tests/scripts/dr-failover-test.sh`
+   - Create `/tests/scripts/validate-aap-data.sh`
    - Document test procedures
 
 3. **Validate Split-Brain Prevention:**
-   - Execute `/scripts/test-split-brain-prevention.sh`
+   - Execute `/tests/scripts/test-split-brain-prevention.sh`
    - Document results
    - Add to weekly health check
 
@@ -414,7 +414,7 @@ spec:
 - **Baseline Validation:** `/reports/dr-replication-validation-report.md`
 - **Split-Brain Documentation:** `/docs/split-brain-prevention.md`
 - **Scale AAP Script:** `/scripts/scale-aap-up.sh`
-- **Test Script:** `/scripts/test-split-brain-prevention.sh`
+- **Test Script:** `/tests/scripts/test-split-brain-prevention.sh`
 - **DR Scenarios:** `/docs/dr-scenarios.md`
 - **EFM Integration:** `/docs/enterprisefailovermanager.md`
 

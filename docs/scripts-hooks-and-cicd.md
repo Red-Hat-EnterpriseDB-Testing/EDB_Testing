@@ -12,19 +12,19 @@ The repository includes automation for code quality, testing, and validation:
 
 ## Pre-Commit Hooks
 
-Location: `scripts/hooks/`
+Location: `tests/hooks/`
 
 ### check-script-permissions.sh
 
 **Purpose:** Ensures all shell scripts have executable permissions before committing.
 
-**Location:** `scripts/hooks/check-script-permissions.sh`
+**Location:** `tests/hooks/check-script-permissions.sh`
 
 **Usage:**
 ```bash
 # Called automatically by pre-commit framework
 # Or manually:
-./scripts/hooks/check-script-permissions.sh script1.sh script2.sh
+./tests/hooks/check-script-permissions.sh script1.sh script2.sh
 ```
 
 **What It Checks:**
@@ -54,7 +54,7 @@ repos:
     hooks:
       - id: check-script-permissions
         name: Check script permissions
-        entry: scripts/hooks/check-script-permissions.sh
+        entry: tests/hooks/check-script-permissions.sh
         language: script
         files: \.sh$
 ```
@@ -65,13 +65,13 @@ repos:
 
 **Purpose:** Validates Kubernetes/OpenShift YAML manifests using `kubeval`.
 
-**Location:** `scripts/hooks/validate-openshift-manifests.sh`
+**Location:** `tests/hooks/validate-openshift-manifests.sh`
 
 **Usage:**
 ```bash
 # Called automatically by pre-commit framework
 # Or manually:
-./scripts/hooks/validate-openshift-manifests.sh manifest1.yaml manifest2.yaml
+./tests/hooks/validate-openshift-manifests.sh manifest1.yaml manifest2.yaml
 ```
 
 **What It Validates:**
@@ -115,7 +115,7 @@ repos:
     hooks:
       - id: validate-k8s-manifests
         name: Validate Kubernetes manifests
-        entry: scripts/hooks/validate-openshift-manifests.sh
+        entry: tests/hooks/validate-openshift-manifests.sh
         language: script
         files: \.(yaml|yml)$
 ```
@@ -128,15 +128,15 @@ repos:
 
 **Purpose:** Runs comprehensive quality checks locally before pushing code.
 
-**Location:** `scripts/run-ci-checks-locally.sh`
+**Location:** `tests/scripts/run-ci-checks-locally.sh`
 
 **Usage:**
 ```bash
 # Run all CI checks
-./scripts/run-ci-checks-locally.sh
+./tests/scripts/run-ci-checks-locally.sh
 
 # Simulates GitHub Actions validation
-cd /path/to/repo && ./scripts/run-ci-checks-locally.sh
+cd /path/to/repo && ./tests/scripts/run-ci-checks-locally.sh
 ```
 
 **Checks Performed:**
@@ -320,14 +320,14 @@ repos:
       # Check script permissions
       - id: check-script-permissions
         name: Check script permissions
-        entry: scripts/hooks/check-script-permissions.sh
+        entry: tests/hooks/check-script-permissions.sh
         language: script
         files: \.sh$
 
       # Validate Kubernetes manifests
       - id: validate-k8s-manifests
         name: Validate Kubernetes manifests
-        entry: scripts/hooks/validate-openshift-manifests.sh
+        entry: tests/hooks/validate-openshift-manifests.sh
         language: script
         files: \.(yaml|yml)$
 
@@ -433,7 +433,7 @@ jobs:
           sudo mv kubeval /usr/local/bin/
       
       - name: Run CI checks
-        run: ./scripts/run-ci-checks-locally.sh
+        run: ./tests/scripts/run-ci-checks-locally.sh
       
       - name: Run pre-commit hooks
         run: pre-commit run --all-files
@@ -525,7 +525,7 @@ brew install pre-commit
 
 2. **Test locally before pushing:**
    ```bash
-   ./scripts/run-ci-checks-locally.sh
+   ./tests/scripts/run-ci-checks-locally.sh
    ```
 
 3. **Fix shellcheck warnings:**

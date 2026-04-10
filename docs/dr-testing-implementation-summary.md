@@ -41,14 +41,14 @@ Successfully implemented a comprehensive, production-ready disaster recovery tes
 | **PVC** | Test results storage (5Gi) | ✅ Complete |
 | **Kustomization** | Declarative deployment | ✅ Complete |
 
-**Location:** `/openshift/dr-testing/`
+**Location:** `/tests/openshift/dr-testing/`
 
 ### ✅ Documentation (2 guides)
 
 | Document | Pages | Purpose | Status |
 |----------|-------|---------|--------|
 | **dr-testing-guide.md** | 25+ | Comprehensive usage guide | ✅ Complete |
-| **openshift/dr-testing/README.md** | 8+ | OpenShift deployment guide | ✅ Complete |
+| **tests/openshift/dr-testing/README.md** | 8+ | OpenShift deployment guide | ✅ Complete |
 
 **Total:** ~10,000 words of documentation
 
@@ -268,7 +268,7 @@ RTO: 287.4 seconds
 **Deploy quarterly automation:**
 
 ```bash
-cd /Users/cferman/Documents/GitHub/EDB_Testing/openshift/dr-testing
+cd /Users/cferman/Documents/GitHub/EDB_Testing/tests/openshift/dr-testing
 
 # Update cluster contexts in kustomization.yaml
 vim kustomization.yaml
@@ -337,7 +337,7 @@ done
 
 ✅ **Kubernetes manifest validation:**
 ```bash
-cd openshift/dr-testing
+cd tests/openshift/dr-testing
 kustomize build . | kubectl apply --dry-run=client -f -
 ```
 
@@ -521,7 +521,7 @@ scripts/
 ### OpenShift manifests (6 files)
 
 ```
-openshift/dr-testing/
+tests/openshift/dr-testing/
 ├── cronjob-dr-test.yaml             ✅
 ├── serviceaccount.yaml              ✅
 ├── configmap-dr-scripts.yaml        ✅

@@ -55,7 +55,8 @@ Before contributing, ensure you have:
   - `/docs/` for general documentation
   - `/aap-deploy/` for AAP deployment docs
   - `/db-deploy/` for database deployment docs
-  - `/scripts/` for script documentation
+  - `/scripts/` for operational script documentation
+  - `/tests/` for testing and CI documentation
 
 ### Formatting
 

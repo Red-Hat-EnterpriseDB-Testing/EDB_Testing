@@ -129,7 +129,7 @@ Choose based on your requirements:
 - Scaling AAP up/down: See [scale-aap-up.sh](../scripts/scale-aap-up.sh), [scale-aap-down.sh](../scripts/scale-aap-down.sh)
 - Monitoring replication: See [monitor-efm-scripts.sh](../scripts/monitor-efm-scripts.sh)
 - DR failover: See [efm-orchestrated-failover.sh](../scripts/efm-orchestrated-failover.sh)
-- Data validation: See [validate-aap-data.sh](../scripts/validate-aap-data.sh)
+- Data validation: See [validate-aap-data.sh](../tests/scripts/validate-aap-data.sh)
 
 ---
 
@@ -144,10 +144,10 @@ Choose based on your requirements:
 | **[efm-orchestrated-failover.sh](../scripts/efm-orchestrated-failover.sh)** | Full DR failover orchestration | Called by EFM (post-promotion) |
 | **[efm-aap-failover-wrapper.sh](../scripts/efm-aap-failover-wrapper.sh)** | EFM integration hook | Called by EFM with failover context |
 | **[monitor-efm-scripts.sh](../scripts/monitor-efm-scripts.sh)** | Monitor EFM failover events | `./monitor-efm-scripts.sh` (CronJob) |
-| **[dr-failover-test.sh](../scripts/dr-failover-test.sh)** | Automated DR testing framework | See [DR Testing Guide](dr-testing-guide.md) |
-| **[validate-aap-data.sh](../scripts/validate-aap-data.sh)** | AAP data integrity validation | `./validate-aap-data.sh <dc1\|dc2>` |
-| **[measure-rto-rpo.sh](../scripts/measure-rto-rpo.sh)** | RTO/RPO measurement with milestones | `./measure-rto-rpo.sh start <test-id>` |
-| **[generate-dr-report.sh](../scripts/generate-dr-report.sh)** | DR test report generation | `./generate-dr-report.sh <test-id>` |
+| **[dr-failover-test.sh](../tests/scripts/dr-failover-test.sh)** | Automated DR testing framework | See [DR Testing Guide](dr-testing-guide.md) |
+| **[validate-aap-data.sh](../tests/scripts/validate-aap-data.sh)** | AAP data integrity validation | `./validate-aap-data.sh <dc1\|dc2>` |
+| **[measure-rto-rpo.sh](../tests/scripts/measure-rto-rpo.sh)** | RTO/RPO measurement with milestones | `./measure-rto-rpo.sh start <test-id>` |
+| **[generate-dr-report.sh](../tests/scripts/generate-dr-report.sh)** | DR test report generation | `./generate-dr-report.sh <test-id>` |
 
 **Script Documentation:**
 - **[Scripts README](../scripts/README.md)** ⭐ - Quick reference for all scripts
@@ -175,7 +175,7 @@ Choose based on your requirements:
 **Testing:**
 - [Component Testing Results](component-testing-results.md) - Script validation (macOS/CRC)
 - [AAP Deployment Validation](aap-deployment-validation-crc.md) - End-to-end validation
-- [run-ci-checks-locally.sh](../scripts/run-ci-checks-locally.sh) - Run CI checks before pushing
+- [run-ci-checks-locally.sh](../tests/scripts/run-ci-checks-locally.sh) - Run CI checks before pushing
 
 ---
 
@@ -199,7 +199,7 @@ Choose based on your requirements:
 **Security considerations:**
 
 - [Pre-commit Secret Detection](../.pre-commit-config.yaml#L89-L98) - `detect-secrets` integration
-- [RBAC Configuration](../openshift/dr-testing/serviceaccount.yaml) - DR testing ServiceAccount
+- [RBAC Configuration](../tests/openshift/dr-testing/serviceaccount.yaml) - DR testing ServiceAccount
 - [EFM Security](enterprisefailovermanager.md#security) - EFM permissions and VIP management
 
 **Planned Documentation:**
