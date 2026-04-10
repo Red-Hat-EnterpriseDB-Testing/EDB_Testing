@@ -733,26 +733,34 @@
   hosts: localhost
   gather_facts: false
   vars:
-    rds_endpoint: "{{ lookup('env', 'RDS_ENDPOINT') }}"
-    rds_master_password: "{{ lookup('env', 'RDS_MASTER_PASSWORD') }}"
+    # Same identifiers as first play (play-level vars do not carry over; extra_vars still apply).
+    rds_instance_id: "{{ (project_name | default('aap-dr')) }}-postgres-dc1"
+    primary_region: "{{ primary_region | default('us-east-1') }}"
+    rds_master_password: "{{ lookup('env', 'RDS_MASTER_PASSWORD') | default('ChangeMe123!', true) }}"
     aap_db_password: "{{ lookup('env', 'AAP_DB_PASSWORD') | default('ChangeMe123!', true) }}"
 
   tasks:
     - name: Wait for RDS instance to be available
       amazon.aws.rds_instance_info:
-        db_instance_identifier: aap-dr-postgres-dc1
-        region: us-east-1
+        db_instance_identifier: "{{ rds_instance_id }}"
+        region: "{{ primary_region }}"
       register: rds_info
       until: rds_info.instances[0].db_instance_status == 'available'
       retries: 60
       delay: 30
 
+    - name: Set RDS connection target (API endpoint unless RDS_ENDPOINT is set)
+      ansible.builtin.set_fact:
+        rds_endpoint: "{{ lookup('env', 'RDS_ENDPOINT') | default(rds_info.instances[0].endpoint.address, true) }}"
+
     - name: Create AAP databases
       community.postgresql.postgresql_db:
         name: "{{ item }}"
         login_host: "{{ rds_endpoint }}"
+        login_port: 5432
         login_user: postgres
         login_password: "{{ rds_master_password }}"
+        ssl_mode: require
         state: present
       loop:
         - awx
@@ -765,8 +773,10 @@
         name: aap
         password: "{{ aap_db_password }}"
         login_host: "{{ rds_endpoint }}"
+        login_port: 5432
         login_user: postgres
         login_password: "{{ rds_master_password }}"
+        ssl_mode: require
         state: present
 
     - name: Grant privileges on AAP databases
@@ -776,8 +786,10 @@
         privs: ALL
         type: database
         login_host: "{{ rds_endpoint }}"
+        login_port: 5432
         login_user: postgres
         login_password: "{{ rds_master_password }}"
+        ssl_mode: require
       loop:
         - awx
         - automationhub
@@ -789,6 +801,8 @@
         name: hstore
         db: automationhub
         login_host: "{{ rds_endpoint }}"
+        login_port: 5432
         login_user: postgres
         login_password: "{{ rds_master_password }}"
+        ssl_mode: require
         state: present
