@@ -1,0 +1,69 @@
+---
+# AWS EC2 Dynamic Inventory Configuration
+# Automatically discovers AAP infrastructure provisioned in AWS
+
+plugin: amazon.aws.aws_ec2
+
+# AWS Regions to query
+regions:
+  - us-east-1
+  - us-west-1
+
+# Filter instances by project tag
+filters:
+  tag:Project: aap-dr
+  instance-state-name:
+    - running
+    - stopped
+
+# Hostname configuration
+hostnames:
+  - tag:Name
+  - private-ip-address
+
+# Group instances by various attributes
+keyed_groups:
+  # Group by datacenter
+  - key: tags.Datacenter
+    prefix: datacenter
+    separator: "_"
+
+  # Group by component type
+  - key: tags.Component
+    prefix: component
+    separator: "_"
+
+  # Group by role
+  - key: tags.Role
+    prefix: role
+    separator: "_"
+
+  # Group by AWS region
+  - key: placement.region
+    prefix: region
+    separator: "_"
+
+  # Group by instance state
+  - key: state.name
+    prefix: state
+    separator: "_"
+
+# Compose custom variables
+compose:
+  ansible_host: public_ip_address | default(private_ip_address)
+  datacenter: tags.Datacenter
+  component: tags.Component
+  role: tags.Role
+  instance_type: instance_type
+  availability_zone: placement.availability_zone
+
+# Connection settings
+ansible_connection: ssh
+ansible_user: ec2-user
+ansible_ssh_private_key_file: ~/.ssh/aap-dr-us-east-1.pem
+
+# Cache inventory for faster subsequent runs
+cache: true
+cache_plugin: jsonfile
+cache_timeout: 3600
+cache_connection: /tmp/aws_inventory_cache

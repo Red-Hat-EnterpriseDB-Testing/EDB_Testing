@@ -43,6 +43,10 @@
 | **OpenShift (Kustomize)** | [Database Deployment](../db-deploy/README.md) | GitOps-friendly Kustomize manifests |
 | **AAP on OpenShift** | [AAP Deployment](../aap-deploy/README.md) | AAP operator with external PostgreSQL |
 
+**Automated Infrastructure Provisioning:**
+- [AWS Multi-Region Playbooks](../playbooks/PLAYBOOK-OVERVIEW.md) ⭐ **NEW** - Automated AWS provisioning (us-east-1/us-west-1 with RDS)
+- [AWS Provisioning Guide](../playbooks/README-aws-provisioning.md) - Detailed guide for AWS deployment
+
 **Specialized Deployment Topics:**
 - [EDB Operator Installation](../db-deploy/olm-openshift/README.md) - CloudNativePG operator via OLM
 - [Cross-Cluster Replication](../db-deploy/cross-cluster/README.md) - DC1 → DC2 streaming replication

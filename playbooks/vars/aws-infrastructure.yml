@@ -1,0 +1,205 @@
+---
+# AWS Infrastructure Variables
+# Multi-Region AAP Deployment Configuration
+
+# ===========================================
+# Project Configuration
+# ===========================================
+project_name: aap-dr
+environment: production
+
+# ===========================================
+# AWS Regions
+# ===========================================
+primary_region: us-east-1
+standby_region: us-west-1
+
+# ===========================================
+# Network Configuration - DC1 (us-east-1)
+# ===========================================
+dc1_vpc_cidr: 10.1.0.0/16
+dc1_aap_subnet_cidr: 10.1.1.0/24
+dc1_db_subnet_cidr: 10.1.2.0/24
+dc1_db_subnet_cidr_az2: 10.1.3.0/24  # For Multi-AZ RDS
+dc1_availability_zones:
+  - us-east-1a
+  - us-east-1b
+  - us-east-1c
+
+# ===========================================
+# Network Configuration - DC2 (us-west-1)
+# ===========================================
+dc2_vpc_cidr: 10.2.0.0/16
+dc2_aap_subnet_cidr: 10.2.1.0/24
+dc2_db_subnet_cidr: 10.2.2.0/24
+dc2_db_subnet_cidr_az2: 10.2.3.0/24  # For Multi-AZ RDS
+dc2_availability_zones:
+  - us-west-1a
+  - us-west-1b
+  - us-west-1c
+
+# ===========================================
+# EC2 Instance Configuration
+# ===========================================
+
+# Instance Types (based on architecture specifications)
+aap_component_instance_type: t3.xlarge  # 4 vCPU, 16GB RAM (matches spec)
+haproxy_instance_type: t3.large         # 2 vCPU, 8GB RAM (matches spec)
+
+# RHEL 9.4 AMI IDs (update these with latest AMIs)
+# Find latest: aws ec2 describe-images --owners 309956199498 --filters "Name=name,Values=RHEL-9.4*" --query 'Images[*].[ImageId,Name,CreationDate]' --output table
+rhel_ami_us_east_1: ami-0583d8c7a9c35822c  # RHEL 9.4 - us-east-1
+rhel_ami_us_west_1: ami-029465c1f346dd34f  # RHEL 9.4 - us-west-1
+
+# SSH Key Pair (create these in AWS before running)
+ssh_key_name_dc1: aap-dr-key-us-east-1
+ssh_key_name_dc2: aap-dr-key-us-west-1
+
+# Root Volume Configuration
+root_volume_size: 60    # GB for AAP components
+root_volume_type: gp3   # General Purpose SSD v3
+
+# ===========================================
+# AAP Component Configuration
+# ===========================================
+aap_components:
+  - name: gateway
+    count: 2
+    instance_type: "{{ aap_component_instance_type }}"
+    description: Platform Gateway with colocated Redis
+    ports: [80, 443, 6379, 16379]
+
+  - name: controller
+    count: 2
+    instance_type: "{{ aap_component_instance_type }}"
+    description: Automation Controller (dedicated VMs)
+    ports: [8080, 8443, 27199]
+
+  - name: hub
+    count: 2
+    instance_type: "{{ aap_component_instance_type }}"
+    description: Automation Hub with colocated Redis
+    ports: [8081, 8444, 6379, 16379]
+
+  - name: eda
+    count: 2
+    instance_type: "{{ aap_component_instance_type }}"
+    description: Event-Driven Ansible with colocated Redis
+    ports: [8082, 8445, 6379, 16379]
+
+# ===========================================
+# RDS PostgreSQL Configuration
+# ===========================================
+
+# Instance Class (based on architecture: 8 vCPU, 32GB RAM minimum)
+# db.r6g.2xlarge = 8 vCPU, 64GB RAM (ARM-based, cost-optimized)
+# db.r5.2xlarge  = 8 vCPU, 64GB RAM (x86-based, if ARM not supported)
+rds_instance_class: db.r6g.2xlarge
+
+# Storage Configuration
+rds_allocated_storage: 500          # GB (matches architecture spec)
+rds_storage_type: gp3               # General Purpose SSD v3
+rds_iops: 12000                     # 3000 IOPS minimum per spec (gp3 supports up to 16000)
+rds_storage_throughput: 500         # MB/s (gp3 supports up to 1000)
+rds_max_allocated_storage: 1000     # GB (autoscaling limit)
+
+# PostgreSQL Version
+rds_engine_version: "16.6"
+rds_parameter_group_family: postgres16
+
+# High Availability
+rds_multi_az: true                  # Multi-AZ for DC1 (primary)
+rds_backup_retention_period: 7      # days
+rds_preferred_backup_window: "03:00-04:00"  # UTC
+rds_preferred_maintenance_window: "sun:04:00-sun:05:00"  # UTC
+
+# Security
+rds_storage_encrypted: true
+rds_deletion_protection: true
+rds_auto_minor_version_upgrade: false  # Manual control over upgrades
+
+# Performance Insights
+rds_enable_performance_insights: true
+rds_performance_insights_retention_period: 7  # days
+
+# Enhanced Monitoring
+rds_monitoring_interval: 60         # seconds (0 to disable)
+
+# ===========================================
+# PostgreSQL Parameters (AAP Optimized)
+# ===========================================
+rds_parameters:
+  # Connection Settings
+  max_connections: "1500"
+
+  # Memory Settings (based on 64GB RAM instance)
+  shared_buffers: "{DBInstanceClassMemory/4096}"        # 25% of RAM = 16GB
+  effective_cache_size: "{DBInstanceClassMemory*3/4096}"  # 75% of RAM = 48GB
+  work_mem: "65536"                                     # 64MB in KB
+  maintenance_work_mem: "2097152"                       # 2GB in KB
+
+  # WAL Settings (required for replication)
+  wal_level: logical
+  max_wal_senders: "10"
+  max_replication_slots: "10"
+  wal_keep_size: "1024"  # MB
+
+  # Replication Settings
+  hot_standby: "1"
+  hot_standby_feedback: "1"
+
+  # Checkpoint Settings
+  checkpoint_timeout: "900"           # 15 minutes in seconds
+  checkpoint_completion_target: "0.9"
+
+  # Query Planner
+  random_page_cost: "1.1"             # Optimized for SSD
+  effective_io_concurrency: "200"
+
+  # Logging (adjust for production monitoring needs)
+  log_min_duration_statement: "1000"  # Log queries > 1 second
+  log_connections: "1"
+  log_disconnections: "1"
+  log_lock_waits: "1"
+
+# ===========================================
+# Tags
+# ===========================================
+common_tags:
+  Project: "{{ project_name }}"
+  Environment: "{{ environment }}"
+  ManagedBy: ansible
+  Architecture: multi-region-dr
+  CostCenter: infrastructure
+  Compliance: pci-dss
+
+# ===========================================
+# Secrets (use Ansible Vault or environment variables)
+# ===========================================
+
+# RDS Master Password (override with environment variable)
+# export RDS_MASTER_PASSWORD='YourSecurePassword123!'
+rds_master_password: "{{ lookup('env', 'RDS_MASTER_PASSWORD') | default('CHANGE_ME_INSECURE', true) }}"
+
+# AAP Database Password (override with environment variable)
+# export AAP_DB_PASSWORD='YourSecurePassword456!'
+aap_db_password: "{{ lookup('env', 'AAP_DB_PASSWORD') | default('CHANGE_ME_INSECURE', true) }}"
+
+# ===========================================
+# Advanced Configuration
+# ===========================================
+
+# VPC Peering
+vpc_peering_auto_accept: true
+
+# CloudWatch Alarms
+enable_cloudwatch_alarms: true
+alarm_email: ops@example.com
+
+# Cost Optimization
+enable_instance_scheduler: false    # Start/stop instances on schedule
+dc2_default_state: stopped          # DC2 instances start stopped (standby)
+
+# Disaster Recovery
+rds_cross_region_backup: true       # Enable cross-region automated backups
+rds_snapshot_retention_days: 30

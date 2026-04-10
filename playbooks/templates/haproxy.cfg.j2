@@ -1,0 +1,62 @@
+# HAProxy Configuration for PostgreSQL Database Routing
+# AAP Multi-Region DR - {{ datacenter }}
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+global
+    log /dev/log local0 info
+    chroot /var/lib/haproxy
+    stats socket /var/lib/haproxy/stats mode 600 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+    maxconn 4000
+
+defaults
+    log     global
+    mode    tcp
+    option  tcplog
+    option  dontlognull
+    timeout connect 10s
+    timeout client  1h
+    timeout server  1h
+    timeout check   5s
+    retries 3
+
+# Backend - PostgreSQL RDS Endpoint
+backend postgresql_backend
+    mode tcp
+    balance roundrobin
+
+    # External health check validates writable node
+    option external-check
+    external-check path "/usr/bin:/bin:/usr/local/bin"
+    external-check command /usr/local/bin/check-postgres-writable.sh
+
+    # RDS endpoint (always points to writable instance)
+    server rds-primary {{ rds_endpoint }}:5432 check inter 5s rise 2 fall 3 maxconn 500
+
+# Frontend - AAP Database Connections
+frontend postgresql_frontend
+    bind *:5432
+    mode tcp
+    default_backend postgresql_backend
+
+    # Connection tracking
+    option tcplog
+    log-format "%ci:%cp -> %fi:%fp [%t] %ft %b/%s %Tw/%Tc/%Tt %B %ts %ac/%fc/%bc/%sc/%rc %sq/%bq"
+
+# Stats interface
+listen stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats auth {{ haproxy_stats_user }}:{{ haproxy_stats_password }}
+    stats admin if TRUE
+
+    # Additional stats
+    stats show-legends
+    stats show-node
+    stats show-desc HAProxy PostgreSQL Router - {{ datacenter }}

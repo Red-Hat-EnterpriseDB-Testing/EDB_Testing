@@ -1,0 +1,134 @@
+---
+# Configure HAProxy for PostgreSQL Database Routing
+# Routes AAP component connections to RDS endpoints
+
+- name: Configure HAProxy Database Routers
+  hosts: component_haproxy
+  become: true
+  gather_facts: true
+
+  vars:
+    # RDS endpoints (override with actual values)
+    rds_dc1_endpoint: "{{ lookup('env', 'RDS_DC1_ENDPOINT') | default('aap-dr-postgres-dc1.xxxxx.us-east-1.rds.amazonaws.com', true) }}"
+    rds_dc2_endpoint: "{{ lookup('env', 'RDS_DC2_ENDPOINT') | default('aap-dr-postgres-dc2.xxxxx.us-west-1.rds.amazonaws.com', true) }}"
+
+    haproxy_stats_user: admin
+    haproxy_stats_password: "{{ lookup('env', 'HAPROXY_STATS_PASSWORD') | default('ChangeMe123!', true) }}"
+
+  tasks:
+    - name: Install HAProxy
+      ansible.builtin.dnf:
+        name:
+          - haproxy
+          - postgresql  # For health checks
+        state: present
+
+    - name: Create HAProxy health check script directory
+      ansible.builtin.file:
+        path: /usr/local/bin
+        state: directory
+        mode: '0755'
+
+    - name: Deploy PostgreSQL health check script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/check-postgres-writable.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # PostgreSQL Health Check for HAProxy
+          # Validates PostgreSQL is reachable and writable (not in recovery)
+
+          PGHOST="${1:-localhost}"
+          PGPORT="${2:-5432}"
+          PGUSER="postgres"
+          TIMEOUT=3
+
+          # Check 1: PostgreSQL is reachable
+          if ! timeout "${TIMEOUT}" pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -q; then
+              logger -t haproxy-healthcheck "PostgreSQL unreachable: ${PGHOST}:${PGPORT}"
+              exit 1
+          fi
+
+          # Check 2: PostgreSQL is NOT in recovery (writable PRIMARY)
+          IS_RECOVERY=$(timeout "${TIMEOUT}" psql \
+              -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d postgres \
+              -t -c "SELECT pg_is_in_recovery();" 2>/dev/null | tr -d '[:space:]')
+
+          if [[ "${IS_RECOVERY}" == "f" ]]; then
+              exit 0  # Writable PRIMARY
+          else
+              logger -t haproxy-healthcheck "PostgreSQL is read-only: ${PGHOST}:${PGPORT}"
+              exit 1  # Read-only STANDBY
+          fi
+
+    - name: Determine RDS endpoint based on datacenter
+      ansible.builtin.set_fact:
+        rds_endpoint: "{{ rds_dc1_endpoint if datacenter == 'DC1' else rds_dc2_endpoint }}"
+
+    - name: Configure HAProxy for PostgreSQL routing
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        owner: root
+        group: root
+        mode: '0644'
+        validate: haproxy -c -f %s
+      notify: Restart HAProxy
+
+    - name: Enable and start HAProxy
+      ansible.builtin.systemd:
+        name: haproxy
+        enabled: true
+        state: started
+
+    - name: Configure firewall for HAProxy
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop:
+        - 5432/tcp   # PostgreSQL
+        - 8404/tcp   # HAProxy stats
+
+    - name: Display HAProxy configuration
+      ansible.builtin.debug:
+        msg:
+          - "HAProxy configured on {{ inventory_hostname }}"
+          - "Backend RDS endpoint: {{ rds_endpoint }}"
+          - "Stats URL: http://{{ ansible_host }}:8404/stats"
+          - "Stats credentials: {{ haproxy_stats_user }} / {{ haproxy_stats_password }}"
+
+  handlers:
+    - name: Restart HAProxy
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted
+
+- name: Verify HAProxy Configuration
+  hosts: component_haproxy
+  gather_facts: false
+
+  tasks:
+    - name: Check HAProxy service status
+      ansible.builtin.systemd:
+        name: haproxy
+      register: haproxy_status
+
+    - name: Verify HAProxy is running
+      ansible.builtin.assert:
+        that:
+          - haproxy_status.status.ActiveState == "active"
+        fail_msg: "HAProxy is not running on {{ inventory_hostname }}"
+        success_msg: "HAProxy is active on {{ inventory_hostname }}"
+
+    - name: Test PostgreSQL connectivity through HAProxy
+      ansible.builtin.command:
+        cmd: pg_isready -h localhost -p 5432
+      register: pg_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display connectivity test result
+      ansible.builtin.debug:
+        msg: "PostgreSQL connectivity: {{ 'OK' if pg_check.rc == 0 else 'FAILED' }}"

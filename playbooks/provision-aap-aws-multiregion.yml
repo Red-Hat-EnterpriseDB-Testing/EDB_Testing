@@ -1,0 +1,749 @@
+---
+# AAP Multi-Region AWS Infrastructure Provisioning
+# Based on: docs/aap-containerized-enterprise-dr-architecture.md
+# Regions: us-east-1 (DC1 Primary), us-west-1 (DC2 Standby)
+# Database: RDS PostgreSQL with cross-region read replica
+
+- name: Provision AAP Multi-Region Infrastructure on AWS
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Project Configuration
+    project_name: aap-dr
+    environment: production
+
+    # AWS Regions
+    primary_region: us-east-1
+    standby_region: us-west-1
+
+    # Network Configuration - DC1 (us-east-1)
+    dc1_vpc_cidr: 10.1.0.0/16
+    dc1_aap_subnet_cidr: 10.1.1.0/24
+    dc1_db_subnet_cidr: 10.1.2.0/24
+    dc1_availability_zones:
+      - us-east-1a
+      - us-east-1b
+      - us-east-1c
+
+    # Network Configuration - DC2 (us-west-1)
+    dc2_vpc_cidr: 10.2.0.0/16
+    dc2_aap_subnet_cidr: 10.2.1.0/24
+    dc2_db_subnet_cidr: 10.2.2.0/24
+    dc2_availability_zones:
+      - us-west-1a
+      - us-west-1b
+      - us-west-1c
+
+    # EC2 Instance Types (based on architecture specs)
+    aap_component_instance_type: t3.xlarge  # 4 vCPU, 16GB RAM
+    haproxy_instance_type: t3.large         # 2 vCPU, 8GB RAM
+
+    # RDS Configuration
+    rds_instance_class: db.r6g.2xlarge      # 8 vCPU, 64GB RAM (matches 32GB spec with overhead)
+    rds_allocated_storage: 500              # GB
+    rds_engine_version: "16.6"
+    rds_parameter_group_family: postgres16
+    rds_multi_az: true                      # For DC1 high availability
+
+    # AAP Component Names
+    aap_components:
+      - name: gateway
+        count: 2
+        instance_type: "{{ aap_component_instance_type }}"
+      - name: controller
+        count: 2
+        instance_type: "{{ aap_component_instance_type }}"
+      - name: hub
+        count: 2
+        instance_type: "{{ aap_component_instance_type }}"
+      - name: eda
+        count: 2
+        instance_type: "{{ aap_component_instance_type }}"
+
+    # RHEL AMI IDs (update with current AMIs)
+    rhel_ami_us_east_1: ami-0583d8c7a9c35822c  # RHEL 9.4
+    rhel_ami_us_west_1: ami-029465c1f346dd34f  # RHEL 9.4
+
+    # Tags
+    common_tags:
+      Project: "{{ project_name }}"
+      Environment: "{{ environment }}"
+      ManagedBy: ansible
+      Architecture: multi-region-dr
+
+  tasks:
+    # ===========================================
+    # DC1 (us-east-1) - Primary Infrastructure
+    # ===========================================
+
+    - name: Create DC1 VPC
+      amazon.aws.ec2_vpc_net:
+        name: "{{ project_name }}-vpc-dc1"
+        cidr_block: "{{ dc1_vpc_cidr }}"
+        region: "{{ primary_region }}"
+        dns_hostnames: true
+        dns_support: true
+        tags: "{{ common_tags | combine({'Name': project_name + '-vpc-dc1', 'Datacenter': 'DC1'}) }}"
+      register: dc1_vpc
+
+    - name: Create DC1 Internet Gateway
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-igw-dc1', 'Datacenter': 'DC1'}) }}"
+      register: dc1_igw
+
+    - name: Create DC1 AAP Subnet
+      amazon.aws.ec2_vpc_subnet:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        cidr: "{{ dc1_aap_subnet_cidr }}"
+        az: "{{ dc1_availability_zones[0] }}"
+        region: "{{ primary_region }}"
+        map_public: true
+        tags: "{{ common_tags | combine({'Name': project_name + '-subnet-aap-dc1', 'Tier': 'application', 'Datacenter': 'DC1'}) }}"
+      register: dc1_aap_subnet
+
+    - name: Create DC1 Database Subnets (Multi-AZ for RDS)
+      amazon.aws.ec2_vpc_subnet:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        cidr: "{{ item.cidr }}"
+        az: "{{ item.az }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-subnet-db-dc1-' + item.az, 'Tier': 'database', 'Datacenter': 'DC1'}) }}"
+      loop:
+        - { cidr: "{{ dc1_db_subnet_cidr }}", az: "{{ dc1_availability_zones[0] }}" }
+        - { cidr: "10.1.3.0/24", az: "{{ dc1_availability_zones[1] }}" }
+      register: dc1_db_subnets
+
+    - name: Create DC1 Route Table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-rtb-dc1', 'Datacenter': 'DC1'}) }}"
+        subnets:
+          - "{{ dc1_aap_subnet.subnet.id }}"
+          - "{{ dc1_db_subnets.results[0].subnet.id }}"
+          - "{{ dc1_db_subnets.results[1].subnet.id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ dc1_igw.gateway_id }}"
+      register: dc1_route_table
+
+    # ===========================================
+    # DC2 (us-west-1) - Standby Infrastructure
+    # ===========================================
+
+    - name: Create DC2 VPC
+      amazon.aws.ec2_vpc_net:
+        name: "{{ project_name }}-vpc-dc2"
+        cidr_block: "{{ dc2_vpc_cidr }}"
+        region: "{{ standby_region }}"
+        dns_hostnames: true
+        dns_support: true
+        tags: "{{ common_tags | combine({'Name': project_name + '-vpc-dc2', 'Datacenter': 'DC2'}) }}"
+      register: dc2_vpc
+
+    - name: Create DC2 Internet Gateway
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-igw-dc2', 'Datacenter': 'DC2'}) }}"
+      register: dc2_igw
+
+    - name: Create DC2 AAP Subnet
+      amazon.aws.ec2_vpc_subnet:
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        cidr: "{{ dc2_aap_subnet_cidr }}"
+        az: "{{ dc2_availability_zones[0] }}"
+        region: "{{ standby_region }}"
+        map_public: true
+        tags: "{{ common_tags | combine({'Name': project_name + '-subnet-aap-dc2', 'Tier': 'application', 'Datacenter': 'DC2'}) }}"
+      register: dc2_aap_subnet
+
+    - name: Create DC2 Database Subnets (Multi-AZ for RDS)
+      amazon.aws.ec2_vpc_subnet:
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        cidr: "{{ item.cidr }}"
+        az: "{{ item.az }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-subnet-db-dc2-' + item.az, 'Tier': 'database', 'Datacenter': 'DC2'}) }}"
+      loop:
+        - { cidr: "{{ dc2_db_subnet_cidr }}", az: "{{ dc2_availability_zones[0] }}" }
+        - { cidr: "10.2.3.0/24", az: "{{ dc2_availability_zones[1] }}" }
+      register: dc2_db_subnets
+
+    - name: Create DC2 Route Table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-rtb-dc2', 'Datacenter': 'DC2'}) }}"
+        subnets:
+          - "{{ dc2_aap_subnet.subnet.id }}"
+          - "{{ dc2_db_subnets.results[0].subnet.id }}"
+          - "{{ dc2_db_subnets.results[1].subnet.id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ dc2_igw.gateway_id }}"
+      register: dc2_route_table
+
+    # ===========================================
+    # VPC Peering (DC1 <-> DC2)
+    # ===========================================
+
+    - name: Create VPC Peering Connection (DC1 -> DC2)
+      amazon.aws.ec2_vpc_peer:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        peer_vpc_id: "{{ dc2_vpc.vpc.id }}"
+        peer_region: "{{ standby_region }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-peering-dc1-dc2'}) }}"
+        state: present
+      register: vpc_peering
+
+    - name: Accept VPC Peering Connection
+      amazon.aws.ec2_vpc_peer:
+        peering_id: "{{ vpc_peering.peering_id }}"
+        region: "{{ standby_region }}"
+        state: accept
+
+    - name: Add DC2 route to DC1 route table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        route_table_id: "{{ dc1_route_table.route_table.id }}"
+        lookup: id
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ dc1_igw.gateway_id }}"
+          - dest: "{{ dc2_vpc_cidr }}"
+            vpc_peering_connection_id: "{{ vpc_peering.peering_id }}"
+
+    - name: Add DC1 route to DC2 route table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        route_table_id: "{{ dc2_route_table.route_table.id }}"
+        lookup: id
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ dc2_igw.gateway_id }}"
+          - dest: "{{ dc1_vpc_cidr }}"
+            vpc_peering_connection_id: "{{ vpc_peering.peering_id }}"
+
+    # ===========================================
+    # Security Groups - DC1
+    # ===========================================
+
+    - name: Create DC1 AAP Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-aap-dc1"
+        description: AAP Component Security Group DC1
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-aap-dc1', 'Datacenter': 'DC1'}) }}"
+        rules:
+          # HTTPS access from internet (via ALB/GLB)
+          - proto: tcp
+            ports: [443]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: HTTPS from internet
+          # HTTP access from internet (redirect to HTTPS)
+          - proto: tcp
+            ports: [80]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: HTTP from internet
+          # Internal AAP component communication
+          - proto: tcp
+            ports: [8080, 8443, 8081, 8444, 8082, 8445]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: AAP internal communication
+          # Redis cluster communication
+          - proto: tcp
+            ports: [6379, 16379]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: Redis cluster
+          # Receptor mesh networking
+          - proto: tcp
+            ports: [27199]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: Receptor mesh
+          # SSH for management
+          - proto: tcp
+            ports: [22]
+            cidr_ip: 0.0.0.0/0  # Restrict to bastion or VPN in production
+            rule_desc: SSH management
+          # PostgreSQL access to HAProxy
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL via HAProxy
+      register: dc1_aap_sg
+
+    - name: Create DC1 HAProxy Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-haproxy-dc1"
+        description: HAProxy Database Router Security Group DC1
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-haproxy-dc1', 'Datacenter': 'DC1'}) }}"
+        rules:
+          # PostgreSQL from AAP nodes
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL from AAP
+          # HAProxy stats
+          - proto: tcp
+            ports: [8404]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: HAProxy stats
+          # SSH
+          - proto: tcp
+            ports: [22]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: SSH management
+      register: dc1_haproxy_sg
+
+    - name: Create DC1 RDS Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-rds-dc1"
+        description: RDS PostgreSQL Security Group DC1
+        vpc_id: "{{ dc1_vpc.vpc.id }}"
+        region: "{{ primary_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-rds-dc1', 'Datacenter': 'DC1'}) }}"
+        rules:
+          # PostgreSQL from HAProxy
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc1_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL from HAProxy
+          # PostgreSQL from DC2 (replication)
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc2_vpc_cidr }}"
+            rule_desc: PostgreSQL replication from DC2
+      register: dc1_rds_sg
+
+    # ===========================================
+    # Security Groups - DC2
+    # ===========================================
+
+    - name: Create DC2 AAP Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-aap-dc2"
+        description: AAP Component Security Group DC2
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-aap-dc2', 'Datacenter': 'DC2'}) }}"
+        rules:
+          - proto: tcp
+            ports: [443]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: HTTPS from internet
+          - proto: tcp
+            ports: [80]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: HTTP from internet
+          - proto: tcp
+            ports: [8080, 8443, 8081, 8444, 8082, 8445]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: AAP internal communication
+          - proto: tcp
+            ports: [6379, 16379]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: Redis cluster
+          - proto: tcp
+            ports: [27199]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: Receptor mesh
+          - proto: tcp
+            ports: [22]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: SSH management
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL via HAProxy
+      register: dc2_aap_sg
+
+    - name: Create DC2 HAProxy Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-haproxy-dc2"
+        description: HAProxy Database Router Security Group DC2
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-haproxy-dc2', 'Datacenter': 'DC2'}) }}"
+        rules:
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL from AAP
+          - proto: tcp
+            ports: [8404]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: HAProxy stats
+          - proto: tcp
+            ports: [22]
+            cidr_ip: 0.0.0.0/0
+            rule_desc: SSH management
+      register: dc2_haproxy_sg
+
+    - name: Create DC2 RDS Security Group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-sg-rds-dc2"
+        description: RDS PostgreSQL Security Group DC2
+        vpc_id: "{{ dc2_vpc.vpc.id }}"
+        region: "{{ standby_region }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-sg-rds-dc2', 'Datacenter': 'DC2'}) }}"
+        rules:
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc2_aap_subnet_cidr }}"
+            rule_desc: PostgreSQL from HAProxy
+          - proto: tcp
+            ports: [5432]
+            cidr_ip: "{{ dc1_vpc_cidr }}"
+            rule_desc: PostgreSQL replication from DC1
+      register: dc2_rds_sg
+
+    # ===========================================
+    # RDS Database Subnet Groups
+    # ===========================================
+
+    - name: Create DC1 RDS Subnet Group
+      amazon.aws.rds_subnet_group:
+        name: "{{ project_name }}-rds-subnet-group-dc1"
+        description: RDS Subnet Group for DC1
+        region: "{{ primary_region }}"
+        subnets:
+          - "{{ dc1_db_subnets.results[0].subnet.id }}"
+          - "{{ dc1_db_subnets.results[1].subnet.id }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-rds-subnet-group-dc1', 'Datacenter': 'DC1'}) }}"
+      register: dc1_rds_subnet_group
+
+    - name: Create DC2 RDS Subnet Group
+      amazon.aws.rds_subnet_group:
+        name: "{{ project_name }}-rds-subnet-group-dc2"
+        description: RDS Subnet Group for DC2
+        region: "{{ standby_region }}"
+        subnets:
+          - "{{ dc2_db_subnets.results[0].subnet.id }}"
+          - "{{ dc2_db_subnets.results[1].subnet.id }}"
+        tags: "{{ common_tags | combine({'Name': project_name + '-rds-subnet-group-dc2', 'Datacenter': 'DC2'}) }}"
+      register: dc2_rds_subnet_group
+
+    # ===========================================
+    # RDS Parameter Groups
+    # ===========================================
+
+    - name: Create RDS Parameter Group for AAP
+      amazon.aws.rds_param_group:
+        name: "{{ project_name }}-pg-params"
+        description: PostgreSQL parameters for AAP workload
+        region: "{{ primary_region }}"
+        engine: postgres16
+        params:
+          max_connections: "1500"
+          shared_buffers: "{DBInstanceClassMemory/4096}"  # 25% of RAM
+          effective_cache_size: "{DBInstanceClassMemory*3/4096}"  # 75% of RAM
+          work_mem: "65536"  # 64MB in KB
+          maintenance_work_mem: "2097152"  # 2GB in KB
+          wal_level: logical
+          max_wal_senders: "10"
+          max_replication_slots: "10"
+          hot_standby: "1"
+          hot_standby_feedback: "1"
+          checkpoint_timeout: "900"  # 15 minutes
+          checkpoint_completion_target: "0.9"
+          random_page_cost: "1.1"
+          effective_io_concurrency: "200"
+        tags: "{{ common_tags }}"
+      register: rds_param_group
+
+    # ===========================================
+    # RDS Primary Instance (DC1)
+    # ===========================================
+
+    - name: Create RDS PostgreSQL Primary Instance (DC1)
+      amazon.aws.rds_instance:
+        id: "{{ project_name }}-postgres-dc1"
+        region: "{{ primary_region }}"
+        engine: postgres
+        engine_version: "{{ rds_engine_version }}"
+        db_instance_class: "{{ rds_instance_class }}"
+        allocated_storage: "{{ rds_allocated_storage }}"
+        storage_type: gp3
+        iops: 12000  # 3000 IOPS minimum per architecture
+        storage_encrypted: true
+        master_username: postgres
+        master_user_password: "{{ lookup('env', 'RDS_MASTER_PASSWORD') | default('ChangeMe123!', true) }}"
+        db_subnet_group_name: "{{ dc1_rds_subnet_group.subnet_group.name }}"
+        vpc_security_group_ids:
+          - "{{ dc1_rds_sg.group_id }}"
+        db_parameter_group_name: "{{ rds_param_group.db_parameter_group_name }}"
+        multi_az: "{{ rds_multi_az }}"
+        publicly_accessible: false
+        backup_retention_period: 7
+        preferred_backup_window: "03:00-04:00"
+        preferred_maintenance_window: "sun:04:00-sun:05:00"
+        auto_minor_version_upgrade: false
+        deletion_protection: true
+        copy_tags_to_snapshot: true
+        tags: "{{ common_tags | combine({'Name': project_name + '-postgres-dc1', 'Datacenter': 'DC1', 'Role': 'primary'}) }}"
+      register: dc1_rds_instance
+
+    # ===========================================
+    # RDS Read Replica (DC2)
+    # ===========================================
+
+    - name: Create RDS PostgreSQL Read Replica (DC2)
+      amazon.aws.rds_instance:
+        id: "{{ project_name }}-postgres-dc2"
+        region: "{{ standby_region }}"
+        source_db_instance_identifier: "{{ dc1_rds_instance.db_instance_identifier }}"
+        db_instance_class: "{{ rds_instance_class }}"
+        storage_type: gp3
+        iops: 12000
+        db_subnet_group_name: "{{ dc2_rds_subnet_group.subnet_group.name }}"
+        vpc_security_group_ids:
+          - "{{ dc2_rds_sg.group_id }}"
+        publicly_accessible: false
+        auto_minor_version_upgrade: false
+        tags: "{{ common_tags | combine({'Name': project_name + '-postgres-dc2', 'Datacenter': 'DC2', 'Role': 'replica'}) }}"
+      register: dc2_rds_instance
+
+    # ===========================================
+    # EC2 Instances - DC1 AAP Components
+    # ===========================================
+
+    - name: Launch DC1 AAP Component Instances
+      amazon.aws.ec2_instance:
+        name: "{{ item.0.name }}{{ item.1 + 1 }}-dc1"
+        region: "{{ primary_region }}"
+        instance_type: "{{ item.0.instance_type }}"
+        image_id: "{{ rhel_ami_us_east_1 }}"
+        vpc_subnet_id: "{{ dc1_aap_subnet.subnet.id }}"
+        security_groups:
+          - "{{ dc1_aap_sg.group_id }}"
+        network:
+          assign_public_ip: true
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 60
+              volume_type: gp3
+              delete_on_termination: true
+              encrypted: true
+        user_data: |
+          #!/bin/bash
+          hostnamectl set-hostname {{ item.0.name }}{{ item.1 + 1 }}-dc1.{{ project_name }}.internal
+        tags: "{{ common_tags | combine({
+          'Name': item.0.name + (item.1 + 1)|string + '-dc1',
+          'Component': item.0.name,
+          'Datacenter': 'DC1',
+          'Role': 'aap-component'
+        }) }}"
+        state: running
+        wait: true
+      loop: "{{ aap_components | subelements('count', {'skip_missing': True}) | map('zip_longest', range(10)) | map('list') | flatten | batch(2) | list }}"
+      loop_control:
+        label: "{{ item.0.name }}{{ item.1 + 1 }}-dc1"
+      register: dc1_aap_instances
+
+    - name: Launch DC1 HAProxy Instance
+      amazon.aws.ec2_instance:
+        name: haproxy-db-dc1
+        region: "{{ primary_region }}"
+        instance_type: "{{ haproxy_instance_type }}"
+        image_id: "{{ rhel_ami_us_east_1 }}"
+        vpc_subnet_id: "{{ dc1_aap_subnet.subnet.id }}"
+        security_groups:
+          - "{{ dc1_haproxy_sg.group_id }}"
+        network:
+          assign_public_ip: true
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 40
+              volume_type: gp3
+              delete_on_termination: true
+              encrypted: true
+        user_data: |
+          #!/bin/bash
+          hostnamectl set-hostname haproxy-db-dc1.{{ project_name }}.internal
+        tags: "{{ common_tags | combine({
+          'Name': 'haproxy-db-dc1',
+          'Component': 'haproxy',
+          'Datacenter': 'DC1',
+          'Role': 'database-router'
+        }) }}"
+        state: running
+        wait: true
+      register: dc1_haproxy_instance
+
+    # ===========================================
+    # EC2 Instances - DC2 AAP Components
+    # ===========================================
+
+    - name: Launch DC2 AAP Component Instances
+      amazon.aws.ec2_instance:
+        name: "{{ item.0.name }}{{ item.1 + 1 }}-dc2"
+        region: "{{ standby_region }}"
+        instance_type: "{{ item.0.instance_type }}"
+        image_id: "{{ rhel_ami_us_west_1 }}"
+        vpc_subnet_id: "{{ dc2_aap_subnet.subnet.id }}"
+        security_groups:
+          - "{{ dc2_aap_sg.group_id }}"
+        network:
+          assign_public_ip: true
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 60
+              volume_type: gp3
+              delete_on_termination: true
+              encrypted: true
+        user_data: |
+          #!/bin/bash
+          hostnamectl set-hostname {{ item.0.name }}{{ item.1 + 1 }}-dc2.{{ project_name }}.internal
+        tags: "{{ common_tags | combine({
+          'Name': item.0.name + (item.1 + 1)|string + '-dc2',
+          'Component': item.0.name,
+          'Datacenter': 'DC2',
+          'Role': 'aap-component'
+        }) }}"
+        state: stopped  # DC2 instances start in stopped state (standby)
+        wait: true
+      loop: "{{ aap_components | subelements('count', {'skip_missing': True}) | map('zip_longest', range(10)) | map('list') | flatten | batch(2) | list }}"
+      loop_control:
+        label: "{{ item.0.name }}{{ item.1 + 1 }}-dc2"
+      register: dc2_aap_instances
+
+    - name: Launch DC2 HAProxy Instance
+      amazon.aws.ec2_instance:
+        name: haproxy-db-dc2
+        region: "{{ standby_region }}"
+        instance_type: "{{ haproxy_instance_type }}"
+        image_id: "{{ rhel_ami_us_west_1 }}"
+        vpc_subnet_id: "{{ dc2_aap_subnet.subnet.id }}"
+        security_groups:
+          - "{{ dc2_haproxy_sg.group_id }}"
+        network:
+          assign_public_ip: true
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 40
+              volume_type: gp3
+              delete_on_termination: true
+              encrypted: true
+        user_data: |
+          #!/bin/bash
+          hostnamectl set-hostname haproxy-db-dc2.{{ project_name }}.internal
+        tags: "{{ common_tags | combine({
+          'Name': 'haproxy-db-dc2',
+          'Component': 'haproxy',
+          'Datacenter': 'DC2',
+          'Role': 'database-router'
+        }) }}"
+        state: running
+        wait: true
+      register: dc2_haproxy_instance
+
+    # ===========================================
+    # Output Summary
+    # ===========================================
+
+    - name: Display Infrastructure Summary
+      ansible.builtin.debug:
+        msg:
+          - "=============================================="
+          - "AAP Multi-Region Infrastructure Provisioned"
+          - "=============================================="
+          - ""
+          - "DC1 (us-east-1) - PRIMARY:"
+          - "  VPC: {{ dc1_vpc.vpc.id }} ({{ dc1_vpc_cidr }})"
+          - "  AAP Subnet: {{ dc1_aap_subnet.subnet.id }}"
+          - "  RDS Endpoint: {{ dc1_rds_instance.endpoint.address }}"
+          - "  AAP Instances: 8 running"
+          - "  HAProxy: {{ dc1_haproxy_instance.instances[0].public_ip_address }}"
+          - ""
+          - "DC2 (us-west-1) - STANDBY:"
+          - "  VPC: {{ dc2_vpc.vpc.id }} ({{ dc2_vpc_cidr }})"
+          - "  AAP Subnet: {{ dc2_aap_subnet.subnet.id }}"
+          - "  RDS Endpoint: {{ dc2_rds_instance.endpoint.address }}"
+          - "  AAP Instances: 8 stopped (standby)"
+          - "  HAProxy: {{ dc2_haproxy_instance.instances[0].public_ip_address }}"
+          - ""
+          - "VPC Peering: {{ vpc_peering.peering_id }}"
+          - ""
+          - "Next Steps:"
+          - "1. Wait for RDS instances to be available (~15 minutes)"
+          - "2. Create AAP databases on RDS primary"
+          - "3. Configure HAProxy to point to RDS endpoints"
+          - "4. Install AAP using containerized installer"
+          - "5. Configure failover automation"
+
+- name: Create AAP Databases on RDS
+  hosts: localhost
+  gather_facts: false
+  vars:
+    rds_endpoint: "{{ lookup('env', 'RDS_ENDPOINT') }}"
+    rds_master_password: "{{ lookup('env', 'RDS_MASTER_PASSWORD') }}"
+    aap_db_password: "{{ lookup('env', 'AAP_DB_PASSWORD') | default('ChangeMe123!', true) }}"
+
+  tasks:
+    - name: Wait for RDS instance to be available
+      amazon.aws.rds_instance_info:
+        db_instance_identifier: aap-dr-postgres-dc1
+        region: us-east-1
+      register: rds_info
+      until: rds_info.instances[0].db_instance_status == 'available'
+      retries: 60
+      delay: 30
+
+    - name: Create AAP databases
+      community.postgresql.postgresql_db:
+        name: "{{ item }}"
+        login_host: "{{ rds_endpoint }}"
+        login_user: postgres
+        login_password: "{{ rds_master_password }}"
+        state: present
+      loop:
+        - awx
+        - automationhub
+        - automationedacontroller
+        - automationgateway
+
+    - name: Create AAP database user
+      community.postgresql.postgresql_user:
+        name: aap
+        password: "{{ aap_db_password }}"
+        login_host: "{{ rds_endpoint }}"
+        login_user: postgres
+        login_password: "{{ rds_master_password }}"
+        state: present
+
+    - name: Grant privileges on AAP databases
+      community.postgresql.postgresql_privs:
+        database: "{{ item }}"
+        roles: aap
+        privs: ALL
+        type: database
+        login_host: "{{ rds_endpoint }}"
+        login_user: postgres
+        login_password: "{{ rds_master_password }}"
+      loop:
+        - awx
+        - automationhub
+        - automationedacontroller
+        - automationgateway
+
+    - name: Enable hstore extension for automationhub
+      community.postgresql.postgresql_ext:
+        name: hstore
+        db: automationhub
+        login_host: "{{ rds_endpoint }}"
+        login_user: postgres
+        login_password: "{{ rds_master_password }}"
+        state: present
