@@ -10,7 +10,7 @@
   vars:
     # Project Configuration
     project_name: aap-dr
-    environment: production
+    deployment_env: production
 
     # AWS Regions
     primary_region: us-east-1
@@ -67,7 +67,7 @@
     # Tags
     common_tags:
       Project: "{{ project_name }}"
-      Environment: "{{ environment }}"
+      Environment: "{{ deployment_env }}"
       ManagedBy: ansible
       Architecture: multi-region-dr
 
