@@ -472,6 +472,7 @@
           random_page_cost: "1.1"
           effective_io_concurrency: "200"
         tags: "{{ common_tags }}"
+        state: present
       register: rds_param_group
 
     # ===========================================
