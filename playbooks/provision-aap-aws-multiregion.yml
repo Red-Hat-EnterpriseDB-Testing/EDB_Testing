@@ -533,15 +533,29 @@
         tags: "{{ common_tags | combine({'Name': project_name + '-postgres-dc2', 'Datacenter': 'DC2', 'Role': 'replica'}) }}"
       register: dc2_rds_instance
 
+    # subelements() requires the key to be a list; aap_components uses count (int). Expand to one dict per instance slot.
+    - name: Build AAP component instance loop list
+      ansible.builtin.set_fact:
+        aap_component_slots: "{{ _aap_slot_json | from_json }}"
+      vars:
+        _aap_slot_json: >-
+          {% set ns = namespace(items=[]) %}
+          {% for comp in aap_components %}
+          {% for idx in range(comp.count | int) %}
+          {% set _ = ns.items.append(comp | combine({'slot_index': idx})) %}
+          {% endfor %}
+          {% endfor %}
+          {{ ns.items | to_json }}
+
     # ===========================================
     # EC2 Instances - DC1 AAP Components
     # ===========================================
 
     - name: Launch DC1 AAP Component Instances
       amazon.aws.ec2_instance:
-        name: "{{ item.0.name }}{{ item.1 + 1 }}-dc1"
+        name: "{{ item.name }}{{ item.slot_index + 1 }}-dc1"
         region: "{{ primary_region }}"
-        instance_type: "{{ item.0.instance_type }}"
+        instance_type: "{{ item.instance_type }}"
         image_id: "{{ rhel_ami_us_east_1 }}"
         vpc_subnet_id: "{{ dc1_aap_subnet.subnet.id }}"
         security_groups:
@@ -557,18 +571,18 @@
               encrypted: true
         user_data: |
           #!/bin/bash
-          hostnamectl set-hostname {{ item.0.name }}{{ item.1 + 1 }}-dc1.{{ project_name }}.internal
+          hostnamectl set-hostname {{ item.name }}{{ item.slot_index + 1 }}-dc1.{{ project_name }}.internal
         tags: "{{ common_tags | combine({
-          'Name': item.0.name + (item.1 + 1)|string + '-dc1',
-          'Component': item.0.name,
+          'Name': item.name + (item.slot_index + 1)|string + '-dc1',
+          'Component': item.name,
           'Datacenter': 'DC1',
           'Role': 'aap-component'
         }) }}"
         state: running
         wait: true
-      loop: "{{ aap_components | subelements('count', {'skip_missing': True}) | map('zip_longest', range(10)) | map('list') | flatten | batch(2) | list }}"
+      loop: "{{ aap_component_slots }}"
       loop_control:
-        label: "{{ item.0.name }}{{ item.1 + 1 }}-dc1"
+        label: "{{ item.name }}{{ item.slot_index + 1 }}-dc1"
       register: dc1_aap_instances
 
     - name: Launch DC1 HAProxy Instance
@@ -608,9 +622,9 @@
 
     - name: Launch DC2 AAP Component Instances
       amazon.aws.ec2_instance:
-        name: "{{ item.0.name }}{{ item.1 + 1 }}-dc2"
+        name: "{{ item.name }}{{ item.slot_index + 1 }}-dc2"
         region: "{{ standby_region }}"
-        instance_type: "{{ item.0.instance_type }}"
+        instance_type: "{{ item.instance_type }}"
         image_id: "{{ rhel_ami_us_west_1 }}"
         vpc_subnet_id: "{{ dc2_aap_subnet.subnet.id }}"
         security_groups:
@@ -626,18 +640,18 @@
               encrypted: true
         user_data: |
           #!/bin/bash
-          hostnamectl set-hostname {{ item.0.name }}{{ item.1 + 1 }}-dc2.{{ project_name }}.internal
+          hostnamectl set-hostname {{ item.name }}{{ item.slot_index + 1 }}-dc2.{{ project_name }}.internal
         tags: "{{ common_tags | combine({
-          'Name': item.0.name + (item.1 + 1)|string + '-dc2',
-          'Component': item.0.name,
+          'Name': item.name + (item.slot_index + 1)|string + '-dc2',
+          'Component': item.name,
           'Datacenter': 'DC2',
           'Role': 'aap-component'
         }) }}"
         state: stopped  # DC2 instances start in stopped state (standby)
         wait: true
-      loop: "{{ aap_components | subelements('count', {'skip_missing': True}) | map('zip_longest', range(10)) | map('list') | flatten | batch(2) | list }}"
+      loop: "{{ aap_component_slots }}"
       loop_control:
-        label: "{{ item.0.name }}{{ item.1 + 1 }}-dc2"
+        label: "{{ item.name }}{{ item.slot_index + 1 }}-dc2"
       register: dc2_aap_instances
 
     - name: Launch DC2 HAProxy Instance
