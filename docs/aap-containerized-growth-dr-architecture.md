@@ -91,7 +91,7 @@ This architecture implements Red Hat Ansible Automation Platform 2.6 using the *
 │            │                   │   │            │                    │
 │  ┌─────────▼──────────────────┐│   │  ┌─────────▼──────────────────┐ │
 │  │ PostgreSQL Cluster (3)     ││   │  │ PostgreSQL Cluster (3)     │ │
-│  │ (EDB Postgres Advanced 16) ││   │  │ (EDB Postgres Advanced 16) │ │
+│  │ (EDB PostgreSQL Advanced 16) ││   │  │ (EDB PostgreSQL Advanced 16) │ │
 │  │                            ││   │  │                            │ │
 │  │ pg-dc1-1 (PRIMARY)         ││   │  │ pg-dc2-1 (STANDBY/DP)      │ │
 │  │   - awx                    ││   │  │   - awx (replica)          │ │
@@ -172,7 +172,7 @@ User → GLB → HAProxy(DC2) → AAP Growth Nodes(DC2) → VIP(DC2) → Postgre
 
 **VM Naming Convention:**
 
-```
+```text
 DC1:
   aap-node1-dc1.example.com  (primary - gateway, controller, hub, eda, redis)
   aap-node2-dc1.example.com  (secondary - controller, hub, redis)
@@ -240,7 +240,7 @@ CREATE EXTENSION IF NOT EXISTS hstore;
 
 **Network Segmentation**
 
-```
+```text
 DC1 Network:
   - AAP Subnet:       10.1.1.0/24
     - aap-node1-dc1:    10.1.1.11
@@ -661,7 +661,7 @@ curl -k https://aap.example.com/api/v2/ping/
 ### Phase 2: Database Cluster Setup (Week 2-3)
 
 **Tasks:**
-- Install EDB Postgres Advanced Server
+- Install EDB PostgreSQL Advanced Server
 - Configure primary database (DC1)
 - Initialize AAP databases
 - Set up local standbys (DC1-2, DC1-3)

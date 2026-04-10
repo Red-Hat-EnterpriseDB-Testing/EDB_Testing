@@ -1,4 +1,4 @@
-# EDB Postgres — Trusted Postgres Architecture (TPA)
+# EDB PostgreSQL — Trusted Postgres Architect (TPA)
 
 Deploy and manage PostgreSQL using **[Trusted Postgres Architect (TPA)](https://github.com/EnterpriseDB/tpa)**—EnterpriseDB’s open source (GPLv3) orchestration toolchain built on Ansible.
 
@@ -10,13 +10,13 @@ Deploy and manage PostgreSQL using **[Trusted Postgres Architect (TPA)](https://
 
 Use **[TPA](https://github.com/EnterpriseDB/tpa)** on a **control node** to configure, provision, and deploy PostgreSQL on **RHEL** (or another [TPA-supported distribution](https://www.enterprisedb.com/docs/tpa/latest/reference/distributions/)) using EDB’s recommended practices. Follow **§ Quick start** below for `tpaexec configure`, `provision`, and `deploy`, and the **[official TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/)** for topology and flags.
 
-This repository **removed** a previously bundled `edb.postgres_operations` Ansible collection; use **TPA** (or your own playbooks) for host-based Postgres automation.
+This repository **removed** a previously bundled `edb.postgres_operations` Ansible collection; use **TPA** (or your own playbooks) for host-based PostgreSQL automation.
 
 ## When to use TPA
 
-TPA is the **supported EDB approach** for defining, provisioning, and deploying Postgres clusters on infrastructure it drives: **bare metal**, **cloud instances (AWS, Azure, …)**, **`tpaexec`/SSH targets**, and **[Docker](https://www.enterprisedb.com/docs/tpa/latest/platform-docker/)** for lab-style testing (not production).
+TPA is the **supported EDB approach** for defining, provisioning, and deploying PostgreSQL clusters on infrastructure it drives: **bare metal**, **cloud instances (AWS, Azure, …)**, **`tpaexec`/SSH targets**, and **[Docker](https://www.enterprisedb.com/docs/tpa/latest/platform-docker/)** for lab-style testing (not production).
 
-TPA does **not** replace **EDB Postgres on OpenShift**: operator install, `Cluster` CRs, and cross-cluster replica topologies stay on the [manual OpenShift guide](install-kubernetes-manual.md) and [EDB Postgres on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). If you need Postgres **inside** the cluster as pods, use the operator; if you need Postgres **on VMs or hosts** that front your platform, use TPA (or manual RHEL install).
+TPA does **not** replace **EDB PostgreSQL on OpenShift**: operator install, `Cluster` CRs, and cross-cluster replica topologies stay on the [manual OpenShift guide](install-kubernetes-manual.md) and [EDB PostgreSQL on OpenShift (operator documentation)](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/). If you need PostgreSQL **inside** the cluster as pods, use the operator; if you need PostgreSQL **on VMs or hosts** that front your platform, use TPA (or manual RHEL install).
 
 ## Quick start
 
@@ -37,7 +37,7 @@ TPA does **not** replace **EDB Postgres on OpenShift**: operator install, `Clust
    tpaexec deploy mycluster
    ```
 
-   Exact flags (HA, PGD, EDB Postgres Advanced, location of instances) are covered in the **[official TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/)**.
+   Exact flags (HA, PGD, EDB PostgreSQL Advanced, location of instances) are covered in the **[official TPA documentation](https://www.enterprisedb.com/docs/tpa/latest/)**.
 
 ## Active / passive and multi-site
 

@@ -46,9 +46,9 @@ Do you need production-grade component isolation?
 
 ### Infrastructure Requirements
 
-- [ ] **2 Datacenters** with network connectivity (VPN or Direct Connect)
+- [ ] **2 datacenters** with network connectivity (VPN or Direct Connect)
 - [ ] **RHEL 9.4+** subscription and installation media
-- [ ] **EDB Postgres Advanced** subscription and credentials
+- [ ] **EDB PostgreSQL Advanced** subscription and credentials
 - [ ] **Red Hat AAP 2.6** subscription and credentials
 - [ ] **Networking:**
   - Site-to-site connectivity (100 Mbps minimum, 1 Gbps recommended)
@@ -81,7 +81,7 @@ Do you need production-grade component isolation?
 
 **DC1 Virtual Machines:**
 
-```
+```text
 AAP Layer (3 VMs):
   - aap-node1-dc1:  8 vCPU, 32GB RAM, 100GB disk  (10.1.1.11)
   - aap-node2-dc1:  8 vCPU, 32GB RAM, 100GB disk  (10.1.1.12)
@@ -304,7 +304,7 @@ curl -k https://aap.example.com/api/v2/ping/
 
 **DC1 Virtual Machines:**
 
-```
+```text
 AAP Component Layer (8 VMs):
   Gateway:
     - gateway1-dc1:       4 vCPU, 16GB RAM, 60GB disk  (10.1.1.11)
@@ -598,7 +598,7 @@ done
 
 ### Important Files
 
-```
+```text
 /opt/aap/inventory                          # AAP installer inventory
 /var/lib/edb/as16/data/postgresql.conf     # PostgreSQL config
 /etc/edb/efm-4.7/efm.properties            # EFM config

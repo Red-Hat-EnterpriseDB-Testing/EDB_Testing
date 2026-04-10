@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This document covers troubleshooting and rollback procedures for the AAP with EDB Postgres multi-datacenter architecture, with emphasis on EFM (Enterprise Failover Manager) integration.
+This document covers troubleshooting and rollback procedures for the Ansible Automation Platform (AAP) with EDB PostgreSQL multi-datacenter architecture, with emphasis on EFM (Enterprise Failover Manager) integration.
 
 [← Back to main README](../README.md#aap-cluster-management)
 
