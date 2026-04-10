@@ -431,6 +431,7 @@
           - "{{ dc1_db_subnets.results[0].subnet.id }}"
           - "{{ dc1_db_subnets.results[1].subnet.id }}"
         tags: "{{ common_tags | combine({'Name': project_name + '-rds-subnet-group-dc1', 'Datacenter': 'DC1'}) }}"
+        state: present
       register: dc1_rds_subnet_group
 
     - name: Create DC2 RDS Subnet Group
@@ -442,6 +443,7 @@
           - "{{ dc2_db_subnets.results[0].subnet.id }}"
           - "{{ dc2_db_subnets.results[1].subnet.id }}"
         tags: "{{ common_tags | combine({'Name': project_name + '-rds-subnet-group-dc2', 'Datacenter': 'DC2'}) }}"
+        state: present
       register: dc2_rds_subnet_group
 
     # ===========================================
