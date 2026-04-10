@@ -526,6 +526,8 @@
         vpc_security_group_ids:
           - "{{ dc2_rds_sg.group_id }}"
         publicly_accessible: false
+        # Cross-region replica of an encrypted primary must be encrypted (uses destination-region default RDS KMS key if kms_key_id omitted).
+        storage_encrypted: true
         auto_minor_version_upgrade: false
         tags: "{{ common_tags | combine({'Name': project_name + '-postgres-dc2', 'Datacenter': 'DC2', 'Role': 'replica'}) }}"
       register: dc2_rds_instance
