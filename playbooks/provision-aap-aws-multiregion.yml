@@ -515,8 +515,9 @@
       amazon.aws.rds_instance:
         id: "{{ project_name }}-postgres-dc2"
         region: "{{ standby_region }}"
-        engine: postgres
-        source_db_instance_identifier: "{{ dc1_rds_instance.db_instance_identifier }}"
+        read_replica: true
+        # Cross-region source must be the DB ARN (not only the instance id).
+        source_db_instance_identifier: "{{ dc1_rds_instance.db_instance_arn }}"
         source_region: "{{ primary_region }}"
         db_instance_class: "{{ rds_instance_class }}"
         storage_type: gp3
