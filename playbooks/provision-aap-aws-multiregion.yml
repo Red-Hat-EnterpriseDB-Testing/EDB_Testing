@@ -13,6 +13,8 @@
 # Examples: --tags database
 #           --tags rds --skip-tags rds_replica
 #           --tags ec2_dc1,ec2_prep
+# Partial DB run (skip wait/API): extra var aap_db_rds_endpoint + job tags
+#           database_create,database_user,database_privs,database_ext
 
 - name: Provision AAP Multi-Region Infrastructure on AWS
   hosts: localhost
@@ -787,6 +789,7 @@
   tasks:
     - name: Wait for RDS instance to be available
       tags: [database, database_wait]
+      when: (aap_db_rds_endpoint | default('', true) | trim | length) == 0
       amazon.aws.rds_instance_info:
         db_instance_identifier: "{{ rds_instance_id }}"
         region: "{{ primary_region }}"
@@ -797,8 +800,15 @@
 
     - name: Set RDS connection target (API endpoint unless RDS_ENDPOINT is set)
       tags: [database, database_connect]
+      when: (aap_db_rds_endpoint | default('', true) | trim | length) == 0
       ansible.builtin.set_fact:
         rds_endpoint: "{{ lookup('env', 'RDS_ENDPOINT') | default(rds_info.instances[0].endpoint.address, true) }}"
+
+    - name: Set RDS endpoint from extra var aap_db_rds_endpoint
+      tags: [database, database_create]
+      when: (aap_db_rds_endpoint | default('', true) | trim | length) > 0
+      ansible.builtin.set_fact:
+        rds_endpoint: "{{ aap_db_rds_endpoint | trim }}"
 
     - name: Create AAP databases
       tags: [database, database_create]

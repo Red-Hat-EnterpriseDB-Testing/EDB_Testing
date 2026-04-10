@@ -1,0 +1,132 @@
+---
+# Creates or updates an Automation Controller job template for the teardown playbook,
+# cloned from EDB_testing (id 103 by default): same project, inventory, credentials, EE, extra_vars.
+#
+# Run from your workstation (not from the controller job isolation environment):
+#   export CONTROLLER_HOST='https://controller.example.com:8443'
+#   export CONTROLLER_OAUTH_TOKEN='<oauth2 application token>'
+#   ansible-playbook playbooks/register-edb-deprovision-job-template.yml
+#
+# Aliases: TOWER_HOST, TOWER_OAUTH_TOKEN are accepted if CONTROLLER_* are unset.
+#
+# Override defaults with extra vars, e.g.:
+#   -e source_job_template_id=103 -e deprovision_job_template_name=EDB_testing_deprovision
+
+- name: Register EDB deprovision job template on Automation Controller
+  hosts: localhost
+  gather_facts: false
+  vars:
+    controller_host: "{{ lookup('env', 'CONTROLLER_HOST') | default(lookup('env', 'TOWER_HOST'), true) }}"
+    controller_oauth_token: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') | default(lookup('env', 'TOWER_OAUTH_TOKEN'), true) }}"
+    controller_validate_certs: true
+    source_job_template_id: 103
+    deprovision_job_template_name: EDB_testing_deprovision
+    deprovision_playbook: playbooks/deprovision-aap-aws-multiregion.yml
+    jt_description: >-
+      DESTRUCTIVE teardown for provision-aap-aws-multiregion (mirrors EDB_testing project/credentials/EE).
+    project_id: 102
+    inventory_id: 1
+    organization_id: 1
+    execution_environment_id: 8
+    credential_ids:
+      - 6
+      - 8
+    # Match EDB_testing (103) extra vars (YAML string as stored on the template)
+    jt_extra_vars: |-
+      ssh_key_name_dc1: id_rsa
+      ssh_key_name_dc2: id_rsa
+      rhel_ami_us_east_1: ami-0e6c4e94540d22db8
+      rhel_ami_us_west_1: ami-0d19f2e0cf5944b29
+
+  tasks:
+    - name: Require controller connection settings
+      ansible.builtin.assert:
+        that:
+          - controller_host | default('', true) | trim | length > 0
+          - controller_oauth_token | default('', true) | trim | length > 0
+        fail_msg: >-
+          Set CONTROLLER_HOST and CONTROLLER_OAUTH_TOKEN (or TOWER_HOST / TOWER_OAUTH_TOKEN)
+          to your Automation Controller base URL and an OAuth2 application token.
+
+    - name: Build API base URL
+      ansible.builtin.set_fact:
+        controller_api_base: "{{ controller_host.rstrip('/') }}/api/controller/v2"
+
+    - name: Build auth headers
+      ansible.builtin.set_fact:
+        controller_api_headers:
+          Authorization: "Bearer {{ controller_oauth_token }}"
+          Content-Type: application/json
+
+    - name: Look up existing job template by name
+      ansible.builtin.uri:
+        url: "{{ controller_api_base }}/job_templates/?name__exact={{ deprovision_job_template_name | urlencode }}"
+        method: GET
+        headers: "{{ controller_api_headers }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: [200]
+      register: jt_existing
+
+    - name: Copy from source job template when deprovision template does not exist
+      when: jt_existing.json.count | int == 0
+      ansible.builtin.uri:
+        url: "{{ controller_api_base }}/job_templates/{{ source_job_template_id }}/copy/"
+        method: POST
+        headers: "{{ controller_api_headers }}"
+        body_format: json
+        body:
+          name: "{{ deprovision_job_template_name }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: [200, 201]
+      register: jt_copied
+
+    - name: Resolve job template ID
+      ansible.builtin.set_fact:
+        deprovision_jt_id: "{{ jt_copied.json.id if not (jt_copied.skipped | default(false)) else jt_existing.json.results[0].id }}"
+
+    - name: Converge job template (playbook, description, project linkage)
+      ansible.builtin.uri:
+        url: "{{ controller_api_base }}/job_templates/{{ deprovision_jt_id }}/"
+        method: PATCH
+        headers: "{{ controller_api_headers }}"
+        body_format: json
+        body:
+          name: "{{ deprovision_job_template_name }}"
+          description: "{{ jt_description }}"
+          playbook: "{{ deprovision_playbook }}"
+          project: "{{ project_id }}"
+          inventory: "{{ inventory_id }}"
+          organization: "{{ organization_id }}"
+          execution_environment: "{{ execution_environment_id }}"
+          extra_vars: "{{ jt_extra_vars }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: [200]
+
+    - name: List credentials on job template
+      ansible.builtin.uri:
+        url: "{{ controller_api_base }}/job_templates/{{ deprovision_jt_id }}/credentials/"
+        method: GET
+        headers: "{{ controller_api_headers }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: [200]
+      register: jt_creds
+
+    - name: Attach credential to job template when missing
+      when: item not in (jt_creds.json.results | map(attribute='id') | list | map('int') | list)
+      ansible.builtin.uri:
+        url: "{{ controller_api_base }}/job_templates/{{ deprovision_jt_id }}/credentials/"
+        method: POST
+        headers: "{{ controller_api_headers }}"
+        body_format: json
+        body:
+          id: "{{ item }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: [204, 200, 201]
+      loop: "{{ credential_ids }}"
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg:
+          - "Job template id {{ deprovision_jt_id }} ({{ deprovision_job_template_name }}) is ready."
+          - "Playbook: {{ deprovision_playbook }}"
+          - "Launch from Controller UI or POST {{ controller_api_base }}/job_templates/{{ deprovision_jt_id }}/launch/"
