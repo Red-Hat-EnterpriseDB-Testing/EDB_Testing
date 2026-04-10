@@ -200,11 +200,23 @@
         state: present
       register: vpc_peering
 
+    - name: Wait for VPC Peering Connection to propagate
+      ansible.builtin.pause:
+        seconds: 10
+
     - name: Accept VPC Peering Connection
       amazon.aws.ec2_vpc_peering:
-        peering_id: "{{ vpc_peering.peering_id }}"
+        peering_id: "{{ vpc_peering.vpc_peering_connection_id | default(vpc_peering.peering_id) }}"
         region: "{{ standby_region }}"
         state: accept
+      register: vpc_peering_accept
+      retries: 3
+      delay: 5
+      until: vpc_peering_accept is not failed
+
+    - name: Set peering connection ID fact
+      ansible.builtin.set_fact:
+        peering_connection_id: "{{ vpc_peering.vpc_peering_connection_id | default(vpc_peering.peering_id) }}"
 
     - name: Add DC2 route to DC1 route table
       amazon.aws.ec2_vpc_route_table:
@@ -216,7 +228,7 @@
           - dest: 0.0.0.0/0
             gateway_id: "{{ dc1_igw.gateway_id }}"
           - dest: "{{ dc2_vpc_cidr }}"
-            vpc_peering_connection_id: "{{ vpc_peering.peering_id }}"
+            vpc_peering_connection_id: "{{ peering_connection_id }}"
 
     - name: Add DC1 route to DC2 route table
       amazon.aws.ec2_vpc_route_table:
@@ -228,7 +240,7 @@
           - dest: 0.0.0.0/0
             gateway_id: "{{ dc2_igw.gateway_id }}"
           - dest: "{{ dc1_vpc_cidr }}"
-            vpc_peering_connection_id: "{{ vpc_peering.peering_id }}"
+            vpc_peering_connection_id: "{{ peering_connection_id }}"
 
     # ===========================================
     # Security Groups - DC1
