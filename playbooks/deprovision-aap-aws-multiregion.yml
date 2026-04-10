@@ -1,0 +1,319 @@
+---
+# Tear down resources created by playbooks/provision-aap-aws-multiregion.yml
+# Order: EC2 → RDS (replica, then primary after disabling deletion protection) →
+#        RDS subnet/parameter groups → security groups → VPC peering → subnets →
+#        route tables → internet gateways → VPCs.
+#
+# Tags (Job Tags / --tags):
+#   teardown, aws — play-level (all tasks inherit)
+#   ec2, ec2_prep, ec2_dc1, ec2_dc2, ec2_aap, ec2_haproxy
+#   rds, rds_replica, rds_primary, rds_subnet, rds_params
+#   network, peering, sg_dc1, sg_dc2, security_groups, vpc_dc1, vpc_dc2, summary
+#
+# Extra vars:
+#   rds_delete_skip_final_snapshot (default true) — set false to take a final snapshot
+#   rds_final_snapshot_identifier — required when skip is false (primary only)
+#
+# WARNING: Irreversible. Primary RDS was created with deletion_protection: true; this playbook disables it.
+
+- name: Deprovision AAP Multi-Region AWS Infrastructure
+  hosts: localhost
+  gather_facts: false
+  tags: [teardown, aws]
+  vars:
+    project_name: aap-dr
+    primary_region: us-east-1
+    standby_region: us-west-1
+    rds_delete_skip_final_snapshot: true
+    rds_final_snapshot_identifier: "{{ project_name }}-postgres-dc1-final"
+    aap_components:
+      - name: gateway
+        count: 2
+      - name: controller
+        count: 2
+      - name: hub
+        count: 2
+      - name: eda
+        count: 2
+
+  tasks:
+    - name: Build AAP component hostnames for termination
+      tags: [ec2, ec2_prep]
+      ansible.builtin.set_fact:
+        aap_component_slots: "{{ _aap_slot_json | from_json }}"
+      vars:
+        _aap_slot_json: >-
+          {% set ns = namespace(items=[]) %}
+          {% for comp in aap_components %}
+          {% for idx in range(comp.count | int) %}
+          {% set _ = ns.items.append(comp | combine({'slot_index': idx})) %}
+          {% endfor %}
+          {% endfor %}
+          {{ ns.items | to_json }}
+
+    - name: Terminate DC1 AAP EC2 instances
+      tags: [ec2, ec2_dc1, ec2_aap]
+      amazon.aws.ec2_instance:
+        name: "{{ item.name }}{{ item.slot_index + 1 }}-dc1"
+        region: "{{ primary_region }}"
+        state: absent
+        wait: true
+      loop: "{{ aap_component_slots }}"
+      loop_control:
+        label: "{{ item.name }}{{ item.slot_index + 1 }}-dc1"
+
+    - name: Terminate DC1 HAProxy instance
+      tags: [ec2, ec2_dc1, ec2_haproxy]
+      amazon.aws.ec2_instance:
+        name: haproxy-db-dc1
+        region: "{{ primary_region }}"
+        state: absent
+        wait: true
+
+    - name: Terminate DC2 AAP EC2 instances
+      tags: [ec2, ec2_dc2, ec2_aap]
+      amazon.aws.ec2_instance:
+        name: "{{ item.name }}{{ item.slot_index + 1 }}-dc2"
+        region: "{{ standby_region }}"
+        state: absent
+        wait: true
+      loop: "{{ aap_component_slots }}"
+      loop_control:
+        label: "{{ item.name }}{{ item.slot_index + 1 }}-dc2"
+
+    - name: Terminate DC2 HAProxy instance
+      tags: [ec2, ec2_dc2, ec2_haproxy]
+      amazon.aws.ec2_instance:
+        name: haproxy-db-dc2
+        region: "{{ standby_region }}"
+        state: absent
+        wait: true
+
+    - name: Remove RDS read replica (DC2)
+      tags: [rds, rds_replica, dc2]
+      amazon.aws.rds_instance:
+        id: "{{ project_name }}-postgres-dc2"
+        region: "{{ standby_region }}"
+        state: absent
+        skip_final_snapshot: true
+        wait: true
+
+    - name: Describe primary RDS (DC1)
+      tags: [rds, rds_primary, dc1]
+      amazon.aws.rds_instance_info:
+        db_instance_identifier: "{{ project_name }}-postgres-dc1"
+        region: "{{ primary_region }}"
+      register: rds_primary_info
+
+    - name: Disable deletion protection on primary RDS
+      tags: [rds, rds_primary, dc1]
+      when: rds_primary_info.instances | default([]) | length > 0
+      amazon.aws.rds_instance:
+        id: "{{ project_name }}-postgres-dc1"
+        region: "{{ primary_region }}"
+        deletion_protection: false
+        apply_immediately: true
+        wait: true
+
+    - name: Remove RDS primary (DC1)
+      tags: [rds, rds_primary, dc1]
+      when: rds_primary_info.instances | default([]) | length > 0
+      amazon.aws.rds_instance:
+        id: "{{ project_name }}-postgres-dc1"
+        region: "{{ primary_region }}"
+        state: absent
+        skip_final_snapshot: "{{ rds_delete_skip_final_snapshot | bool }}"
+        final_snapshot_identifier: "{{ rds_final_snapshot_identifier if not (rds_delete_skip_final_snapshot | bool) else omit }}"
+        wait: true
+
+    - name: Remove DC1 RDS subnet group
+      tags: [rds, rds_subnet, dc1]
+      amazon.aws.rds_subnet_group:
+        name: "{{ project_name }}-rds-subnet-group-dc1"
+        region: "{{ primary_region }}"
+        state: absent
+
+    - name: Remove DC2 RDS subnet group
+      tags: [rds, rds_subnet, dc2]
+      amazon.aws.rds_subnet_group:
+        name: "{{ project_name }}-rds-subnet-group-dc2"
+        region: "{{ standby_region }}"
+        state: absent
+
+    - name: Remove RDS parameter group
+      tags: [rds, rds_params]
+      amazon.aws.rds_instance_param_group:
+        name: "{{ project_name }}-pg-params"
+        region: "{{ primary_region }}"
+        state: absent
+
+    - name: Look up DC1 VPC
+      tags: [network, sg_dc1, vpc_dc1, security_groups]
+      amazon.aws.ec2_vpc_net_info:
+        region: "{{ primary_region }}"
+        filters:
+          "tag:Name": "{{ project_name }}-vpc-dc1"
+      register: dc1_vpc_lookup
+
+    - name: Look up DC2 VPC
+      tags: [network, sg_dc2, vpc_dc2, security_groups]
+      amazon.aws.ec2_vpc_net_info:
+        region: "{{ standby_region }}"
+        filters:
+          "tag:Name": "{{ project_name }}-vpc-dc2"
+      register: dc2_vpc_lookup
+
+    - name: Remove DC1 security groups
+      tags: [security_groups, sg_dc1, dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_security_group:
+        name: "{{ item }}"
+        vpc_id: "{{ dc1_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ primary_region }}"
+        state: absent
+      loop:
+        - "{{ project_name }}-sg-aap-dc1"
+        - "{{ project_name }}-sg-haproxy-dc1"
+        - "{{ project_name }}-sg-rds-dc1"
+
+    - name: Remove DC2 security groups
+      tags: [security_groups, sg_dc2, dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_security_group:
+        name: "{{ item }}"
+        vpc_id: "{{ dc2_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ standby_region }}"
+        state: absent
+      loop:
+        - "{{ project_name }}-sg-aap-dc2"
+        - "{{ project_name }}-sg-haproxy-dc2"
+        - "{{ project_name }}-sg-rds-dc2"
+
+    - name: Find VPC peering connection
+      tags: [network, peering]
+      amazon.aws.ec2_vpc_peering_info:
+        region: "{{ primary_region }}"
+        filters:
+          "tag:Name": "{{ project_name }}-peering-dc1-dc2"
+      register: peering_lookup
+
+    - name: Delete VPC peering connection
+      tags: [network, peering]
+      when: peering_lookup.vpc_peering_connections | default([]) | length > 0
+      amazon.aws.ec2_vpc_peering:
+        peering_id: "{{ peering_lookup.vpc_peering_connections[0].vpc_peering_connection_id }}"
+        region: "{{ primary_region }}"
+        state: absent
+
+    - name: List subnets in DC1 VPC
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_subnet_info:
+        region: "{{ primary_region }}"
+        filters:
+          vpc-id: "{{ dc1_vpc_lookup.vpcs[0].vpc_id }}"
+      register: dc1_subnets
+
+    - name: Delete DC1 subnets
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_subnet:
+        subnet_id: "{{ item.subnet_id }}"
+        region: "{{ primary_region }}"
+        state: absent
+      loop: "{{ dc1_subnets.subnets | default([]) }}"
+
+    - name: List subnets in DC2 VPC
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_subnet_info:
+        region: "{{ standby_region }}"
+        filters:
+          vpc-id: "{{ dc2_vpc_lookup.vpcs[0].vpc_id }}"
+      register: dc2_subnets
+
+    - name: Delete DC2 subnets
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_subnet:
+        subnet_id: "{{ item.subnet_id }}"
+        region: "{{ standby_region }}"
+        state: absent
+      loop: "{{ dc2_subnets.subnets | default([]) }}"
+
+    - name: Find DC1 route table
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_route_table_info:
+        region: "{{ primary_region }}"
+        filters:
+          "tag:Name": "{{ project_name }}-rtb-dc1"
+      register: dc1_rt_lookup
+
+    - name: Delete DC1 route table
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0 and dc1_rt_lookup.route_tables | default([]) | length > 0
+      amazon.aws.ec2_vpc_route_table:
+        route_table_id: "{{ dc1_rt_lookup.route_tables[0].route_table_id }}"
+        vpc_id: "{{ dc1_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ primary_region }}"
+        lookup: id
+        state: absent
+
+    - name: Find DC2 route table
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_route_table_info:
+        region: "{{ standby_region }}"
+        filters:
+          "tag:Name": "{{ project_name }}-rtb-dc2"
+      register: dc2_rt_lookup
+
+    - name: Delete DC2 route table
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0 and dc2_rt_lookup.route_tables | default([]) | length > 0
+      amazon.aws.ec2_vpc_route_table:
+        route_table_id: "{{ dc2_rt_lookup.route_tables[0].route_table_id }}"
+        vpc_id: "{{ dc2_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ standby_region }}"
+        lookup: id
+        state: absent
+
+    - name: Remove DC1 internet gateway
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ dc1_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ primary_region }}"
+        state: absent
+
+    - name: Remove DC2 internet gateway
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ dc2_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ standby_region }}"
+        state: absent
+
+    - name: Delete DC1 VPC
+      tags: [network, vpc_dc1]
+      when: dc1_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_net:
+        vpc_id: "{{ dc1_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ primary_region }}"
+        state: absent
+
+    - name: Delete DC2 VPC
+      tags: [network, vpc_dc2]
+      when: dc2_vpc_lookup.vpcs | length > 0
+      amazon.aws.ec2_vpc_net:
+        vpc_id: "{{ dc2_vpc_lookup.vpcs[0].vpc_id }}"
+        region: "{{ standby_region }}"
+        state: absent
+
+    - name: Deprovision summary
+      tags: [summary]
+      ansible.builtin.debug:
+        msg:
+          - "Teardown finished for project {{ project_name }} ({{ primary_region }} / {{ standby_region }})."
+          - "Verify in AWS console that no ENIs, snapshots, or peering connections remain if anything failed."
