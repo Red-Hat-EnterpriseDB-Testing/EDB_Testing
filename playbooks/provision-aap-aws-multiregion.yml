@@ -191,7 +191,7 @@
     # ===========================================
 
     - name: Create VPC Peering Connection (DC1 -> DC2)
-      amazon.aws.ec2_vpc_peer:
+      amazon.aws.ec2_vpc_peering:
         vpc_id: "{{ dc1_vpc.vpc.id }}"
         peer_vpc_id: "{{ dc2_vpc.vpc.id }}"
         peer_region: "{{ standby_region }}"
@@ -201,7 +201,7 @@
       register: vpc_peering
 
     - name: Accept VPC Peering Connection
-      amazon.aws.ec2_vpc_peer:
+      amazon.aws.ec2_vpc_peering:
         peering_id: "{{ vpc_peering.peering_id }}"
         region: "{{ standby_region }}"
         state: accept
