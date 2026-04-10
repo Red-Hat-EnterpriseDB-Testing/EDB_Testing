@@ -26,6 +26,7 @@ achieves **near-HA** with automatic failover within datacenters and orchestrated
 datacenters.
 
 **Key Features:**
+
 - ✅ **Multi-datacenter HA/DR** - Active-Passive across two datacenters
 - ✅ **Automatic failover** - In-datacenter failover <1 minute
 - ✅ **PostgreSQL replication** - Physical streaming + WAL archiving
@@ -34,6 +35,7 @@ datacenters.
 - ✅ **Production-ready** - Security, monitoring, backup strategies
 
 **Target RTO/RPO:**
+
 - **In-datacenter failover:** RTO (Recovery Time Objective) <1 minute, RPO (Recovery Point Objective) <5 seconds
 - **Cross-datacenter failover:** RTO <5 minutes, RPO <5 seconds
 
@@ -52,23 +54,27 @@ Before getting started, ensure you have:
 ## Quick Links
 
 ### Getting Started
+
 - **[🚀 Quick Start Guide](docs/quick-start-guide.md)** - Deploy in 15-30 minutes
 - **[📚 Documentation Index](docs/INDEX.md)** - Complete documentation organized by topic
 - **[🏗️ Architecture Details](docs/architecture.md)** - Comprehensive architecture documentation
 
 ### Deployment
+
 - **[OpenShift Deployment](docs/install-kubernetes-manual.md)** - Operator-based deployment
 - **[RHEL with TPA](docs/install-tpa.md)** - Automated deployment with Trusted Postgres Architect
 - **[Database Deploy (Kustomize)](db-deploy/README.md)** - GitOps-friendly manifests
 - **[AAP Deploy (Kustomize)](aap-deploy/README.md)** - AAP operator deployment
 
 ### Operations
+
 - **[Operations Runbook](docs/manual-scripts-doc.md)** - Day-to-day operational procedures
 - **[Scripts Reference](scripts/README.md)** - All automation scripts documented
 - **[DR Testing Guide](docs/dr-testing-guide.md)** - Complete DR testing framework
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ### Community
+
 - **[📝 Changelog](CHANGELOG.md)** - All notable changes to this project
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to this project
 - **[License](LICENSE)** - Apache 2.0 License
@@ -78,7 +84,7 @@ Before getting started, ensure you have:
 <details>
 <summary>📁 Click to expand repository structure</summary>
 
-```
+```text
 EDB_Testing/
 ├── aap-deploy/              # AAP deployment manifests
 │   ├── openshift/           # OpenShift manifests
