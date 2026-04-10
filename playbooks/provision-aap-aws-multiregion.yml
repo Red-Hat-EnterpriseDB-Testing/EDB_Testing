@@ -437,7 +437,7 @@
     # ===========================================
 
     - name: Create RDS Parameter Group for AAP
-      amazon.aws.rds_param_group:
+      amazon.aws.rds_instance_param_group:
         name: "{{ project_name }}-pg-params"
         description: PostgreSQL parameters for AAP workload
         region: "{{ primary_region }}"
