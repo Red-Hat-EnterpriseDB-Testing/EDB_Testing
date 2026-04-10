@@ -530,6 +530,8 @@
         storage_encrypted: true
         kms_key_id: alias/aws/rds
         auto_minor_version_upgrade: false
+        # Do not block the play on cross-region replica availability (can take 15–30+ minutes); EC2 tasks run in parallel with RDS provisioning.
+        wait: false
         tags: "{{ common_tags | combine({'Name': project_name + '-postgres-dc2', 'Datacenter': 'DC2', 'Role': 'replica'}) }}"
       register: dc2_rds_instance
 
@@ -706,7 +708,7 @@
           - "DC2 (us-west-1) - STANDBY:"
           - "  VPC: {{ dc2_vpc.vpc.id }} ({{ dc2_vpc_cidr }})"
           - "  AAP Subnet: {{ dc2_aap_subnet.subnet.id }}"
-          - "  RDS Endpoint: {{ dc2_rds_instance.endpoint.address }}"
+          - "  RDS Endpoint: {{ (dc2_rds_instance.endpoint | default({}, true)).address | default('(replica still provisioning — endpoint not ready yet)') }}"
           - "  AAP Instances: 8 stopped (standby)"
           - "  HAProxy: {{ dc2_haproxy_instance.instances[0].public_ip_address }}"
           - ""
