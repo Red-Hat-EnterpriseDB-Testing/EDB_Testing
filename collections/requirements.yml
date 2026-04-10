@@ -1,12 +1,8 @@
 ---
-# Ansible Collection Requirements
-# AAP Multi-Region AWS Infrastructure Provisioning
-#
-# For Ansible Automation Platform: also maintain ../collections/requirements.yml
-# (project sync installs collections from the repo root only).
+# Installed during AAP project sync from the repository root.
+# (Controller looks for collections/requirements.yml here, not under playbooks/.)
 
 collections:
-  # AWS/Amazon Collections
   - name: amazon.aws
     version: ">=8.0.0"
     source: https://galaxy.ansible.com
@@ -15,12 +11,10 @@ collections:
     version: ">=8.0.0"
     source: https://galaxy.ansible.com
 
-  # PostgreSQL Collection
   - name: community.postgresql
     version: ">=3.0.0"
     source: https://galaxy.ansible.com
 
-  # General Collections
   - name: community.general
     version: ">=9.0.0"
     source: https://galaxy.ansible.com
