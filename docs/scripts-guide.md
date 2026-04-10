@@ -163,7 +163,7 @@ sudo journalctl -u aap-cluster.service -f
 
 ### RHEL Scripts
 
-- RHEL 8 or 9 with AAP installed
+- RHEL 9.4+ with AAP 2.6 installed
 - Root or sudo access
 - AAP installed via standard installer
 - Systemd services properly configured

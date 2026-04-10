@@ -41,7 +41,7 @@ datacenters.
 
 Before getting started, ensure you have:
 
-- **Platform**: OpenShift 4.12+ OR RHEL 8+ with root access
+- **Platform**: OpenShift 4.12+ OR RHEL 9.4+ with root access
 - **Database**: EnterpriseDB subscription for EDB Postgres Advanced Server
 - **Storage**: S3-compatible storage for WAL archiving and backups
 - **Network**: Network connectivity between datacenters (for replication)
