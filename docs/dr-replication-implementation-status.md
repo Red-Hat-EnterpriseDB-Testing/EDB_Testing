@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-03-30
-**Baseline Report:** `/docs/dr-replication-validation-report.md`
+**Baseline Report:** `/reports/dr-replication-validation-report.md`
 
 ---
 
@@ -411,7 +411,7 @@ spec:
 
 ## References
 
-- **Baseline Validation:** `/docs/dr-replication-validation-report.md`
+- **Baseline Validation:** `/reports/dr-replication-validation-report.md`
 - **Split-Brain Documentation:** `/docs/split-brain-prevention.md`
 - **Scale AAP Script:** `/scripts/scale-aap-up.sh`
 - **Test Script:** `/scripts/test-split-brain-prevention.sh`

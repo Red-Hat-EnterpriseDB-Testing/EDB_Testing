@@ -782,7 +782,7 @@ A: Yes - highly recommended to validate procedures before production testing.
 
 - **Split-Brain Prevention:** [/docs/split-brain-prevention.md](/docs/split-brain-prevention.md)
 - **DR Scenarios:** [/docs/dr-scenarios.md](/docs/dr-scenarios.md)
-- **Replication Validation:** [/docs/dr-replication-validation-report.md](/docs/dr-replication-validation-report.md)
+- **Replication Validation:** [/reports/dr-replication-validation-report.md](/reports/dr-replication-validation-report.md)
 - **EFM Integration:** [/docs/enterprisefailovermanager.md](/docs/enterprisefailovermanager.md)
 
 ---

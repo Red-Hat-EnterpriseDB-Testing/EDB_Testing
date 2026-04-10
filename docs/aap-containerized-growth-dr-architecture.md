@@ -765,7 +765,7 @@ backend aap_backend
 ## Related Documentation
 
 - **[AAP Containerized Enterprise DR Architecture](aap-containerized-enterprise-dr-architecture.md)** - 8-node dedicated component design
-- **[Architecture Validation Report](aap-architecture-validation-report.md)** - Validation vs Red Hat tested models
+- **[Architecture Validation Report](../reports/aap-architecture-validation-report.md)** - Validation vs Red Hat tested models
 - [Main Architecture](architecture.md) - Comprehensive architecture documentation
 - [EDB Failover Manager](enterprisefailovermanager.md) - EFM integration guide
 - [DR Testing Guide](dr-testing-guide.md) - Testing framework
