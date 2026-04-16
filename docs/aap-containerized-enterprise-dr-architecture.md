@@ -192,45 +192,6 @@ DC2:
   haproxy-db-dc2.example.com    # Database connection router
 ```
 
-**Containers per Component Type**
-
-```yaml
-Platform Gateway Nodes (gateway1-dc1, gateway2-dc1):
-  - automation-gateway:     # API gateway
-      cpu: 1 core
-      memory: 2GB
-  - redis:                  # Session storage (colocated)
-      cpu: 1 core
-      memory: 4GB
-
-Automation Controller Nodes (controller1-dc1, controller2-dc1):
-  - automation-controller-web:  # Controller UI/API
-      cpu: 2 cores
-      memory: 8GB
-  - automation-controller-task: # Job execution
-      cpu: 1 core
-      memory: 4GB
-  - receptor:               # Mesh networking
-      cpu: 1 core
-      memory: 2GB
-
-Automation Hub Nodes (hub1-dc1, hub2-dc1):
-  - automation-hub:         # Content management
-      cpu: 2 cores
-      memory: 8GB
-  - redis:                  # Cache storage (colocated)
-      cpu: 1 core
-      memory: 4GB
-
-Event-Driven Ansible Nodes (eda1-dc1, eda2-dc1):
-  - eda-activation-worker:  # Event-driven automation
-      cpu: 2 cores
-      memory: 8GB
-  - redis:                  # Job queue storage (colocated)
-      cpu: 1 core
-      memory: 4GB
-```
-
 ### 2.2 PostgreSQL Database Cluster
 
 **Database Instances per Datacenter**
@@ -545,17 +506,11 @@ eda2-dc2.example.com
 # Redis (colocated on gateway, hub, and EDA nodes - 12 VMs total across both DCs)
 [redis]
 gateway1-dc1.example.com
-gateway2-dc1.example.com
 hub1-dc1.example.com
-hub2-dc1.example.com
 eda1-dc1.example.com
-eda2-dc1.example.com
 gateway1-dc2.example.com
-gateway2-dc2.example.com
 hub1-dc2.example.com
-hub2-dc2.example.com
 eda1-dc2.example.com
-eda2-dc2.example.com
 
 [all:vars]
 # Common variables
@@ -655,25 +610,11 @@ systemctl enable --now redis
 **DC2 Installation (Standby)**
 
 ```bash
-# 1. Install AAP (same as DC1)
-cd /opt
-tar -xzf ansible-automation-platform-containerized-setup-2.5-1.tar.gz
-cd ansible-automation-platform-containerized-setup-2.5-1
-
-# 2. Configure inventory for DC2
-cp inventory-dc2 inventory
-
-# 3. CRITICAL: Ensure SECRET_KEY matches DC1
-# Copy /etc/tower/SECRET_KEY from DC1 to DC2 before install
-
-# 4. Run installer
-./setup.sh
-
-# 5. IMMEDIATELY STOP all AAP containers (standby mode)
+# 1. IMMEDIATELY STOP all AAP containers (standby mode)
 systemctl stop automation-controller-web automation-controller-task
 systemctl stop automation-gateway automation-hub eda-activation-worker redis
 
-# 6. Disable auto-start
+# 2. Disable auto-start
 systemctl disable automation-controller-web automation-controller-task
 systemctl disable automation-gateway automation-hub eda-activation-worker redis
 ```
