@@ -15,7 +15,7 @@ This page summarizes **AAP on RHEL** (systemd-based) in this repository’s refe
 - **Start / stop scripts** (orderly bring-up or shutdown): `**[scripts/start-aap-cluster.sh](../scripts/start-aap-cluster.sh)`**, `**[scripts/stop-aap-cluster.sh](../scripts/stop-aap-cluster.sh)**` — described in `**[scripts/README.md](../scripts/README.md)**`.
 - Example systemd wrapper: `**[scripts/aap-cluster.service](../scripts/aap-cluster.service)**`.
 
-## Postgres on RHEL
+## PostgreSQL on RHEL
 
 - **Recommended automation** for PostgreSQL on hosts: **[Trusted Postgres Architect (TPA)](install-tpa.md)** ([upstream](https://github.com/EnterpriseDB/tpa)).
 - **Manual install** (no TPA): `**[docs/install-rhel-manual.md](install-rhel-manual.md)`**.

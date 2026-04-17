@@ -53,7 +53,7 @@ get_timestamp_ms() {
 ```
 
 **Results:**
-```
+```text
 Test Timeline:
   Start: 2026-03-31 12:46:49.937
   + preflight-check      2.054s
@@ -96,7 +96,7 @@ oc exec -n edb-postgres postgresql-1 -- \
 ```
 
 **Result:**
-```
+```text
  f
 ```
 ✅ Returns `f` (false) = **PRIMARY** mode
@@ -114,7 +114,7 @@ oc exec -n edb-postgres postgresql-1 -- \
 ```
 
 **Result:**
-```
+```text
  0
 ```
 ✅ No replicas (expected for single-node cluster)
@@ -376,7 +376,7 @@ Once tested in multi-cluster staging environment with AAP deployed, confidence w
 ## Test Artifacts
 
 **Files Generated:**
-```
+```text
 /tmp/dr-metrics/
 ├── rto-rpo-demo-complete-test.json
 ├── rto-rpo-test-demo-001.json
@@ -386,13 +386,13 @@ Once tested in multi-cluster staging environment with AAP deployed, confidence w
 ```
 
 **Scripts Modified:**
-```
+```text
 /Users/cferman/Documents/GitHub/EDB_Testing/scripts/
 └── measure-rto-rpo.sh (2 functions updated, 1 bug fixed)
 ```
 
 **Documentation Created:**
-```
+```text
 /Users/cferman/Documents/GitHub/EDB_Testing/docs/
 └── component-testing-results.md (this file)
 ```

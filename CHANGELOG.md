@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Documentation - April 2026
+- **[2026-04-09]** Documentation cleanup and standardization ([#39](https://github.com/Red-Hat-EnterpriseDB-Testing/EDB_Testing/pull/39))
+  - Standardized terminology across 16 documentation files (100+ instances: "Postgres" → "PostgreSQL")
+  - Added language tags to 40+ code blocks for proper syntax highlighting
+  - Improved professional presentation and accessibility (removed emoji from tables)
+  - Enhanced searchability with consistent terminology
+  - Preserved technical accuracy (Trusted Postgres Architect, postgres user, namespaces)
+  - Follows CONTRIBUTING.md and CLAUDE.md standards
+- **[2026-04-06]** Added CLAUDE.md and AAP OpenShift DR architecture documentation ([#38](https://github.com/Red-Hat-EnterpriseDB-Testing/EDB_Testing/pull/38))
+  - Comprehensive CLAUDE.md guide for future Claude Code instances
+  - Repository structure, development commands, code standards, and common tasks
+  - Platform-specific context (OpenShift AAP 2.6, CloudNativePG, RHEL/TPA)
+  - DR testing workflow and Ansible best practices reference
+  - AAP OpenShift DR architecture documentation with external PostgreSQL patterns
+
 ## [1.0.0] - 2026-04-03
 
 ### Added

@@ -42,14 +42,14 @@
 
 ### PostgreSQL Cluster Status
 
-```
+```text
 NAME         AGE   INSTANCES   READY   STATUS                     PRIMARY
 postgresql   14m   2           2       Cluster in healthy state   postgresql-1
 ```
 
 ### PostgreSQL Pods
 
-```
+```text
 NAME           READY   STATUS    RESTARTS   AGE
 postgresql-1   1/1     Running   0          13m
 postgresql-2   1/1     Running   0          13m
@@ -57,7 +57,7 @@ postgresql-2   1/1     Running   0          13m
 
 ### Storage (PVCs)
 
-```
+```text
 NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS
 postgresql-1   Bound    pvc-ed8962e4-37cd-4a35-baa6-6beed219ed96   500Mi      RWO            topolvm-provisioner
 postgresql-2   Bound    pvc-f717345f-892a-4c56-b61f-4bed5678c756   500Mi      RWO            topolvm-provisioner
@@ -65,7 +65,7 @@ postgresql-2   Bound    pvc-f717345f-892a-4c56-b61f-4bed5678c756   500Mi      RW
 
 ### Database List
 
-```
+```text
 Name                  | Owner | Encoding | Collate | Ctype
 ----------------------+-------+----------+---------+-------
 automation_controller | aap   | UTF8     | C       | C
@@ -76,13 +76,13 @@ platform_gateway      | aap   | UTF8     | C       | C
 
 ### Database Connection Test
 
-```
+```text
 PostgreSQL 16.6 (Debian 16.6-1.pgdg110+1) on aarch64-unknown-linux-gnu
 ```
 
 ### Replication Status
 
-```
+```text
 client_addr  | state     | sync_state
 -------------+-----------+------------
 10.42.0.125  | streaming | async

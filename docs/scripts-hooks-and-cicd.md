@@ -37,7 +37,7 @@ Location: `tests/hooks/`
 - `1` - One or more scripts lack execute permission
 
 **Example Output:**
-```
+```text
 ⚠️  Script not executable: scripts/my-script.sh
    Fix with: chmod +x scripts/my-script.sh
 
@@ -93,7 +93,7 @@ repos:
 - `1` - One or more manifests failed validation
 
 **Example Output:**
-```
+```text
 Validating: manifests/deployment.yaml
   ✅ Valid
 Validating: manifests/service.yaml
@@ -241,7 +241,7 @@ api[_-]?key\s*=\s*['\"][^'\"]+['\"]
 
 **Example Output:**
 
-```
+```text
 =============================================
 Running CI Checks Locally
 =============================================
@@ -280,7 +280,7 @@ You're ready to push your changes.
 
 **Failure Output:**
 
-```
+```text
 =============================================
 Summary
 =============================================
@@ -378,7 +378,7 @@ git commit -m "Update script"
 
 **If hooks fail:**
 
-```
+```text
 Check script permissions.................................................Failed
 - hook id: check-script-permissions
 - exit code: 1
@@ -581,7 +581,7 @@ echo $VARIABLE_WITHOUT_QUOTES
 ```
 
 Or configure globally in `.shellcheckrc`:
-```
+```text
 disable=SC2086
 ```
 
@@ -599,6 +599,6 @@ Use `--ignore-missing-schemas` flag (already enabled in hooks).
 
 ## See Also
 
-- [scripts-guide.md](scripts-guide.md) - Complete scripts documentation
-- [scripts-library-reference.md](scripts-library-reference.md) - Library functions
-- [cicd-pipeline.md](cicd-pipeline.md) - CI/CD pipeline documentation
+- [Scripts Guide](scripts-guide.md) - Complete scripts documentation
+- [Scripts Library Reference](scripts-library-reference.md) - Library functions
+- [CI/CD Pipeline](cicd-pipeline.md) - CI/CD pipeline documentation

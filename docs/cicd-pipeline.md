@@ -87,7 +87,7 @@ git push origin feature/my-changes
 
 **Example Output:**
 
-```
+```text
 Running yamllint on YAML files...
 ✅ All YAML files passed linting
 
@@ -132,7 +132,7 @@ Testing Kustomize build: db-deploy/sample-cluster/base
 
 **Example Output:**
 
-```
+```text
 Checking: scripts/scale-aap-up.sh
   ✅ No issues found
 
@@ -190,7 +190,7 @@ fi
 
 The workflow detects which files changed and only runs relevant checks:
 
-```
+```text
 Changed files detected:
   YAML files: true → Run YAML validation
   Scripts: false → Skip shell validation
@@ -217,7 +217,7 @@ Automatically scans for:
 
 **PR Size Warnings:**
 
-```
+```text
 ⚠️ Large PR: 52 files changed (consider splitting)
 ⚠️ Large PR: 1,234 lines changed (consider splitting)
 ```
@@ -277,7 +277,7 @@ git commit --no-verify -m "Emergency fix"
 
 **Example Pre-commit Output:**
 
-```
+```text
 Trim trailing whitespace............Passed
 Fix end of files...................Passed
 Check YAML syntax..................Passed
