@@ -49,10 +49,12 @@ See `docs/architecture.md` for complete details.
 ├── scripts/              # Operational automation scripts
 │   ├── lib/              # Shared libraries (logging, scaling)
 │   ├── scale-aap-*.sh    # AAP scaling (OpenShift)
-│   ├── dr-*.sh           # DR orchestration and testing
-│   ├── validate-*.sh     # Validation and integrity checks
+│   ├── start/stop-*.sh   # AAP cluster management (RHEL)
 │   └── efm-*.sh          # EFM integration hooks
-├── openshift/dr-testing/ # DR testing CronJob manifests
+├── tests/                # Testing and CI infrastructure
+│   ├── scripts/          # Test and validation scripts
+│   ├── hooks/            # Pre-commit and CI hooks
+│   └── openshift/        # DR testing CronJob manifests
 └── reports/              # Deployment validation reports
 ```
 
@@ -97,25 +99,25 @@ kustomize build aap-deploy/openshift/
 
 **Local CI checks:**
 ```bash
-./scripts/run-ci-checks-locally.sh
+./tests/scripts/run-ci-checks-locally.sh
 ```
 
 ### DR Testing
 
 **Run automated DR failover test:**
 ```bash
-./scripts/dr-failover-test.sh --dc1-context <dc1> --dc2-context <dc2>
+./tests/scripts/dr-failover-test.sh --dc1-context <dc1> --dc2-context <dc2>
 ```
 
 **Measure RTO/RPO:**
 ```bash
-./scripts/measure-rto-rpo.sh --dc1-context <dc1> --dc2-context <dc2>
+./tests/scripts/measure-rto-rpo.sh --dc1-context <dc1> --dc2-context <dc2>
 ```
 
 **Validate AAP data integrity:**
 ```bash
-./scripts/validate-aap-data.sh create-baseline <context>
-./scripts/validate-aap-data.sh validate <context>
+./tests/scripts/validate-aap-data.sh create-baseline <context>
+./tests/scripts/validate-aap-data.sh validate <context>
 ```
 
 ### AAP Cluster Management (OpenShift)
@@ -247,15 +249,15 @@ See `.cursor/skills/ansible-redhat-cop-practices/` for complete guidelines.
 - **Split-brain prevention:** Fencing logic ensures only one primary active
 
 **DR test workflow:**
-1. Create baseline: `./scripts/validate-aap-data.sh create-baseline <dc1-context>`
-2. Trigger failover: `./scripts/dr-failover-test.sh --dc1-context <dc1> --dc2-context <dc2>`
-3. Measure metrics: `./scripts/measure-rto-rpo.sh` (tracks timestamps, calculates RTO/RPO)
-4. Validate data: `./scripts/validate-aap-data.sh validate <dc2-context>`
-5. Generate report: `./scripts/generate-dr-report.sh --latest`
+1. Create baseline: `./tests/scripts/validate-aap-data.sh create-baseline <dc1-context>`
+2. Trigger failover: `./tests/scripts/dr-failover-test.sh --dc1-context <dc1> --dc2-context <dc2>`
+3. Measure metrics: `./tests/scripts/measure-rto-rpo.sh` (tracks timestamps, calculates RTO/RPO)
+4. Validate data: `./tests/scripts/validate-aap-data.sh validate <dc2-context>`
+5. Generate report: `./tests/scripts/generate-dr-report.sh --latest`
 
 **Automated testing:**
-- OpenShift CronJob: `openshift/dr-testing/cronjob-dr-test.yaml`
-- Results stored in PVC: `openshift/dr-testing/pvc-test-results.yaml`
+- OpenShift CronJob: `tests/openshift/dr-testing/cronjob-dr-test.yaml`
+- Results stored in PVC: `tests/openshift/dr-testing/pvc-test-results.yaml`
 
 See `docs/dr-testing-guide.md` for complete framework.
 
@@ -268,7 +270,7 @@ GitHub Actions workflows (`.github/workflows/`):
 
 **Pre-commit hooks** (`.pre-commit-config.yaml`):
 - Trailing whitespace, YAML syntax, ShellCheck, markdownlint, secret detection
-- Custom hooks: `hooks/check-script-permissions.sh`, `hooks/validate-openshift-manifests.sh`
+- Custom hooks: `tests/hooks/check-script-permissions.sh`, `tests/hooks/validate-openshift-manifests.sh`
 
 ## Common Tasks
 

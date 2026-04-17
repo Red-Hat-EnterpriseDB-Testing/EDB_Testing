@@ -505,36 +505,44 @@ user.email=ops@example.com
 
 ## 4. AAP Containerized Installer Configuration
 
-### 4.1 AAP Inventory File (DC1)
+### 4.1 AAP Unified Inventory File (Multi-Datacenter)
 
 **Based on Red Hat AAP 2.6 Container Enterprise Topology**
 
 ```ini
-# /opt/aap/inventory-dc1
+# /opt/aap/inventory
 # Red Hat Ansible Automation Platform 2.6 - Container Enterprise Topology
-# Multi-Datacenter Active/Passive Extension
+# Multi-Datacenter Active/Passive Configuration
 
-# Platform Gateway (2 VMs with colocated Redis)
+# Platform Gateway (4 VMs - 2 per DC with colocated Redis)
 [automationgateway]
 gateway1-dc1.example.com
 gateway2-dc1.example.com
+gateway1-dc2.example.com
+gateway2-dc2.example.com
 
-# Automation Controller (2 VMs - dedicated)
+# Automation Controller (4 VMs - 2 per DC, dedicated)
 [automationcontroller]
 controller1-dc1.example.com
 controller2-dc1.example.com
+controller1-dc2.example.com
+controller2-dc2.example.com
 
-# Automation Hub (2 VMs with colocated Redis)
+# Automation Hub (4 VMs - 2 per DC with colocated Redis)
 [automationhub]
 hub1-dc1.example.com
 hub2-dc1.example.com
+hub1-dc2.example.com
+hub2-dc2.example.com
 
-# Event-Driven Ansible (2 VMs with colocated Redis)
+# Event-Driven Ansible (4 VMs - 2 per DC with colocated Redis)
 [automationeda]
 eda1-dc1.example.com
 eda2-dc1.example.com
+eda1-dc2.example.com
+eda2-dc2.example.com
 
-# Redis (colocated on gateway, hub, and EDA nodes - 6 VMs total for HA)
+# Redis (colocated on gateway, hub, and EDA nodes - 12 VMs total across both DCs)
 [redis]
 gateway1-dc1.example.com
 gateway2-dc1.example.com
@@ -542,6 +550,12 @@ hub1-dc1.example.com
 hub2-dc1.example.com
 eda1-dc1.example.com
 eda2-dc1.example.com
+gateway1-dc2.example.com
+gateway2-dc2.example.com
+hub1-dc2.example.com
+hub2-dc2.example.com
+eda1-dc2.example.com
+eda2-dc2.example.com
 
 [all:vars]
 # Common variables
@@ -557,8 +571,6 @@ redis_mode='standalone'  # Use 'cluster' for Redis HA (optional)
 
 # Platform Gateway Configuration
 gateway_admin_password='<set your own>'
-gateway_pg_host='10.1.1.20'  # HAProxy database router (routes to PostgreSQL VIP 10.1.2.100)
-gateway_pg_port='5432'
 gateway_pg_database='automationgateway'
 gateway_pg_username='aap'
 gateway_pg_password='<set your own>'
@@ -566,108 +578,53 @@ gateway_main_url='https://aap.example.com'
 
 # Automation Controller Configuration
 controller_admin_password='<set your own>'
-controller_pg_host='10.1.1.20'  # HAProxy database router
-controller_pg_port='5432'
 controller_pg_database='awx'
 controller_pg_username='aap'
 controller_pg_password='<set your own>'
 
 # Automation Hub Configuration
 hub_admin_password='<set your own>'
-hub_pg_host='10.1.1.20'  # HAProxy database router
-hub_pg_port='5432'
 hub_pg_database='automationhub'
 hub_pg_username='aap'
 hub_pg_password='<set your own>'
 
 # Event-Driven Ansible Configuration
 eda_admin_password='<set your own>'
-eda_pg_host='10.1.1.20'  # HAProxy database router
-eda_pg_port='5432'
 eda_pg_database='automationedacontroller'
 eda_pg_username='aap'
 eda_pg_password='<set your own>'
+
+# DC1-specific host variables (pointing to DC1 HAProxy)
+[automationgateway:vars]
+gateway1-dc1.example.com gateway_pg_host='10.1.1.20' gateway_pg_port='5432'
+gateway2-dc1.example.com gateway_pg_host='10.1.1.20' gateway_pg_port='5432'
+
+[automationcontroller:vars]
+controller1-dc1.example.com controller_pg_host='10.1.1.20' controller_pg_port='5432'
+controller2-dc1.example.com controller_pg_host='10.1.1.20' controller_pg_port='5432'
+
+[automationhub:vars]
+hub1-dc1.example.com hub_pg_host='10.1.1.20' hub_pg_port='5432'
+hub2-dc1.example.com hub_pg_host='10.1.1.20' hub_pg_port='5432'
+
+[automationeda:vars]
+eda1-dc1.example.com eda_pg_host='10.1.1.20' eda_pg_port='5432'
+eda2-dc1.example.com eda_pg_host='10.1.1.20' eda_pg_port='5432'
+
+# DC2-specific host variables (pointing to DC2 HAProxy)
+gateway1-dc2.example.com gateway_pg_host='10.2.1.20' gateway_pg_port='5432'
+gateway2-dc2.example.com gateway_pg_host='10.2.1.20' gateway_pg_port='5432'
+controller1-dc2.example.com controller_pg_host='10.2.1.20' controller_pg_port='5432'
+controller2-dc2.example.com controller_pg_host='10.2.1.20' controller_pg_port='5432'
+hub1-dc2.example.com hub_pg_host='10.2.1.20' hub_pg_port='5432'
+hub2-dc2.example.com hub_pg_host='10.2.1.20' hub_pg_port='5432'
+eda1-dc2.example.com eda_pg_host='10.2.1.20' eda_pg_port='5432'
+eda2-dc2.example.com eda_pg_host='10.2.1.20' eda_pg_port='5432'
 ```
 
-### 4.2 AAP Inventory File (DC2 - Standby)
+> **Note:** DC2 nodes will be STOPPED after installation until failover is triggered. All admin passwords and database credentials must match between DC1 and DC2 for seamless failover.
 
-```ini
-# /opt/aap/inventory-dc2
-# IMPORTANT: All AAP containers will be STOPPED after installation until failover
-
-# Platform Gateway (2 VMs with colocated Redis)
-[automationgateway]
-gateway1-dc2.example.com
-gateway2-dc2.example.com
-
-# Automation Controller (2 VMs - dedicated)
-[automationcontroller]
-controller1-dc2.example.com
-controller2-dc2.example.com
-
-# Automation Hub (2 VMs with colocated Redis)
-[automationhub]
-hub1-dc2.example.com
-hub2-dc2.example.com
-
-# Event-Driven Ansible (2 VMs with colocated Redis)
-[automationeda]
-eda1-dc2.example.com
-eda2-dc2.example.com
-
-# Redis (colocated on gateway, hub, and EDA nodes)
-[redis]
-gateway1-dc2.example.com
-gateway2-dc2.example.com
-hub1-dc2.example.com
-hub2-dc2.example.com
-eda1-dc2.example.com
-eda2-dc2.example.com
-
-[all:vars]
-# Common variables (MUST MATCH DC1)
-postgresql_admin_username=postgres
-postgresql_admin_password='<SAME AS DC1>'
-registry_username='<your RHN username>'
-registry_password='<your RHN password>'
-redis_mode='standalone'
-
-# CRITICAL: Admin passwords MUST match DC1 for seamless failover
-gateway_admin_password='<SAME AS DC1>'
-controller_admin_password='<SAME AS DC1>'
-hub_admin_password='<SAME AS DC1>'
-eda_admin_password='<SAME AS DC1>'
-
-# Platform Gateway (pointing to DC2 HAProxy)
-gateway_pg_host='10.2.1.20'  # HAProxy database router (routes to PostgreSQL VIP 10.2.2.100)
-gateway_pg_port='5432'
-gateway_pg_database='automationgateway'
-gateway_pg_username='aap'
-gateway_pg_password='<SAME AS DC1>'
-
-# Automation Controller
-controller_pg_host='10.2.1.20'  # HAProxy database router
-controller_pg_port='5432'
-controller_pg_database='awx'
-controller_pg_username='aap'
-controller_pg_password='<SAME AS DC1>'
-
-# Automation Hub
-hub_pg_host='10.2.1.20'  # HAProxy database router
-hub_pg_port='5432'
-hub_pg_database='automationhub'
-hub_pg_username='aap'
-hub_pg_password='<SAME AS DC1>'
-
-# Event-Driven Ansible
-eda_pg_host='10.2.1.20'  # HAProxy database router
-eda_pg_port='5432'
-eda_pg_database='automationedacontroller'
-eda_pg_username='aap'
-eda_pg_password='<SAME AS DC1>'
-```
-
-### 4.3 Installation Steps
+### 4.2 Installation Steps
 
 **DC1 Installation (Active)**
 
@@ -1385,7 +1342,7 @@ echo 'set server aap_backend/aap-node1 state ready' | socat stdio /var/lib/hapro
 
 ## Related Documentation
 
-- **[Architecture Validation Report](aap-architecture-validation-report.md)** ⭐ - Validation against Red Hat AAP 2.6 tested models
+- **[Architecture Validation Report](../reports/aap-architecture-validation-report.md)** ⭐ - Validation against Red Hat AAP 2.6 tested models
 - **[HAProxy vs pgBouncer Analysis](haproxy-pgbouncer-architectural-analysis.md)** ⭐ - Architecture Decision Record for HAProxy implementation
 - [Main Architecture](architecture.md) - Comprehensive architecture documentation
 - [RHEL AAP Architecture](rhel-aap-architecture.md) - Alternative RHEL deployment

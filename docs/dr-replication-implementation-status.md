@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-03-30
-**Baseline Report:** `docs/dr-replication-validation-report.md`
+**Baseline Report:** `/reports/dr-replication-validation-report.md`
 
 ---
 
@@ -39,11 +39,11 @@ Following the replication architecture validation (score: 7.1/10), this document
 ### Implementation
 
 **Files Modified:**
-- `scripts/scale-aap-up.sh` - Added database role validation
+- `/scripts/scale-aap-up.sh` - Added database role validation
 
 **Files Created:**
-- `scripts/test-split-brain-prevention.sh` - Automated test script
-- `docs/split-brain-prevention.md` - Comprehensive documentation
+- `/tests/scripts/test-split-brain-prevention.sh` - Automated test script
+- `/docs/split-brain-prevention.md` - Comprehensive documentation
 
 ### Changes Made
 
@@ -77,7 +77,7 @@ fi
 
 #### 2. Test Script
 
-Created `scripts/test-split-brain-prevention.sh` with 4 test cases:
+Created `/tests/scripts/test-split-brain-prevention.sh` with 4 test cases:
 1. Database role detection verification
 2. Safety code presence validation
 3. Replica scenario simulation (manual test)
@@ -85,12 +85,12 @@ Created `scripts/test-split-brain-prevention.sh` with 4 test cases:
 
 **Usage:**
 ```bash
-./scripts/test-split-brain-prevention.sh <cluster-context>
+./tests/scripts/test-split-brain-prevention.sh <cluster-context>
 ```
 
 #### 3. Documentation
 
-Created `docs/split-brain-prevention.md` covering:
+Created `/docs/split-brain-prevention.md` covering:
 - Split-brain scenario explanation
 - Prevention mechanism details
 - Testing procedures
@@ -171,8 +171,8 @@ The split-brain check is now active in:
 **Objective:** Execute comprehensive failover testing to validate documented RTO/RPO targets
 
 **Deliverables:**
-1. `scripts/dr-failover-test.sh` - Automated failover drill script
-2. `docs/failover-test-results.md` - Test report template
+1. `/tests/scripts/dr-failover-test.sh` - Automated failover drill script
+2. `/docs/failover-test-results.md` - Test report template
 3. Quarterly testing schedule
 4. Measured actual RTO/RPO values
 
@@ -199,9 +199,9 @@ The split-brain check is now active in:
    - Measure time to AAP availability
 
 3. **Validation:**
-   - Run `scripts/validate-aap-data.sh` (to be created)
+   - Run `/tests/scripts/validate-aap-data.sh` (to be created)
    - Verify no data loss
-   - Confirm Ansible Automation Platform (AAP) job execution
+   - Confirm AAP job execution
 
 4. **Document Results:**
    - Record actual RTO/RPO
@@ -229,11 +229,11 @@ The split-brain check is now active in:
 **Deliverables:**
 
 1. **Prometheus Monitoring:**
-   - `monitoring/prometheus/servicemonitor-postgresql.yaml`
-   - `monitoring/prometheus/alerts/replication-alerts.yaml`
+   - `/monitoring/prometheus/servicemonitor-postgresql.yaml`
+   - `/monitoring/prometheus/alerts/replication-alerts.yaml`
 
 2. **Grafana Dashboards:**
-   - `monitoring/grafana/dashboards/postgresql-replication.json`
+   - `/monitoring/grafana/dashboards/postgresql-replication.json`
 
 3. **Alert Integration:**
    - PagerDuty for critical alerts
@@ -380,12 +380,12 @@ spec:
    - Send notifications to relevant teams
 
 2. **Begin GAP-REP-002 Implementation:**
-   - Create `scripts/dr-failover-test.sh`
-   - Create `scripts/validate-aap-data.sh`
+   - Create `/tests/scripts/dr-failover-test.sh`
+   - Create `/tests/scripts/validate-aap-data.sh`
    - Document test procedures
 
 3. **Validate Split-Brain Prevention:**
-   - Execute `scripts/test-split-brain-prevention.sh`
+   - Execute `/tests/scripts/test-split-brain-prevention.sh`
    - Document results
    - Add to weekly health check
 
@@ -411,12 +411,12 @@ spec:
 
 ## References
 
-- **Baseline Validation:** [DR Replication Validation Report](dr-replication-validation-report.md)
-- **Split-Brain Documentation:** [Split-Brain Prevention](split-brain-prevention.md)
-- **Scale AAP Script:** [scale-aap-up.sh](../scripts/scale-aap-up.sh)
-- **Test Script:** [test-split-brain-prevention.sh](../scripts/test-split-brain-prevention.sh)
-- **DR Scenarios:** [DR Scenarios](dr-scenarios.md)
-- **EFM Integration:** [EnterpriseDB Failover Manager](enterprisefailovermanager.md)
+- **Baseline Validation:** `/reports/dr-replication-validation-report.md`
+- **Split-Brain Documentation:** `/docs/split-brain-prevention.md`
+- **Scale AAP Script:** `/scripts/scale-aap-up.sh`
+- **Test Script:** `/tests/scripts/test-split-brain-prevention.sh`
+- **DR Scenarios:** `/docs/dr-scenarios.md`
+- **EFM Integration:** `/docs/enterprisefailovermanager.md`
 
 ---
 

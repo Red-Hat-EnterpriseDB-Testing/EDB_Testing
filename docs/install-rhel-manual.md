@@ -6,7 +6,7 @@ This guide covers installing EDB PostgreSQL on RHEL manually (repository, packag
 
 ## Prerequisites
 
-- **RHEL 8 or 9** system with root or sudo access
+- **RHEL 9.4+** system with root or sudo access (required for AAP 2.6)
 - **EDB Repository Access**: Valid EDB subscription credentials
 - **Network Access**: Connection to EDB repositories
 - **Minimum Resources**:

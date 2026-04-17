@@ -55,7 +55,8 @@ Before contributing, ensure you have:
   - `/docs/` for general documentation
   - `/aap-deploy/` for AAP deployment docs
   - `/db-deploy/` for database deployment docs
-  - `/scripts/` for script documentation
+  - `/scripts/` for operational script documentation
+  - `/tests/` for testing and CI documentation
 
 ### Formatting
 
@@ -66,6 +67,7 @@ Before contributing, ensure you have:
 - Maximum depth: `####` (avoid deeper nesting)
 
 **Code Blocks:**
+
 ```markdown
 ```bash
 # Use language tags for syntax highlighting
@@ -183,6 +185,7 @@ main "$@"
 - Comments for non-obvious configuration
 
 **Example:**
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -233,11 +236,13 @@ pre-commit run --all-files
 **For new or modified scripts:**
 
 1. **Syntax validation:**
+
    ```bash
    bash -n scripts/your-script.sh
    ```
 
 2. **ShellCheck:**
+
    ```bash
    shellcheck scripts/your-script.sh
    ```
@@ -257,11 +262,13 @@ pre-commit run --all-files
 **For new or modified manifests:**
 
 1. **Schema validation:**
+
    ```bash
    kubeval --strict manifest.yaml
    ```
 
 2. **Kustomize build:**
+
    ```bash
    cd db-deploy/sample-cluster
    kustomize build base/
@@ -390,7 +397,8 @@ Relates to #456
 ### Examples
 
 **Simple commit:**
-```
+
+```text
 docs: Add security hardening guide
 
 Created comprehensive security documentation covering TLS, RBAC,
@@ -398,7 +406,8 @@ secrets management, and audit logging for production deployments.
 ```
 
 **Commit with scope:**
-```
+
+```text
 fix(scripts): Resolve macOS date compatibility in measure-rto-rpo.sh
 
 BSD date doesn't support %3N for milliseconds. Added Python fallback
@@ -408,7 +417,8 @@ Fixes #789
 ```
 
 **Breaking change:**
-```
+
+```text
 feat(db-deploy): Update PostgreSQL to version 17
 
 BREAKING CHANGE: PostgreSQL 17 requires manual upgrade from v16.
@@ -443,6 +453,7 @@ Closes #123
 ### Feature Development
 
 1. **Create feature branch:**
+
    ```bash
    git checkout -b feature/my-feature
    ```
@@ -453,11 +464,13 @@ Closes #123
    - Test as you go
 
 3. **Before pushing:**
+
    ```bash
    pre-commit run --all-files
    ```
 
 4. **Push and create PR:**
+
    ```bash
    git push origin feature/my-feature
    ```
@@ -475,6 +488,7 @@ Closes #123
 ### Bug Fixes
 
 1. **Create bug fix branch:**
+
    ```bash
    git checkout -b fix/bug-description
    ```
@@ -496,6 +510,7 @@ Closes #123
 ### Documentation Updates
 
 1. **Create docs branch:**
+
    ```bash
    git checkout -b docs/topic-name
    ```
@@ -515,36 +530,43 @@ Closes #123
 ## Quick Reference
 
 ### Pre-Commit Checks
+
 ```bash
 pre-commit run --all-files
 ```
 
 ### Run Specific Hook
+
 ```bash
 pre-commit run <hook-id> --all-files
 ```
 
 ### Validate YAML
+
 ```bash
 yamllint db-deploy/sample-cluster/base/cluster.yaml
 ```
 
 ### Validate Shell Script
+
 ```bash
 shellcheck scripts/my-script.sh
 ```
 
 ### Validate Kubernetes Manifest
+
 ```bash
 kubeval --strict manifest.yaml
 ```
 
 ### Build Kustomize
+
 ```bash
 kustomize build db-deploy/sample-cluster/base/
 ```
 
 ### Generate TOC (for Markdown)
+
 ```bash
 # Use VS Code extension: Markdown All in One
 # Or manually create based on headings
@@ -608,7 +630,8 @@ See [LICENSE](LICENSE) for details.
 Your contributions help improve this project for everyone. We appreciate your time and effort!
 
 **Additional Resources:**
-- [Documentation Audit Report](docs/documentation-audit-report.md) - Current documentation status
+
+- [Documentation Audit Report](reports/documentation-audit-report.md) - Current documentation status
 - [DR Testing Guide](docs/dr-testing-guide.md) - Comprehensive DR testing framework
 - [CI/CD Pipeline](docs/cicd-pipeline.md) - Automated workflows
 - [Architecture](README.md#architecture) - System design

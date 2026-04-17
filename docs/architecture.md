@@ -482,7 +482,7 @@ script.post.promotion=/usr/edb/efm-4.x/bin/efm-orchestrated-failover.sh %h %s %a
 - [`scale-aap-up.sh`](../scripts/scale-aap-up.sh) - Scale AAP to operational state in target datacenter
 - [`scale-aap-down.sh`](../scripts/scale-aap-down.sh) - Scale AAP to zero in inactive datacenter
 - [`efm-orchestrated-failover.sh`](../scripts/efm-orchestrated-failover.sh) - Full DR failover orchestration
-- [`validate-aap-data.sh`](../scripts/validate-aap-data.sh) - Post-failover data validation
+- [`validate-aap-data.sh`](../tests/scripts/validate-aap-data.sh) - Post-failover data validation
 - [`monitor-efm-scripts.sh`](../scripts/monitor-efm-scripts.sh) - EFM integration monitoring
 
 **Runbook:**

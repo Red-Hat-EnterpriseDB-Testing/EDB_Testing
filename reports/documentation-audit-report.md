@@ -62,7 +62,7 @@ The EDB_Testing repository contains **comprehensive and high-quality documentati
 - `dr-testing-implementation-summary.md` (Implementation details)
 - `component-testing-results.md` (Component test results)
 - `aap-deployment-validation-crc.md` (CRC validation report)
-- `dr-replication-validation-report.md` (Replication validation)
+- `reports/dr-replication-validation-report.md` (Replication validation)
 - `dr-replication-implementation-status.md` (Gap tracking)
 
 **Development (2 files):**

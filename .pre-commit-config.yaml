@@ -108,7 +108,7 @@ repos:
 
       - id: openshift-manifest-validate
         name: Validate OpenShift manifests
-        entry: scripts/hooks/validate-openshift-manifests.sh
+        entry: tests/hooks/validate-openshift-manifests.sh
         language: script
         files: \.(yaml|yml)$
         pass_filenames: true
@@ -116,7 +116,7 @@ repos:
 
       - id: script-executable
         name: Ensure scripts are executable
-        entry: scripts/hooks/check-script-permissions.sh
+        entry: tests/hooks/check-script-permissions.sh
         language: script
         files: ^scripts/.*\.sh$
         pass_filenames: true

@@ -118,7 +118,7 @@ Result: ✅ PASSED
 | **ServiceAccount** | RBAC permissions for test execution | - |
 | **PVC** | Persistent storage for test results | 5Gi storage |
 
-**Location:** `/openshift/dr-testing/`
+**Location:** `/tests/openshift/dr-testing/`
 
 ### 3. Test Phases
 
@@ -358,7 +358,7 @@ Recovery Point Objective (RPO):
 
 **1. Configure cluster contexts:**
 
-Edit `/openshift/dr-testing/kustomization.yaml`:
+Edit `/tests/openshift/dr-testing/kustomization.yaml`:
 
 ```yaml
 configMapGenerator:
@@ -379,7 +379,7 @@ oc create secret generic dr-test-kubeconfig \
 **3. Deploy CronJob:**
 
 ```bash
-cd openshift/dr-testing
+cd tests/openshift/dr-testing
 oc apply -k .
 ```
 
@@ -782,7 +782,7 @@ A: Yes - highly recommended to validate procedures before production testing.
 
 - **Split-Brain Prevention:** [/docs/split-brain-prevention.md](/docs/split-brain-prevention.md)
 - **DR Scenarios:** [/docs/dr-scenarios.md](/docs/dr-scenarios.md)
-- **Replication Validation:** [/docs/dr-replication-validation-report.md](/docs/dr-replication-validation-report.md)
+- **Replication Validation:** [/reports/dr-replication-validation-report.md](/reports/dr-replication-validation-report.md)
 - **EFM Integration:** [/docs/enterprisefailovermanager.md](/docs/enterprisefailovermanager.md)
 
 ---
