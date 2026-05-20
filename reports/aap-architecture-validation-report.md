@@ -63,8 +63,8 @@ This report validates the [AAP Containerized DR Architecture](aap-containerized-
 |------|---------|-------------|------------|--------|
 | **80/443** | HAProxy → Gateway | Required | Included | ✅ **CORRECT** |
 | **5432** | All components → Database | Required | Included (to EFM VIP) | ✅ **CORRECT** |
-| **6379** | Components → Redis | Required | Missing (Redis standalone) | ❌ **MISSING** |
-| **16379** | Redis → Redis cluster bus | Required (HA) | Not applicable | ⚠️ **N/A** |
+| **6379** | Components → Redis | Required | Documented (Redis cluster) | ✅ **CORRECT** |
+| **16379** | Redis → Redis cluster bus | Required (HA) | Documented (Redis cluster) | ✅ **CORRECT** |
 | **27199** | Receptor mesh | Required | Included | ✅ **CORRECT** |
 | **8080/8443** | Gateway → Controller | Required | Included | ✅ **CORRECT** |
 
@@ -95,7 +95,7 @@ aap-node2  # Colocated with hub
 aap-node3  # Colocated with EDA
 
 [all:vars]
-redis_mode='standalone'  # Each node runs own Redis instance
+redis_mode='cluster'  # Redis HA across colocated nodes
 ```
 
 **Impact:** Medium - Redis connectivity issues may occur if not colocated properly.
@@ -192,11 +192,11 @@ redis_mode='cluster'  # Enables Redis Sentinel for HA
 ```
 
 **Consideration:**
-- Standalone Redis is simpler and sufficient for most deployments
-- Cluster mode provides Redis HA but adds complexity
-- If database has HA (via EFM), standalone Redis may be acceptable
+- Cluster mode provides Redis HA across colocated nodes (Redis Sentinel)
+- Requires 6+ hosts in the `[redis]` group per datacenter for HA compatibility
+- Firewall must allow ports 6379 and 16379 between Redis nodes
 
-**Decision:** Keep `redis_mode='standalone'` unless Redis HA is explicitly required.
+**Decision:** Use `redis_mode='cluster'` for Redis HA across colocated nodes.
 
 ---
 
@@ -400,7 +400,7 @@ registry_username='<RHN username>'
 registry_password='<RHN password>'
 
 # Redis
-redis_mode='standalone'
+redis_mode='cluster'
 
 # Gateway
 gateway_admin_password='ChangeMeGW!'
@@ -445,10 +445,10 @@ eda_pg_password='ChangeMeDB!'
 
 2. **Add Redis configuration to inventory**
    - `[redis]` group with gateway, hub, and EDA nodes
-   - Keep `redis_mode='standalone'`
+   - Use `redis_mode='cluster'`
 
 3. **Add firewall rules for Redis**
-   - Port 6379 for Redis access
+   - Ports 6379 and 16379 for Redis cluster access
 
 4. **Update architecture diagram** to show 8 AAP VMs per DC (not 3)
 

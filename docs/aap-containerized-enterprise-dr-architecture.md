@@ -354,7 +354,7 @@ Protocol: TCP
 # AAP Components → Redis (colocated - localhost)
 # No firewall rule needed (localhost communication)
 
-# Redis Cluster Communication (if Redis HA enabled)
+# Redis cluster communication (cluster mode)
 Source: 10.1.1.11-12,15-18, 10.2.1.11-12,15-18
 Dest: 10.1.1.11-12,15-18, 10.2.1.11-12,15-18
 Port: 6379/tcp, 16379/tcp
@@ -567,7 +567,7 @@ registry_username='<your RHN username>'
 registry_password='<your RHN password>'
 
 # Redis Configuration
-redis_mode='standalone'  # Use 'cluster' for Redis HA (optional)
+redis_mode='cluster'  # Redis HA across colocated nodes (requires 6+ Redis hosts per DC)
 
 # Platform Gateway Configuration
 gateway_admin_password='<set your own>'
