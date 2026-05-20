@@ -288,8 +288,11 @@ Source: 10.1.1.0/24, 10.2.1.0/24
 Dest: 10.1.2.100, 10.2.2.100
 Port: 5432/tcp
 
-# Redis (colocated - localhost communication)
-# No external firewall rule needed
+# Redis cluster communication (between colocated Redis nodes)
+Source: 10.1.1.11-13, 10.2.1.11-13
+Dest: 10.1.1.11-13, 10.2.1.11-13
+Port: 6379/tcp, 16379/tcp
+Protocol: TCP
 
 # PostgreSQL Replication (DC1 → DC2)
 Source: 10.1.2.21-23
@@ -357,7 +360,7 @@ registry_username='<your RHN username>'
 registry_password='<your RHN password>'
 
 # Redis Configuration
-redis_mode='standalone'
+redis_mode='cluster'
 
 # Platform Gateway Configuration
 gateway_admin_password='<set your own>'
@@ -431,7 +434,7 @@ postgresql_admin_username=postgres
 postgresql_admin_password='<SAME AS DC1>'
 registry_username='<your RHN username>'
 registry_password='<your RHN password>'
-redis_mode='standalone'
+redis_mode='cluster'
 
 # Admin passwords MUST match DC1
 gateway_admin_password='<SAME AS DC1>'

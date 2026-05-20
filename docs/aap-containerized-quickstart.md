@@ -223,7 +223,7 @@ postgresql_admin_username=postgres
 postgresql_admin_password='YourSecurePassword'
 registry_username='your-rhn-username'
 registry_password='your-rhn-password'
-redis_mode='standalone'
+redis_mode='cluster'
 
 gateway_admin_password='AdminPassword123'
 gateway_pg_host='10.1.2.100'
